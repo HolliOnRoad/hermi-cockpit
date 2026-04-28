@@ -1,12 +1,14 @@
 :root {
   --bg-root: #020617;
-  --bg-app: #0f172a;
+  --bg-app: #0a0f1d;
   --bg-card: #0b1220;
   --bg-surface: #111827;
+  --bg-hover: #1a2332;
   --border: #1f2937;
+  --border-strong: #334155;
   --border-subtle: #1e293b;
   --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
+  --text-secondary: #9ca3af;
   --text-muted: #64748b;
 
   --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
@@ -37,7 +39,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--bg-app);
+  background: var(--bg-root);
 }
 
 /* ---- TopBar ---- */
@@ -45,34 +47,47 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 42px;
+  height: 48px;
   padding: 0 20px;
   background: var(--bg-card);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
   flex-shrink: 0;
-  gap: 24px;
+  gap: 32px;
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  min-width: 200px;
 }
 
 .topbar-brand {
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 15px;
   color: var(--text-primary);
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
 }
 
 .status-pill {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 10px;
   border-radius: 999px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-pill::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .status-connected {
@@ -93,47 +108,57 @@ body {
 .topbar-center {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
+  flex: 1;
+  justify-content: center;
 }
 
 .topbar-metric {
   display: flex;
-  gap: 5px;
-  align-items: center;
+  gap: 6px;
+  align-items: baseline;
+  padding: 4px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
 }
 
 .topbar-key {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
 }
 
 .topbar-value {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 12.5px;
   font-family: var(--mono);
+  font-weight: 600;
 }
 
 .topbar-right {
   display: flex;
   align-items: center;
+  min-width: 100px;
+  justify-content: flex-end;
 }
 
 .topbar-btn {
-  padding: 4px 14px;
+  padding: 5px 16px;
   background: var(--bg-surface);
   color: var(--text-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   font-size: 12px;
   font-family: var(--sans);
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.15s;
 }
 
 .topbar-btn:hover {
-  background: var(--border);
+  background: var(--border-strong);
   color: var(--text-primary);
 }
 
@@ -142,6 +167,7 @@ body {
   display: flex;
   flex: 1;
   overflow: hidden;
+  gap: 0;
 }
 
 .terminal-section {
@@ -150,6 +176,7 @@ body {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+  padding: 14px 0 14px 14px;
 }
 
 /* ---- Terminal ---- */
@@ -158,26 +185,36 @@ body {
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 10px;
 }
 
 .terminal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 20px;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 10px 18px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  border-radius: 8px 8px 0 0;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-muted);
   flex-shrink: 0;
+  font-weight: 600;
 }
 
 .terminal-event-count {
   color: var(--text-muted);
   font-family: var(--mono);
   font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-card);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
 }
 
 .terminal-body {
@@ -187,11 +224,10 @@ body {
   font-family: var(--mono);
   font-size: 12.5px;
   line-height: 1.85;
-  background: var(--bg-root);
 }
 
 .terminal-empty {
-  padding: 24px 20px;
+  padding: 32px 18px;
   color: var(--text-muted);
   font-style: italic;
 }
@@ -200,14 +236,14 @@ body {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 3px 20px;
+  padding: 3px 18px;
   white-space: pre-wrap;
   word-break: break-word;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .terminal-line:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-hover);
 }
 
 .terminal-ts {
@@ -220,7 +256,7 @@ body {
 
 .terminal-badge {
   flex-shrink: 0;
-  padding: 1px 6px;
+  padding: 1px 7px;
   border-radius: 3px;
   font-size: 9.5px;
   font-weight: 700;
@@ -248,21 +284,20 @@ body {
 
 /* ---- Sidebar ---- */
 .sidebar {
-  width: 320px;
+  width: 340px;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   flex-shrink: 0;
-  padding: 12px;
-  gap: 10px;
-  background: var(--bg-app);
-  border-left: 1px solid var(--border);
+  padding: 14px;
+  gap: 12px;
+  background: transparent;
 }
 
 /* ---- Panel ---- */
 .panel {
   background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -271,20 +306,21 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 11px 14px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
 }
 
 .panel-title {
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--text-muted);
+  letter-spacing: 0.6px;
+  color: var(--text-secondary);
 }
 
 .panel-body {
-  padding: 10px 14px;
+  padding: 12px 14px;
 }
 
 .panel-empty {
@@ -294,7 +330,9 @@ body {
 }
 
 .panel-note {
-  margin-top: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
   font-size: 10.5px;
   color: var(--text-muted);
   font-style: italic;
@@ -304,10 +342,22 @@ body {
 .pill {
   font-size: 9.5px;
   font-weight: 700;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pill::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .pill-idle {
@@ -337,21 +387,22 @@ body {
 
 /* ---- Task Panel ---- */
 .task-info {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .task-name {
   color: var(--text-primary);
-  font-size: 12.5px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.4;
   word-break: break-word;
 }
 
 .task-result {
-  margin-top: 4px;
+  margin-top: 6px;
   color: var(--text-secondary);
-  font-size: 11.5px;
+  font-size: 12px;
+  line-height: 1.4;
   word-break: break-word;
 }
 
@@ -361,9 +412,10 @@ body {
 }
 
 .task-error {
-  margin-top: 4px;
+  margin-top: 6px;
   color: #fca5a5;
-  font-size: 11.5px;
+  font-size: 12px;
+  line-height: 1.4;
   word-break: break-word;
 }
 
@@ -371,31 +423,33 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
+  padding: 6px 0;
   border-top: 1px solid var(--border-subtle);
 }
 
 .task-meta + .task-meta {
   border-top: none;
-  padding-top: 2px;
+  padding-top: 4px;
 }
 
 .meta-label {
   color: var(--text-muted);
   font-size: 11px;
+  font-weight: 500;
 }
 
 .meta-value {
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 11.5px;
   font-family: var(--mono);
+  font-weight: 600;
 }
 
 /* ---- Agent Panel ---- */
 .agent-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 
 .agent-row {
@@ -403,83 +457,94 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  padding: 5px 0;
 }
 
 .agent-name {
   color: var(--text-primary);
   font-size: 12.5px;
+  font-weight: 500;
 }
 
 /* ---- System Panel ---- */
 .system-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 
 .system-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 3px 0;
+  padding: 4px 0;
 }
 
 .system-key {
   color: var(--text-muted);
   font-size: 12.5px;
+  font-weight: 500;
 }
 
 .system-value {
   color: var(--text-muted);
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 /* ---- Tools Panel ---- */
 .tools-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 7px;
 }
 
 .tool-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: 7px;
+  padding: 9px 10px;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   cursor: default;
   position: relative;
+  transition: border-color 0.15s;
+}
+
+.tool-chip:not(.tool-disabled):hover {
+  border-color: var(--border-strong);
 }
 
 .tool-chip.tool-disabled {
-  opacity: 0.4;
+  opacity: 0.35;
 }
 
 .tool-icon {
   font-family: var(--mono);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text-secondary);
-  width: 20px;
+  width: 22px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .tool-label {
   font-size: 11px;
   color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .tool-tag {
   position: absolute;
-  top: 2px;
-  right: 4px;
+  top: 3px;
+  right: 5px;
   font-size: 8px;
   text-transform: uppercase;
   color: var(--text-muted);
   letter-spacing: 0.3px;
+  font-weight: 600;
 }
 
 /* ---- Debug Bar ---- */
@@ -487,10 +552,10 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 22px;
+  height: 24px;
   padding: 0 20px;
   background: var(--bg-card);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border);
   font-family: var(--mono);
   font-size: 10.5px;
   color: var(--text-muted);
@@ -498,7 +563,7 @@ body {
 }
 
 .debug-sep {
-  color: var(--border);
+  color: var(--border-strong);
 }
 
 /* ---- Scrollbar ---- */
@@ -511,6 +576,6 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--border-strong);
   border-radius: 3px;
 }
