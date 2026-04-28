@@ -9,20 +9,18 @@ function App() {
 
   return (
     <div className="app">
-      <TopBar status={status} />
+      <TopBar
+        status={status}
+        eventCount={logs.length}
+        onTestEvent={sendTestEvent}
+      />
 
       <main className="main">
         <section className="terminal-section">
           <Terminal logs={logs} />
         </section>
-        <Sidebar />
+        <Sidebar logs={logs} />
       </main>
-
-      <div className="test-bar">
-        <button className="test-btn" onClick={sendTestEvent}>
-          Test Event senden
-        </button>
-      </div>
 
       <DebugBar status={status} eventCount={logs.length} />
     </div>

@@ -2,6 +2,8 @@ import { type ConnectionStatus } from '../hooks/useWebSocket'
 
 type Props = {
   status: ConnectionStatus
+  eventCount: number
+  onTestEvent: () => void
 }
 
 const statusLabel: Record<ConnectionStatus, string> = {
@@ -10,24 +12,22 @@ const statusLabel: Record<ConnectionStatus, string> = {
   disconnected: 'offline',
 }
 
-const statusColor: Record<ConnectionStatus, string> = {
-  connecting: '#fbbf24',
-  connected: '#22c55e',
-  disconnected: '#ef4444',
-}
-
-export function TopBar({ status }: Props) {
+export function TopBar({ status, eventCount, onTestEvent }: Props) {
   return (
     <header className="topbar">
-      <div className="topbar-section">
-        <span className="status-dot" style={{ background: statusColor[status] }} />
-        <span className="status-label">Backend: {statusLabel[status]}</span>
+      <div className="topbar-left">
+        <span className="topbar-brand">Hermi Cockpit</span>
+        <span className="topbar-status">
+          <span className={`status-pill status-${status}`}>
+            {statusLabel[status]}
+          </span>
+        </span>
       </div>
 
-      <div className="topbar-section">
+      <div className="topbar-center">
         <span className="topbar-metric">
-          <span className="topbar-key">Task</span>
-          <span className="topbar-value">idle</span>
+          <span className="topbar-key">Events</span>
+          <span className="topbar-value">{eventCount}</span>
         </span>
         <span className="topbar-metric">
           <span className="topbar-key">Model</span>
@@ -37,6 +37,12 @@ export function TopBar({ status }: Props) {
           <span className="topbar-key">Cost</span>
           <span className="topbar-value">$0.00</span>
         </span>
+      </div>
+
+      <div className="topbar-right">
+        <button className="topbar-btn" onClick={onTestEvent}>
+          Test Event
+        </button>
       </div>
     </header>
   )
