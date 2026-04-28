@@ -1,6 +1,8 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
 import datetime
 
 app = FastAPI()
@@ -13,6 +15,37 @@ app.add_middleware(
 )
 
 connected_clients: set[WebSocket] = set()
+
+EventType = Literal["log", "tool", "agent", "system", "task", "done", "error"]
+EventLevel = Literal["info", "warning", "error", "success"]
+EventSource = Literal["hermi", "backend", "agent", "system"]
+
+
+class Event(BaseModel):
+    type: EventType = "log"
+    level: EventLevel = "info"
+    source: EventSource = "hermi"
+    message: str
+    timestamp: Optional[str] = None
+    meta: Optional[dict] = None
+
+
+def now_ts() -> str:
+    return datetime.datetime.now().strftime("%H:%M:%S")
+
+
+async def broadcast_event(event: dict) -> int:
+    disconnected: list[WebSocket] = []
+    count = 0
+    for ws in connected_clients:
+        try:
+            await ws.send_json(event)
+            count += 1
+        except Exception:
+            disconnected.append(ws)
+    for ws in disconnected:
+        connected_clients.discard(ws)
+    return count
 
 
 @app.get("/")
@@ -48,20 +81,32 @@ async def test_event():
     event = {
         "type": "test_event",
         "level": "info",
+        "source": "system",
         "message": f"Test-Event triggered at {datetime.datetime.now().isoformat()}",
-        "timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
+        "timestamp": now_ts(),
     }
-    disconnected: list[WebSocket] = []
-    for ws in connected_clients:
-        try:
-            await ws.send_json(event)
-        except Exception:
-            disconnected.append(ws)
-    for ws in disconnected:
-        connected_clients.discard(ws)
-
+    count = await broadcast_event(event)
     return JSONResponse({
         "status": "broadcast",
         "clients_count": len(connected_clients),
+        "broadcast_count": count,
         "event": event,
+    })
+
+
+@app.post("/events")
+async def ingest_event(event: Event):
+    payload = event.model_dump()
+    if not payload.get("timestamp"):
+        payload["timestamp"] = now_ts()
+
+    count = await broadcast_event(payload)
+    print(f"[Event] type={event.type} level={event.level} source={event.source} "
+          f"→ {count} clients")
+
+    return JSONResponse({
+        "status": "broadcast" if count > 0 else "stored",
+        "clients_count": len(connected_clients),
+        "broadcast_count": count,
+        "event": payload,
     })

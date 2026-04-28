@@ -157,9 +157,21 @@ body {
   white-space: nowrap;
 }
 
-.terminal-type {
+.terminal-type-badge {
   flex-shrink: 0;
-  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.terminal-source {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 .terminal-msg {

@@ -5,8 +5,10 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 export type Event = {
   type: string
   level?: string
+  source?: string
   message: string
   timestamp: string
+  meta?: Record<string, unknown>
 }
 
 const WS_URL = 'ws://127.0.0.1:8000/ws'

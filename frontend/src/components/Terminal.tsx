@@ -5,17 +5,28 @@ type Props = {
   logs: Event[]
 }
 
-function levelColor(level?: string): string {
-  switch (level) {
+function typeColor(type: string): string {
+  switch (type) {
     case 'error':
       return '#ef4444'
-    case 'warning':
-      return '#fbbf24'
-    case 'info':
-      return '#60a5fa'
-    default:
+    case 'done':
       return '#22c55e'
+    case 'agent':
+      return '#a78bfa'
+    case 'tool':
+      return '#f59e0b'
+    case 'task':
+      return '#3b82f6'
+    case 'system':
+      return '#64748b'
+    case 'log':
+    default:
+      return '#60a5fa'
   }
+}
+
+function typeLabel(type: string): string {
+  return type.toUpperCase()
 }
 
 export function Terminal({ logs }: Props) {
@@ -38,9 +49,15 @@ export function Terminal({ logs }: Props) {
         {logs.map((log, i) => (
           <div key={i} className="terminal-line">
             <span className="terminal-ts">{log.timestamp}</span>
-            <span className="terminal-type" style={{ color: levelColor(log.level) }}>
-              [{log.type}]
+            <span
+              className="terminal-type-badge"
+              style={{ background: typeColor(log.type) }}
+            >
+              {typeLabel(log.type)}
             </span>
+            {log.source && log.source !== 'system' && (
+              <span className="terminal-source">[{log.source}]</span>
+            )}
             <span className="terminal-msg">{log.message}</span>
           </div>
         ))}
