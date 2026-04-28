@@ -43,8 +43,8 @@ export function useWebSocket() {
       }
     }
 
-    ws.onerror = () => {
-      // onclose will fire after onerror
+    ws.onerror = (err) => {
+      console.warn('WebSocket error:', WS_URL, err)
     }
 
     ws.onclose = () => {
@@ -59,7 +59,13 @@ export function useWebSocket() {
   })
 
   const sendTestEvent = useCallback(async () => {
-    await fetch('http://127.0.0.1:8000/test-event', { method: 'POST' })
+    try {
+      const res = await fetch('http://127.0.0.1:8000/test-event')
+      const data = await res.json()
+      console.log('Test event response:', data)
+    } catch (err) {
+      console.warn('Test event failed:', err)
+    }
   }, [])
 
   useEffect(() => {

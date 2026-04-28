@@ -2,6 +2,7 @@ import { useWebSocket } from './hooks/useWebSocket'
 import { TopBar } from './components/TopBar'
 import { Terminal } from './components/Terminal'
 import { Sidebar } from './components/Sidebar'
+import { DebugBar } from './components/DebugBar'
 
 function App() {
   const { status, logs, sendTestEvent } = useWebSocket()
@@ -22,6 +23,8 @@ function App() {
           Test Event senden
         </button>
       </div>
+
+      <DebugBar status={status} eventCount={logs.length} />
     </div>
   )
 }
