@@ -52,19 +52,23 @@ export function Terminal({ logs, status }: Props) {
           <div className="terminal-empty">
             <span className="terminal-empty-icon">&gt;_</span>
             <span className="terminal-empty-text">
-              Waiting for events from Hermi
+              Hermi wartet auf Aufgaben
             </span>
             <span className="terminal-empty-sub">
               {status === 'connected'
-                ? 'Backend online — send a Test Event or start Hermi'
-                : 'Connecting to backend...'}
+                ? 'Backend online — sende ein Test-Event oder starte Hermi'
+                : 'Verbinde mit Backend...'}
             </span>
           </div>
         )}
         {logs.map((log, i) => {
           const b = badgeStyle(log.type)
+          const isNew = i < 3
           return (
-            <div key={i} className="terminal-line">
+            <div
+              key={i}
+              className={`terminal-line terminal-line--${log.type}${isNew ? ' terminal-line--new' : ''}`}
+            >
               <span className="terminal-ts">{log.timestamp}</span>
               <span
                 className="terminal-badge"

@@ -24,8 +24,8 @@ export function ToolsPanel() {
           {tools.map((t) => (
             <span
               key={t.label}
-              className={`tool-chip ${t.available ? '' : 'tool-disabled'}`}
-              title={t.available ? t.label : `${t.label} (later)`}
+              className={`tool-chip${t.available ? ' tool-active' : ' tool-disabled'}`}
+              title={t.available ? t.label : `${t.label} (spaeter)`}
             >
               <span className="tool-icon">{t.icon}</span>
               <span className="tool-label">{t.label}</span>

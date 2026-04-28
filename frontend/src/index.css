@@ -236,36 +236,36 @@ body {
   height: 100%;
   gap: 12px;
   color: var(--text-muted);
-  font-style: italic;
   user-select: none;
 }
 
 .terminal-empty-icon {
-  font-size: 32px;
-  opacity: 0.3;
-  font-style: normal;
+  font-size: 36px;
+  opacity: 0.25;
 }
 
 .terminal-empty-text {
-  font-size: 13px;
-  font-style: normal;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-muted);
 }
 
 .terminal-empty-sub {
-  font-size: 11px;
+  font-size: 12px;
   color: #4b5563;
-  font-style: normal;
 }
 
+/* ---- Terminal Lines — base ---- */
 .terminal-line {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 3px 20px;
+  padding: 4px 20px 4px 16px;
   white-space: pre-wrap;
   word-break: break-word;
   border-bottom: 1px solid var(--border-subtle);
+  border-left: 4px solid transparent;
+  transition: background 0.2s;
 }
 
 .terminal-line:hover {
@@ -306,6 +306,89 @@ body {
 
 .terminal-msg {
   color: var(--text-secondary);
+}
+
+/* ---- Terminal Lines — type weights ---- */
+
+/* task: bold, prominent, blue accent */
+.terminal-line--task {
+  padding-top: 9px;
+  padding-bottom: 9px;
+  border-left-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.terminal-line--task .terminal-msg {
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+/* done: positive, green accent */
+.terminal-line--done {
+  border-left-color: #22c55e;
+  background: rgba(34, 197, 94, 0.04);
+}
+
+.terminal-line--done .terminal-msg {
+  color: #bbf7d0;
+}
+
+/* error: clearly visible, red accent */
+.terminal-line--error {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  border-left-color: #ef4444;
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.terminal-line--error .terminal-msg {
+  color: #fca5a5;
+  font-weight: 500;
+}
+
+/* tool: indented, amber accent */
+.terminal-line--tool {
+  padding-left: 28px;
+  border-left-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.03);
+}
+
+.terminal-line--tool .terminal-badge::before {
+  content: '# ';
+}
+
+/* agent: purple accent */
+.terminal-line--agent {
+  border-left-color: #a855f7;
+  background: rgba(168, 85, 247, 0.04);
+}
+
+.terminal-line--agent .terminal-msg {
+  color: #d8b4fe;
+}
+
+/* system / log / test_event: subdued */
+.terminal-line--system,
+.terminal-line--log,
+.terminal-line--test_event {
+  opacity: 0.7;
+}
+
+.terminal-line--system .terminal-msg,
+.terminal-line--log .terminal-msg,
+.terminal-line--test_event .terminal-msg {
+  font-size: 11.5px;
+}
+
+/* new events (first few): subtle highlight fade */
+@keyframes event-pulse {
+  0%   { background: rgba(255, 255, 255, 0.06); }
+  100% { background: transparent; }
+}
+
+.terminal-line--new:not(.terminal-line--task):not(.terminal-line--error) {
+  animation: event-pulse 1.5s ease-out;
 }
 
 /* ---- Terminal Footer ---- */
@@ -408,6 +491,7 @@ body {
 .pill-idle {
   color: var(--text-muted);
   background: #1f2937;
+  opacity: 0.7;
 }
 
 .pill-running {
@@ -428,6 +512,16 @@ body {
 .pill-active {
   color: #86efac;
   background: #14532d;
+}
+
+@keyframes pill-breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.75; }
+}
+
+.pill-active::before,
+.pill-running::before {
+  animation: pill-breathe 2s ease-in-out infinite;
 }
 
 /* ---- Task Panel ---- */
@@ -490,6 +584,12 @@ body {
   font-weight: 600;
 }
 
+/* Task Panel focus styling for running state */
+.panel:has(.pill-running) {
+  border-color: #1e40af;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15);
+}
+
 /* ---- Agent Panel ---- */
 .agent-list {
   display: flex;
@@ -502,7 +602,18 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 0;
+  padding: 7px 0;
+  border-radius: 4px;
+}
+
+.agent-row:has(.pill-active) {
+  padding: 7px 8px;
+  margin: 0 -8px;
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.agent-row:has(.pill-idle) {
+  opacity: 0.55;
 }
 
 .agent-name {
@@ -554,15 +665,26 @@ body {
   border-radius: 6px;
   cursor: default;
   position: relative;
-  transition: border-color 0.15s;
+  transition: all 0.15s;
 }
 
-.tool-chip:not(.tool-disabled):hover {
-  border-color: var(--border-strong);
+.tool-chip.tool-active {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.tool-chip.tool-active .tool-icon,
+.tool-chip.tool-active .tool-label {
+  color: #86efac;
+}
+
+.tool-chip.tool-active:hover {
+  border-color: #4ade80;
 }
 
 .tool-chip.tool-disabled {
-  opacity: 0.35;
+  opacity: 0.3;
+  filter: grayscale(0.5);
 }
 
 .tool-icon {
