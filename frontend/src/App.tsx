@@ -8,7 +8,7 @@ function App() {
   const { status, logs, sendTestEvent } = useWebSocket()
 
   return (
-    <div className="app">
+    <div className="cockpit-container">
       <TopBar
         status={status}
         eventCount={logs.length}
@@ -17,7 +17,7 @@ function App() {
 
       <main className="main">
         <section className="terminal-section">
-          <Terminal logs={logs} />
+          <Terminal logs={logs} status={status} />
         </section>
         <Sidebar logs={logs} />
       </main>

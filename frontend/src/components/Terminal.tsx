@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { type Event } from '../hooks/useWebSocket'
+import { type Event, type ConnectionStatus } from '../hooks/useWebSocket'
 
 type Props = {
   logs: Event[]
+  status: ConnectionStatus
 }
 
 function badgeStyle(type: string): { bg: string; fg: string } {
@@ -27,7 +28,13 @@ function badgeStyle(type: string): { bg: string; fg: string } {
   }
 }
 
-export function Terminal({ logs }: Props) {
+const statusText: Record<ConnectionStatus, string> = {
+  connected: 'Connected',
+  connecting: 'Connecting',
+  disconnected: 'Disconnected',
+}
+
+export function Terminal({ logs, status }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -43,7 +50,15 @@ export function Terminal({ logs }: Props) {
       <div className="terminal-body">
         {logs.length === 0 && (
           <div className="terminal-empty">
-            Waiting for events from Hermi...
+            <span className="terminal-empty-icon">&gt;_</span>
+            <span className="terminal-empty-text">
+              Waiting for events from Hermi
+            </span>
+            <span className="terminal-empty-sub">
+              {status === 'connected'
+                ? 'Backend online — send a Test Event or start Hermi'
+                : 'Connecting to backend...'}
+            </span>
           </div>
         )}
         {logs.map((log, i) => {
@@ -65,6 +80,14 @@ export function Terminal({ logs }: Props) {
           )
         })}
         <div ref={bottomRef} />
+      </div>
+      <div className="terminal-footer">
+        <span className="terminal-footer-item">
+          <span>ws://127.0.0.1:8000/ws</span>
+        </span>
+        <span className="terminal-footer-item">
+          <span>{statusText[status]}</span>
+        </span>
       </div>
     </div>
   )
