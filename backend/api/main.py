@@ -1,7 +1,8 @@
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -49,8 +50,117 @@ class Event(BaseModel):
     meta: Optional[dict] = None
 
 
+_query_lock = asyncio.Lock()
+_query_running = False
+
+
+class QueryRequest(BaseModel):
+    text: str
+
+
+QUERY_TIMEOUT = 120
+
+
 def now_ts() -> str:
     return datetime.datetime.now().strftime("%H:%M:%S")
+
+
+async def _run_query(text: str):
+    global _query_running
+    start_ts = now_ts()
+
+    await broadcast_event({
+        "type": "query",
+        "level": "info",
+        "source": "system",
+        "message": f"Hermes Query gestartet: {text[:60]}",
+        "timestamp": start_ts,
+    })
+
+    try:
+        process = await asyncio.create_subprocess_exec(
+            "hermes", "-q", text,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        async def read_stream(stream, is_stderr: bool):
+            while True:
+                line = await stream.readline()
+                if not line:
+                    break
+                decoded = line.decode("utf-8", errors="replace").rstrip("\n")
+                if decoded:
+                    event = {
+                        "type": "error" if is_stderr else "log",
+                        "level": "error" if is_stderr else "info",
+                        "source": "hermes",
+                        "message": decoded,
+                        "timestamp": now_ts(),
+                    }
+                    await broadcast_event(event)
+
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(
+                    read_stream(process.stdout, False),
+                    read_stream(process.stderr, True),
+                    process.wait(),
+                ),
+                timeout=QUERY_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            try:
+                process.kill()
+                await process.wait()
+            except ProcessLookupError:
+                pass
+            await broadcast_event({
+                "type": "error",
+                "level": "error",
+                "source": "system",
+                "message": "Query fehlgeschlagen: Timeout",
+                "timestamp": now_ts(),
+                "meta": {"timeout": QUERY_TIMEOUT},
+            })
+            return
+
+        if process.returncode == 0:
+            await broadcast_event({
+                "type": "query",
+                "level": "success",
+                "source": "system",
+                "message": "Query abgeschlossen",
+                "timestamp": now_ts(),
+            })
+        else:
+            await broadcast_event({
+                "type": "error",
+                "level": "error",
+                "source": "system",
+                "message": f"Query fehlgeschlagen: {process.returncode}",
+                "timestamp": now_ts(),
+                "meta": {"returncode": process.returncode},
+            })
+
+    except FileNotFoundError:
+        await broadcast_event({
+            "type": "error",
+            "level": "error",
+            "source": "system",
+            "message": "hermes CLI nicht gefunden",
+            "timestamp": now_ts(),
+        })
+    except Exception as e:
+        await broadcast_event({
+            "type": "error",
+            "level": "error",
+            "source": "system",
+            "message": f"Query fehlgeschlagen: {str(e)}",
+            "timestamp": now_ts(),
+        })
+    finally:
+        _query_running = False
 
 
 async def broadcast_event(event: dict) -> int:
@@ -169,8 +279,8 @@ def gateway_status():
     try:
         data = json.loads(GATEWAY_STATE_PATH.read_text())
         return {
-            "gateway_state": data.get("state", "unknown"),
-            "active_agents": data.get("active_agents", []),
+            "gateway_state": data.get("gateway_state", "unknown"),
+            "active_agents_count": int(data.get("active_agents", 0)),
             "updated_at": data.get("updated_at", ""),
         }
     except (json.JSONDecodeError, OSError):
@@ -178,3 +288,19 @@ def gateway_status():
             {"error": "failed to read gateway_state.json"},
             status_code=500,
         )
+
+
+@app.post("/api/query")
+async def query_hermes(req: QueryRequest):
+    global _query_running
+
+    if not req.text or not req.text.strip():
+        raise HTTPException(status_code=422, detail="Leerer Query-Text")
+
+    if _query_running:
+        raise HTTPException(status_code=409, detail="Query läuft bereits")
+
+    _query_running = True
+    asyncio.create_task(_run_query(req.text.strip()))
+
+    return JSONResponse({"status": "accepted", "text": req.text[:60]})

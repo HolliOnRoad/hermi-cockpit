@@ -9,7 +9,7 @@ type Props = {
 
 type GatewayStatus = {
   gateway_state: string
-  active_agents: string[]
+  active_agents_count: number
   updated_at: string
 }
 
@@ -64,10 +64,10 @@ export function TopBar({ status, eventCount, onTestEvent }: Props) {
           <span className="topbar-key">Gateway</span>
           <span className="topbar-value">{gateway?.gateway_state ?? '--'}</span>
         </span>
-        {gateway && gateway.active_agents.length > 0 && (
+        {gateway && gateway.active_agents_count > 0 && (
           <span className="topbar-metric">
             <span className="topbar-key">Agents</span>
-            <span className="topbar-value">{gateway.active_agents.length}</span>
+            <span className="topbar-value">{gateway.active_agents_count}</span>
           </span>
         )}
       </div>

@@ -833,3 +833,70 @@ body {
   background: var(--border-strong);
   border-radius: 3px;
 }
+
+/* ---- Query Input ---- */
+.query-input-container {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 8px 8px;
+  flex-shrink: 0;
+}
+
+.query-input {
+  flex: 1;
+  resize: none;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 40px;
+  max-height: 120px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.query-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+}
+
+.query-input::placeholder {
+  color: var(--text-muted);
+}
+
+.query-input--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.query-send-btn {
+  flex-shrink: 0;
+  align-self: flex-end;
+  padding: 8px 20px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.query-send-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.query-send-btn:disabled {
+  background: #374151;
+  color: #6b7280;
+  cursor: not-allowed;
+}
