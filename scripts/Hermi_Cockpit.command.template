@@ -1,0 +1,185 @@
+#!/bin/bash
+
+# Hermi Cockpit — One-Click Starter
+# Beim Doppelklick: alte Instanzen sauber beenden, dann Backend + Frontend neu starten.
+
+set -u
+
+PROJECT_DIR="$HOME/Claude Projekt/hermi-cockpit"
+BACKEND_PORT=8000
+FRONTEND_PORT=5173
+START_SCRIPT="$PROJECT_DIR/scripts/start_hermi_cockpit.sh"
+
+# ---- Farben ----
+GREEN=$(printf '\033[32m')
+YELLOW=$(printf '\033[33m')
+RED=$(printf '\033[31m')
+BOLD=$(printf '\033[1m')
+NC=$(printf '\033[0m')
+
+green()  { printf "%s%s%s\n" "$GREEN" "$1" "$NC"; }
+yellow() { printf "%s%s%s\n" "$YELLOW" "$1" "$NC"; }
+red()    { printf "%s%s%s\n" "$RED" "$1" "$NC"; }
+bold()   { printf "%s%s%s\n" "$BOLD" "$1" "$NC"; }
+
+clear
+bold "=== Hermi Cockpit ==="
+echo ""
+
+# ── Phase 1: Shutdown ──────────────────────────────────────────────
+
+echo "[Shutdown] Beende alte Hermi Cockpit Prozesse..."
+
+is_hermi_process() {
+    local pid=$1
+    local cmdline
+    cmdline=$(ps -p "$pid" -o args= 2>/dev/null || echo "")
+    case "$cmdline" in
+        *hermi-cockpit*)  return 0 ;;
+        *hermi.cockpit*)  return 0 ;;
+        *uvicorn*)        return 0 ;;
+        *vite*)           return 0 ;;
+        *)                return 1 ;;
+    esac
+}
+
+kill_port() {
+    local port=$1
+    local label=$2
+    local pids
+    pids=$(lsof -ti :"$port" 2>/dev/null)
+
+    if [ -z "$pids" ]; then
+        echo "  Port $port ist frei"
+        return 0
+    fi
+
+    local killed=0
+    local skipped=0
+    for pid in $pids; do
+        if is_hermi_process "$pid"; then
+            local comm
+            comm=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
+            echo "  -> Beende $label (PID $pid, $comm)"
+            kill "$pid" 2>/dev/null || true
+            killed=1
+        else
+            local short
+            short=$(ps -p "$pid" -o args= 2>/dev/null | head -c 60)
+            yellow "  -> Ueberspringe PID $pid auf Port $port (kein Hermi Prozess: $short)"
+            skipped=1
+        fi
+    done
+
+    if [ "$killed" = "0" ] && [ "$skipped" = "1" ]; then
+        yellow "  Port $port wird von Fremdprozess genutzt – kein Kill"
+        return 0
+    fi
+
+    # Warte kurz, dann Force-Kill falls noch aktiv
+    sleep 1
+    local remaining
+    remaining=$(lsof -ti :"$port" 2>/dev/null)
+    for pid in $remaining; do
+        if is_hermi_process "$pid"; then
+            echo "  -> Force-kill PID $pid"
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+    done
+    sleep 0.5
+
+    if lsof -ti :"$port" &>/dev/null; then
+        yellow "  Port $port weiterhin belegt (Fremdprozess)"
+        return 0
+    else
+        green "  Port $port freigegeben"
+        return 0
+    fi
+}
+
+kill_port $BACKEND_PORT "Backend (Uvicorn)"
+kill_port $FRONTEND_PORT "Frontend (Vite)"
+
+# ── Phase 2: Start ─────────────────────────────────────────────────
+
+echo ""
+bold "=== Starte Hermi Cockpit ==="
+echo ""
+
+if [ ! -f "$START_SCRIPT" ]; then
+    red "[FEHLER] Start-Script nicht gefunden: $START_SCRIPT"
+    echo ""
+    echo "Druecke eine Taste zum Schliessen..."
+    read -r
+    exit 1
+fi
+
+# Verwende ein Subshell ohne set -e, um robust zu bleiben
+(
+    cd "$PROJECT_DIR" || exit 1
+    mkdir -p logs
+
+    # ── Backend ──
+    echo "[Backend]  Starte auf Port $BACKEND_PORT ..."
+    cd "$PROJECT_DIR/backend" || exit 1
+    source venv/bin/activate 2>/dev/null
+    nohup uvicorn api.main:app --reload --host 127.0.0.1 --port $BACKEND_PORT \
+        > "$PROJECT_DIR/logs/backend.log" 2>&1 &
+    echo $! > "$PROJECT_DIR/logs/backend.pid"
+    green "[Backend]  Gestartet (PID $(cat "$PROJECT_DIR/logs/backend.pid"))"
+
+    # ── Frontend ──
+    echo "[Frontend] Starte auf Port $FRONTEND_PORT ..."
+    cd "$PROJECT_DIR/frontend" || exit 1
+    nohup npm run dev \
+        > "$PROJECT_DIR/logs/frontend.log" 2>&1 &
+    echo $! > "$PROJECT_DIR/logs/frontend.pid"
+    green "[Frontend] Gestartet (PID $(cat "$PROJECT_DIR/logs/frontend.pid"))"
+
+    # ── Warten auf Bereitschaft ──
+    echo ""
+    echo "[Wait]     Warte auf Dienste..."
+
+    backend_ok=0
+    frontend_ok=0
+    for i in $(seq 1 30); do
+        curl -s "http://127.0.0.1:$BACKEND_PORT/health" &>/dev/null && backend_ok=1
+        curl -s "http://localhost:$FRONTEND_PORT" &>/dev/null && frontend_ok=1
+        [ "$backend_ok" = "1" ] && [ "$frontend_ok" = "1" ] && break
+        sleep 1
+    done
+
+    if [ "$backend_ok" = "1" ]; then
+        green "[Backend]  http://127.0.0.1:$BACKEND_PORT/health  -> OK"
+    else
+        red "[Backend]  http://127.0.0.1:$BACKEND_PORT/health  -> NICHT ERREICHBAR"
+    fi
+
+    if [ "$frontend_ok" = "1" ]; then
+        green "[Frontend] http://localhost:$FRONTEND_PORT       -> OK"
+    else
+        red "[Frontend] http://localhost:$FRONTEND_PORT       -> NICHT ERREICHBAR"
+    fi
+
+    # ── Browser ──
+    echo ""
+    echo "[Browser]  Oeffne http://localhost:$FRONTEND_PORT ..."
+    open "http://localhost:$FRONTEND_PORT"
+
+    echo ""
+    bold "=== Hermi Cockpit laeuft ==="
+    echo ""
+    echo "  Backend:  http://127.0.0.1:$BACKEND_PORT"
+    echo "  Frontend: http://localhost:$FRONTEND_PORT"
+    echo "  Logs:     $PROJECT_DIR/logs/"
+    echo ""
+    echo "Zum Beenden das Terminal schliessen oder nochmal dieses .command starten."
+)
+
+EXIT_CODE=$?
+
+echo ""
+echo "Druecke eine Taste zum Schliessen..."
+read -r
+
+exit $EXIT_CODE
