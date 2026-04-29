@@ -1,5 +1,7 @@
 import asyncio
+import sqlite3
 from contextlib import asynccontextmanager
+from datetime import datetime as dt, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
@@ -304,3 +306,87 @@ async def query_hermes(req: QueryRequest):
     asyncio.create_task(_run_query(req.text.strip()))
 
     return JSONResponse({"status": "accepted", "text": req.text[:60]})
+
+
+@app.get("/api/memory")
+def memory():
+    memory_path = Path.home() / ".hermes" / "learnings.md"
+    if not memory_path.exists():
+        return {"content": ""}
+    try:
+        return {"content": memory_path.read_text()}
+    except OSError:
+        return {"content": ""}
+
+
+@app.get("/api/sessions")
+def sessions():
+    db_path = Path.home() / ".hermes" / "state.db"
+    if not db_path.exists():
+        return {"sessions": []}
+
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT id, source, model, title, started_at, ended_at, "
+            "input_tokens, output_tokens, estimated_cost_usd "
+            "FROM sessions ORDER BY rowid DESC LIMIT 20"
+        ).fetchall()
+        conn.close()
+
+        result = []
+        for row in rows:
+            d = dict(row)
+            if d.get("started_at") is not None:
+                d["started_at"] = dt.fromtimestamp(d["started_at"]).strftime("%Y-%m-%d %H:%M")
+            if d.get("ended_at") is not None:
+                d["ended_at"] = dt.fromtimestamp(d["ended_at"]).strftime("%Y-%m-%d %H:%M")
+            result.append(d)
+
+        return {"sessions": result}
+    except Exception:
+        return {"sessions": []}
+
+
+@app.get("/api/agents")
+def agents():
+    skill_runs_path = Path.home() / ".hermes" / "skill-runs.json"
+    skills_dir = Path.home() / ".hermes" / "skills" / "holger"
+
+    agent_map: dict[str, dict] = {}
+
+    try:
+        if skill_runs_path.exists():
+            data = json.loads(skill_runs_path.read_text())
+            for name, info in data.get("skills", {}).items():
+                reifegrad = info.get("reifegrad", "")
+                runs = info.get("runs", 0)
+                if reifegrad != "test" or runs > 0:
+                    agent_map[name] = {
+                        "name": name,
+                        "runs": runs,
+                        "last_run": info.get("last_run"),
+                        "errors": info.get("errors", 0),
+                        "reifegrad": reifegrad,
+                    }
+    except (json.JSONDecodeError, OSError):
+        pass
+
+    try:
+        if skills_dir.is_dir():
+            for entry in sorted(os.listdir(skills_dir)):
+                dir_path = skills_dir / entry
+                if dir_path.is_dir() and entry not in agent_map:
+                    agent_map[entry] = {
+                        "name": entry,
+                        "runs": 0,
+                        "last_run": None,
+                        "errors": 0,
+                        "reifegrad": "local",
+                    }
+    except OSError:
+        pass
+
+    agent_list = sorted(agent_map.values(), key=lambda x: x["runs"], reverse=True)
+    return {"agents": agent_list}
