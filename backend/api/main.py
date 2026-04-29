@@ -12,8 +12,11 @@ from typing import Optional, Literal
 import datetime
 import json
 import os
+import urllib.request
+import urllib.error
 
 from services.hermes_log_stream import get_log_stream
+from services.hermes_api_bridge import run_query as hermes_run_query
 
 GATEWAY_STATE_PATH = Path.home() / ".hermes" / "gateway_state.json"
 
@@ -60,107 +63,22 @@ class QueryRequest(BaseModel):
     text: str
 
 
-QUERY_TIMEOUT = 120
-
-
 def now_ts() -> str:
     return datetime.datetime.now().strftime("%H:%M:%S")
 
 
 async def _run_query(text: str):
     global _query_running
-    start_ts = now_ts()
-
-    await broadcast_event({
-        "type": "query",
-        "level": "info",
-        "source": "system",
-        "message": f"Hermes Query gestartet: {text[:60]}",
-        "timestamp": start_ts,
-    })
-
+    _query_running = True
     try:
-        process = await asyncio.create_subprocess_exec(
-            "hermes", "-q", text,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        async def read_stream(stream, is_stderr: bool):
-            while True:
-                line = await stream.readline()
-                if not line:
-                    break
-                decoded = line.decode("utf-8", errors="replace").rstrip("\n")
-                if decoded:
-                    event = {
-                        "type": "error" if is_stderr else "log",
-                        "level": "error" if is_stderr else "info",
-                        "source": "hermes",
-                        "message": decoded,
-                        "timestamp": now_ts(),
-                    }
-                    await broadcast_event(event)
-
-        try:
-            await asyncio.wait_for(
-                asyncio.gather(
-                    read_stream(process.stdout, False),
-                    read_stream(process.stderr, True),
-                    process.wait(),
-                ),
-                timeout=QUERY_TIMEOUT,
-            )
-        except asyncio.TimeoutError:
-            try:
-                process.kill()
-                await process.wait()
-            except ProcessLookupError:
-                pass
-            await broadcast_event({
-                "type": "error",
-                "level": "error",
-                "source": "system",
-                "message": "Query fehlgeschlagen: Timeout",
-                "timestamp": now_ts(),
-                "meta": {"timeout": QUERY_TIMEOUT},
-            })
-            return
-
-        if process.returncode == 0:
-            await broadcast_event({
-                "type": "query",
-                "level": "success",
-                "source": "system",
-                "message": "Query abgeschlossen",
-                "timestamp": now_ts(),
-            })
-        else:
-            await broadcast_event({
-                "type": "error",
-                "level": "error",
-                "source": "system",
-                "message": f"Query fehlgeschlagen: {process.returncode}",
-                "timestamp": now_ts(),
-                "meta": {"returncode": process.returncode},
-            })
-
-    except FileNotFoundError:
         await broadcast_event({
-            "type": "error",
-            "level": "error",
+            "type": "query",
+            "level": "info",
             "source": "system",
-            "message": "hermes CLI nicht gefunden",
+            "message": f"Hermes Query gestartet: {text[:60]}",
             "timestamp": now_ts(),
         })
-    except Exception as e:
-        await broadcast_event({
-            "type": "error",
-            "level": "error",
-            "source": "system",
-            "message": f"Query fehlgeschlagen: {str(e)}",
-            "timestamp": now_ts(),
-        })
+        await hermes_run_query(text, broadcast_event)
     finally:
         _query_running = False
 
@@ -272,24 +190,32 @@ def system_metrics():
 
 @app.get("/api/status")
 def gateway_status():
+    result: dict = {"api_server": "offline"}
+
+    try:
+        req = urllib.request.Request("http://127.0.0.1:8642/health")
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            result["api_server"] = "online" if resp.status == 200 else "offline"
+    except Exception:
+        pass
+
     if not GATEWAY_STATE_PATH.exists():
-        return JSONResponse(
-            {"error": "gateway_state.json not found"},
-            status_code=404,
-        )
+        result["gateway_state"] = "unknown"
+        result["active_agents_count"] = 0
+        result["updated_at"] = ""
+        return result
 
     try:
         data = json.loads(GATEWAY_STATE_PATH.read_text())
-        return {
-            "gateway_state": data.get("gateway_state", "unknown"),
-            "active_agents_count": int(data.get("active_agents", 0)),
-            "updated_at": data.get("updated_at", ""),
-        }
+        result["gateway_state"] = data.get("gateway_state", "unknown")
+        result["active_agents_count"] = int(data.get("active_agents", 0))
+        result["updated_at"] = data.get("updated_at", "")
     except (json.JSONDecodeError, OSError):
-        return JSONResponse(
-            {"error": "failed to read gateway_state.json"},
-            status_code=500,
-        )
+        result["gateway_state"] = "unknown"
+        result["active_agents_count"] = 0
+        result["updated_at"] = ""
+
+    return result
 
 
 @app.post("/api/query")
