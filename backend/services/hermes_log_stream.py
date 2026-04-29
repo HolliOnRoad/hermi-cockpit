@@ -34,44 +34,36 @@ class HermesLogStream:
         self._task = asyncio.create_task(self._run())
 
     async def _run(self):
-        while self._running:
-            try:
-                self._process = await asyncio.create_subprocess_exec(
-                    "hermes",
-                    "logs",
-                    "-f",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                assert self._process.stdout is not None
+        try:
+            self._process = await asyncio.create_subprocess_exec(
+                "hermes",
+                "logs",
+                "-f",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            assert self._process.stdout is not None
 
-                async for line in self._process.stdout:
-                    if not self._running:
-                        break
-                    decoded = line.decode("utf-8", errors="replace").rstrip("\n")
-                    await self._handle_line(decoded)
+            async for line in self._process.stdout:
+                if not self._running:
+                    break
+                decoded = line.decode("utf-8", errors="replace").rstrip("\n")
+                await self._handle_line(decoded)
 
-                await self._process.wait()
-                self._process = None
+            await self._process.wait()
+            self._process = None
 
-                if self._running:
-                    await asyncio.sleep(3)
-
-            except FileNotFoundError:
-                await self._broadcast({
-                    "type": "error",
-                    "level": "error",
-                    "source": "system",
-                    "message": "Hermes CLI nicht verfügbar",
-                    "timestamp": _now(),
-                })
-                self._process = None
-                if self._running:
-                    await asyncio.sleep(30)
-            except Exception:
-                self._process = None
-                if self._running:
-                    await asyncio.sleep(5)
+        except FileNotFoundError:
+            await self._broadcast({
+                "type": "error",
+                "level": "error",
+                "source": "system",
+                "message": "Hermes CLI nicht verfügbar",
+                "timestamp": _now(),
+            })
+            self._process = None
+        except Exception:
+            self._process = None
 
     async def _handle_line(self, line: str):
         match = LOG_PATTERN.match(line)

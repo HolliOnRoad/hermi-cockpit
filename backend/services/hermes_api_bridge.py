@@ -24,7 +24,7 @@ async def run_query(text: str, broadcast_fn) -> None:
                 json={"input": text},
                 headers=HEADERS,
             )
-            if r.status_code != 200:
+            if not (200 <= r.status_code < 300):
                 await broadcast_fn({
                     "type": "error",
                     "level": "error",
@@ -51,7 +51,7 @@ async def run_query(text: str, broadcast_fn) -> None:
                 f"{HERMES_API_URL}/v1/runs/{run_id}/events",
                 headers=HEADERS,
             ) as response:
-                if response.status_code != 200:
+                if not (200 <= response.status_code < 300):
                     await broadcast_fn({
                         "type": "error",
                         "level": "error",
