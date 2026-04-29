@@ -9,6 +9,7 @@ import { NavSidebar } from './components/NavSidebar'
 import { MemoryView } from './components/MemoryView'
 import { SessionsView } from './components/SessionsView'
 import { AgentsView } from './components/AgentsView'
+import { OutcomeCard } from './components/OutcomeCard'
 
 function App() {
   const { status, logs, sendTestEvent } = useWebSocket()
@@ -29,6 +30,7 @@ function App() {
           {view === 'overview' && (
             <main className="main">
               <section className="terminal-section">
+                <OutcomeCard logs={logs} />
                 <Terminal logs={logs} status={status} />
                 <QueryInput logs={logs} />
               </section>

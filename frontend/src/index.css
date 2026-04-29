@@ -1202,3 +1202,119 @@ body {
   vertical-align: -2px;
   opacity: 0.6;
 }
+
+/* ---- Terminal Header Right (Toggle + Counter) ---- */
+.terminal-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.system-log-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  transition: color 0.15s, border-color 0.15s;
+}
+.system-log-toggle:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+.system-log-toggle input[type="checkbox"] {
+  display: none;
+}
+.system-log-toggle:has(input:checked) {
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+/* ---- Query Separator ---- */
+.query-separator {
+  margin: 8px 20px 4px;
+  padding: 3px 0;
+  border-top: 1px solid rgba(59, 130, 246, 0.18);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ---- Outcome Card (Hero) ---- */
+.outcome-card {
+  flex-shrink: 0;
+  margin-bottom: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(11, 18, 32, 0.95));
+  overflow: hidden;
+}
+.outcome-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(59, 130, 246, 0.06);
+}
+.outcome-card-icon {
+  color: #60a5fa;
+  flex-shrink: 0;
+}
+.outcome-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #bfdbfe;
+  letter-spacing: -0.3px;
+}
+.outcome-card-meta {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+}
+.outcome-card-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+.outcome-card-query {
+  padding: 6px 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.outcome-card-body {
+  padding: 10px 16px 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.outcome-card-line {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.55;
+  word-break: break-word;
+}
+.outcome-card-more {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
