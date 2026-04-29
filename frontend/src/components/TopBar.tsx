@@ -48,7 +48,7 @@ export function TopBar({ status, eventCount, onTestEvent }: Props) {
         </span>
         {gateway && (
           <span className="topbar-status">
-            <span className={`status-pill ${gateway.gateway_state === 'active' ? 'status-connected' : 'status-disconnected'}`}>
+            <span className={`status-pill ${gateway.gateway_state === 'running' ? 'status-connecting' : gateway.gateway_state === 'active' ? 'status-connected' : 'status-disconnected'}`}>
               {gateway.gateway_state}
             </span>
           </span>

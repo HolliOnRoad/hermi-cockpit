@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { Terminal as TerminalIcon, Wrench, CheckCircle, AlertTriangle, Bot } from 'lucide-react'
 import { type Event, type ConnectionStatus } from '../hooks/useWebSocket'
 
 type Props = {
@@ -9,22 +10,39 @@ type Props = {
 function badgeStyle(type: string): { bg: string; fg: string } {
   switch (type) {
     case 'error':
-      return { bg: '#7f1d1d', fg: '#fca5a5' }
+      return { bg: '#7c2d12', fg: '#f97316' }
     case 'done':
-      return { bg: '#14532d', fg: '#86efac' }
+      return { bg: '#1e3a5f', fg: '#93c5fd' }
     case 'agent':
-      return { bg: '#3b0764', fg: '#d8b4fe' }
+      return { bg: '#1e2a4a', fg: '#a5b4fc' }
     case 'tool':
-      return { bg: '#451a03', fg: '#fcd34d' }
+      return { bg: '#172554', fg: '#93c5fd' }
     case 'task':
       return { bg: '#172554', fg: '#93c5fd' }
     case 'system':
       return { bg: '#1f2937', fg: '#9ca3af' }
     case 'test_event':
       return { bg: '#1f2937', fg: '#9ca3af' }
+    case 'query':
+      return { bg: '#172554', fg: '#93c5fd' }
     case 'log':
     default:
       return { bg: '#1e293b', fg: '#94a3b8' }
+  }
+}
+
+function lineIcon(type: string): import('lucide-react').LucideIcon | null {
+  switch (type) {
+    case 'tool':
+      return Wrench
+    case 'done':
+      return CheckCircle
+    case 'error':
+      return AlertTriangle
+    case 'agent':
+      return Bot
+    default:
+      return null
   }
 }
 
@@ -44,7 +62,10 @@ export function Terminal({ logs, status }: Props) {
   return (
     <div className="terminal">
       <div className="terminal-header">
-        <span>Live Terminal</span>
+        <span className="terminal-header-title">
+          <TerminalIcon size={14} />
+          Live Terminal
+        </span>
         <span className="terminal-event-count">{logs.length} events</span>
       </div>
       <div className="terminal-body">
@@ -76,6 +97,7 @@ export function Terminal({ logs, status }: Props) {
         )}
         {logs.map((log, i) => {
           const b = badgeStyle(log.type)
+          const Icon = lineIcon(log.type)
           const isNew = i < 2
           return (
             <div
@@ -83,6 +105,9 @@ export function Terminal({ logs, status }: Props) {
               className={`terminal-line terminal-line--${log.type}${isNew ? ' terminal-line--new' : ''}`}
             >
               <span className="terminal-ts">{log.timestamp}</span>
+              {Icon && (
+                <Icon size={13} className="terminal-line-icon" />
+              )}
               <span
                 className="terminal-badge"
                 style={{ background: b.bg, color: b.fg }}

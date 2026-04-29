@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { Bot } from 'lucide-react'
 import type { Event } from '../hooks/useWebSocket'
 
 type Agent = {
@@ -60,7 +61,10 @@ export function AgentsView({ logs }: Props) {
     return (
       <div className="view-panel">
         <div className="view-panel-header">
-          <span className="view-panel-title">Agenten</span>
+          <span className="view-panel-title">
+            <Bot size={14} className="view-panel-icon" />
+            Agenten
+          </span>
         </div>
         <div className="view-panel-body">
           <div className="view-empty">Keine Agenten gefunden</div>
@@ -72,7 +76,10 @@ export function AgentsView({ logs }: Props) {
   return (
     <div className="view-panel">
       <div className="view-panel-header">
-        <span className="view-panel-title">Agenten</span>
+        <span className="view-panel-title">
+          <Bot size={14} className="view-panel-icon" />
+          Agenten
+        </span>
         <span className="view-panel-sub">
           {queryRunning ? 'Query laeuft...' : `${agents.length} Skills`}
         </span>

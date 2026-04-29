@@ -1,26 +1,28 @@
+import { LayoutDashboard, Bot, Brain, Clock } from 'lucide-react'
+
 type Props = {
   currentView: string
   onNavigate: (view: string) => void
 }
 
 const navItems = [
-  { id: 'overview', label: 'Uebersicht', icon: '\u25A3' },
-  { id: 'agents', label: 'Agenten', icon: '\u25C8' },
-  { id: 'memory', label: 'Memory', icon: '\u25A4' },
-  { id: 'sessions', label: 'Sessions', icon: '\u25A6' },
+  { id: 'overview', label: 'Uebersicht', Icon: LayoutDashboard },
+  { id: 'agents', label: 'Agenten', Icon: Bot },
+  { id: 'memory', label: 'Memory', Icon: Brain },
+  { id: 'sessions', label: 'Sessions', Icon: Clock },
 ]
 
 export function NavSidebar({ currentView, onNavigate }: Props) {
   return (
     <nav className="nav-sidebar">
-      {navItems.map((item) => (
+      {navItems.map(({ id, label, Icon }) => (
         <button
-          key={item.id}
-          className={`nav-item${currentView === item.id ? ' nav-item--active' : ''}`}
-          onClick={() => onNavigate(item.id)}
+          key={id}
+          className={`nav-item${currentView === id ? ' nav-item--active' : ''}`}
+          onClick={() => onNavigate(id)}
         >
-          <span className="nav-icon">{item.icon}</span>
-          <span className="nav-label">{item.label}</span>
+          <Icon className="nav-icon" size={16} />
+          <span className="nav-label">{label}</span>
         </button>
       ))}
     </nav>

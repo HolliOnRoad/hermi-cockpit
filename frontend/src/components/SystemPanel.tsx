@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Cpu, MemoryStick, HardDrive, Wifi } from 'lucide-react'
 
 type SystemMetrics = {
   cpu_percent: number
@@ -33,22 +34,26 @@ export function SystemPanel() {
     {
       label: 'CPU',
       value: metrics ? `${metrics.cpu_percent}%` : '--',
+      Icon: Cpu,
     },
     {
       label: 'RAM',
       value: metrics
         ? `${metrics.ram_percent}% (${metrics.ram_used_gb}/${metrics.ram_total_gb} GB)`
         : '--',
+      Icon: MemoryStick,
     },
     {
       label: 'Disk',
       value: metrics
         ? `${metrics.disk_percent}% (${metrics.disk_used_gb}/${metrics.disk_total_gb} GB)`
         : '--',
+      Icon: HardDrive,
     },
     {
       label: 'Network',
       value: metrics ? `${metrics.network_kb_s} KB/s` : '--',
+      Icon: Wifi,
     },
   ]
 
@@ -62,7 +67,10 @@ export function SystemPanel() {
         <div className="system-list">
           {items.map((m) => (
             <div key={m.label} className="system-row">
-              <span className="system-key">{m.label}</span>
+              <span className="system-key">
+                <m.Icon size={14} className="system-icon" />
+                {m.label}
+              </span>
               <span className="system-value">{m.value}</span>
             </div>
           ))}
