@@ -8,16 +8,12 @@ function deriveTaskState(logs: Event[]) {
   const lastTask = logs.find((e) => e.type === 'task')
   const lastDone = logs.find((e) => e.type === 'done')
   const lastError = logs.find((e) => e.type === 'error')
-  const lastTaskEvent = logs.find((e) => ['task', 'done', 'error', 'agent', 'tool'].includes(e.type))
 
   const taskName = lastTask?.message?.replace('Task gestartet: ', '') ?? null
   const doneResult = lastDone?.meta?.result as string | undefined
   const errorMsg = lastError?.message ?? null
 
   let status: 'idle' | 'running' | 'done' | 'error' = 'idle'
-  if (lastError && (!lastTask || logs.indexOf(lastError) < logs.indexOf(lastTask))) {
-    // Error came after task — but check that it's actually the most recent terminal event
-  }
   if (lastDone && lastTask && logs.indexOf(lastDone) < logs.indexOf(lastTask)) {
     status = 'done'
   } else if (lastError && lastTask && logs.indexOf(lastError) < logs.indexOf(lastTask)) {
@@ -28,11 +24,11 @@ function deriveTaskState(logs: Event[]) {
     status = 'done'
   }
 
-  return { taskName, doneResult, errorMsg, status, lastEvent: lastTaskEvent }
+  return { taskName, doneResult, errorMsg, status }
 }
 
 const statusLabel: Record<string, string> = {
-  idle: 'Idle',
+  idle: 'Bereit',
   running: 'Running',
   done: 'Completed',
   error: 'Error',
@@ -42,7 +38,7 @@ export function TaskPanel({ logs }: Props) {
   const { taskName, doneResult, errorMsg, status } = deriveTaskState(logs)
 
   return (
-    <div className="panel">
+    <div className="panel panel--task">
       <div className="panel-header">
         <span className="panel-title">Current Task</span>
         <span className={`pill pill-${status}`}>{statusLabel[status]}</span>
@@ -62,7 +58,9 @@ export function TaskPanel({ logs }: Props) {
             )}
           </div>
         ) : (
-          <div className="panel-empty">No active task</div>
+          <div className="panel-ready">
+            Bereit fuer neue Aufgaben
+          </div>
         )}
         <div className="task-meta">
           <span className="meta-label">Events</span>

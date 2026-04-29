@@ -228,31 +228,76 @@ body {
   line-height: 1.85;
 }
 
+/* ---- Terminal Empty State ---- */
 .terminal-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 12px;
+  gap: 10px;
   color: var(--text-muted);
   user-select: none;
 }
 
 .terminal-empty-icon {
-  font-size: 36px;
-  opacity: 0.25;
+  font-size: 40px;
+  opacity: 0.2;
 }
 
 .terminal-empty-text {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
 .terminal-empty-sub {
   font-size: 12px;
   color: #4b5563;
+  margin-bottom: 12px;
+}
+
+.terminal-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  opacity: 0.5;
+  margin-bottom: 16px;
+}
+
+.terminal-suggestion::before {
+  content: '  ';
+  color: var(--text-muted);
+}
+
+/* ---- Terminal Cursor (Listening...) ---- */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+.terminal-cursor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.terminal-cursor-label {
+  opacity: 0.6;
+}
+
+.terminal-cursor-blink {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background: var(--text-muted);
+  opacity: 0.6;
+  animation: cursor-blink 1s step-end infinite;
 }
 
 /* ---- Terminal Lines — base ---- */
@@ -309,8 +354,6 @@ body {
 }
 
 /* ---- Terminal Lines — type weights ---- */
-
-/* task: bold, prominent, blue accent */
 .terminal-line--task {
   padding-top: 9px;
   padding-bottom: 9px;
@@ -324,7 +367,6 @@ body {
   font-weight: 600;
 }
 
-/* done: positive, green accent */
 .terminal-line--done {
   border-left-color: #22c55e;
   background: rgba(34, 197, 94, 0.04);
@@ -334,7 +376,6 @@ body {
   color: #bbf7d0;
 }
 
-/* error: clearly visible, red accent */
 .terminal-line--error {
   padding-top: 6px;
   padding-bottom: 6px;
@@ -347,7 +388,6 @@ body {
   font-weight: 500;
 }
 
-/* tool: indented, amber accent */
 .terminal-line--tool {
   padding-left: 28px;
   border-left-color: #f59e0b;
@@ -358,7 +398,6 @@ body {
   content: '# ';
 }
 
-/* agent: purple accent */
 .terminal-line--agent {
   border-left-color: #a855f7;
   background: rgba(168, 85, 247, 0.04);
@@ -368,7 +407,6 @@ body {
   color: #d8b4fe;
 }
 
-/* system / log / test_event: subdued */
 .terminal-line--system,
 .terminal-line--log,
 .terminal-line--test_event {
@@ -381,14 +419,15 @@ body {
   font-size: 11.5px;
 }
 
-/* new events (first few): subtle highlight fade */
-@keyframes event-pulse {
-  0%   { background: rgba(255, 255, 255, 0.06); }
+/* ---- New event micro-feedback (400ms flash) ---- */
+@keyframes event-flash {
+  0%   { background: rgba(255, 255, 255, 0.08); }
+  70%  { background: rgba(255, 255, 255, 0.02); }
   100% { background: transparent; }
 }
 
-.terminal-line--new:not(.terminal-line--task):not(.terminal-line--error) {
-  animation: event-pulse 1.5s ease-out;
+.terminal-line--new {
+  animation: event-flash 400ms ease-out;
 }
 
 /* ---- Terminal Footer ---- */
@@ -412,6 +451,32 @@ body {
   gap: 6px;
 }
 
+.terminal-footer-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.terminal-footer-status::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.terminal-footer-status--connected::before {
+  background: #22c55e;
+}
+
+.terminal-footer-status--connecting::before {
+  background: #fbbf24;
+}
+
+.terminal-footer-status--disconnected::before {
+  background: #ef4444;
+}
+
 /* ---- Sidebar ---- */
 .sidebar {
   width: 380px;
@@ -428,6 +493,10 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
+}
+
+.panel--task {
+  border-color: var(--border-strong);
 }
 
 .panel-header {
@@ -449,6 +518,13 @@ body {
 
 .panel-body {
   padding: 14px 16px;
+}
+
+.panel-ready {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  font-style: italic;
 }
 
 .panel-empty {
@@ -524,6 +600,18 @@ body {
   animation: pill-breathe 2s ease-in-out infinite;
 }
 
+/* ---- Agent summary pill ---- */
+.agent-summary-pill {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  background: #1f2937;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
 /* ---- Task Panel ---- */
 .task-info {
   margin-bottom: 12px;
@@ -584,7 +672,6 @@ body {
   font-weight: 600;
 }
 
-/* Task Panel focus styling for running state */
 .panel:has(.pill-running) {
   border-color: #1e40af;
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15);

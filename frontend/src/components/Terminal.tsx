@@ -52,18 +52,31 @@ export function Terminal({ logs, status }: Props) {
           <div className="terminal-empty">
             <span className="terminal-empty-icon">&gt;_</span>
             <span className="terminal-empty-text">
-              Hermi wartet auf Aufgaben
+              Hermi ist bereit
             </span>
             <span className="terminal-empty-sub">
-              {status === 'connected'
-                ? 'Backend online — sende ein Test-Event oder starte Hermi'
-                : 'Verbinde mit Backend...'}
+              Warte auf Eingabe oder starte einen Task
             </span>
+            <div className="terminal-suggestions">
+              <span className="terminal-suggestion">
+                Tippe: recherchieren KI News
+              </span>
+              <span className="terminal-suggestion">
+                Tippe: analyse code
+              </span>
+              <span className="terminal-suggestion">
+                Tippe: plane Projekt
+              </span>
+            </div>
+            <div className="terminal-cursor">
+              <span className="terminal-cursor-label">Listening</span>
+              <span className="terminal-cursor-blink">_</span>
+            </div>
           </div>
         )}
         {logs.map((log, i) => {
           const b = badgeStyle(log.type)
-          const isNew = i < 3
+          const isNew = i < 2
           return (
             <div
               key={i}
@@ -90,7 +103,9 @@ export function Terminal({ logs, status }: Props) {
           <span>ws://127.0.0.1:8000/ws</span>
         </span>
         <span className="terminal-footer-item">
-          <span>{statusText[status]}</span>
+          <span className={`terminal-footer-status terminal-footer-status--${status}`}>
+            {statusText[status]}
+          </span>
         </span>
       </div>
     </div>

@@ -48,11 +48,13 @@ const statusPill: Record<string, { label: string; cls: string }> = {
 
 export function AgentPanel({ logs }: Props) {
   const agentStates = deriveAgentStates(logs)
+  const allIdle = Array.from(agentStates.values()).every((s) => s === 'idle')
 
   return (
     <div className="panel">
       <div className="panel-header">
         <span className="panel-title">Agents</span>
+        {allIdle && <span className="agent-summary-pill">Alle bereit</span>}
       </div>
       <div className="panel-body">
         <div className="agent-list">
