@@ -380,22 +380,46 @@ def cron_jobs():
             timeout=10,
         )
         if result.returncode != 0:
-            print(f"[Cron] hermes cronjob list fehlgeschlagen: {result.stderr.strip()}")
+            print(f"[Cron] hermes cron list fehlgeschlagen: {result.stderr.strip()}")
             return {"jobs": []}
 
         jobs: list[dict] = []
+        current: dict | None = None
+
         for line in result.stdout.strip().split("\n"):
-            line = line.strip()
-            if not line or line.startswith("---") or line.startswith("ID"):
+            stripped = line.strip()
+
+            # Skip box-drawing and header lines
+            if not stripped or stripped.startswith("\u250c") or stripped.startswith("\u2502") or stripped.startswith("\u2514"):
                 continue
-            parts = line.split()
-            if len(parts) >= 4:
-                jobs.append({
-                    "id": parts[0],
-                    "name": " ".join(parts[1:-2]),
-                    "schedule": parts[-2],
-                    "status": parts[-1],
-                })
+
+            # New job: line starts with a hex ID (no leading whitespace)
+            if not line.startswith(" ") and " " in stripped:
+                parts = stripped.rsplit(" ", 1)
+                job_id = parts[0]
+                status = parts[1].strip("[]") if len(parts) > 1 and parts[1].startswith("[") else "unknown"
+                current = {"id": job_id, "status": status}
+                jobs.append(current)
+                continue
+
+            # Property line: indented with key: value
+            if current is not None and ":" in stripped:
+                key, _, value = stripped.partition(":")
+                key = key.strip().lower().replace(" ", "_")
+                value = value.strip()
+                if key == "name":
+                    current["name"] = value
+                elif key == "schedule":
+                    current["schedule"] = value
+                elif key == "next_run":
+                    current["next_run"] = value
+                elif key == "last_run":
+                    current["last_run"] = value
+                elif key == "skills":
+                    current["skills"] = value
+                elif key == "deliver":
+                    current["deliver"] = value
+
         return {"jobs": jobs}
     except (FileNotFoundError, subprocess.TimeoutExpired):
         print("[Cron] hermes CLI nicht verfügbar oder Timeout")
