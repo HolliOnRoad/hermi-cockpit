@@ -26,7 +26,7 @@ GATEWAY_STATE_PATH = Path.home() / ".hermes" / "gateway_state.json"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     stream = get_log_stream()
-    stream.set_broadcast(broadcast_event)
+    stream.set_broadcast(broadcast_log)
     await stream.start()
     yield
     await stream.stop()
@@ -41,7 +41,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-connected_clients: set[WebSocket] = set()
+chat_clients: set[WebSocket] = set()
+log_clients: set[WebSocket] = set()
 
 EventType = Literal["log", "tool", "agent", "system", "task", "done", "error"]
 EventLevel = Literal["info", "warning", "error", "success"]
@@ -86,14 +87,14 @@ async def _run_query(text: str):
     global _query_running
     _query_running = True
     try:
-        await broadcast_event({
+        await broadcast_chat({
             "type": "query",
             "level": "info",
             "source": "system",
             "message": f"Hermes Query gestartet: {text[:60]}",
             "timestamp": now_ts(),
         })
-        await hermes_run_query(text, broadcast_event)
+        await hermes_run_query(text, broadcast_chat)
     finally:
         _query_running = False
 
@@ -102,30 +103,38 @@ async def _run_chat(text: str, session_id: str):
     global _chat_running
     _chat_running = True
     try:
-        await broadcast_event({
+        await broadcast_chat({
             "type": "query",
             "level": "info",
             "source": "system",
             "message": f"Hermes Chat: {text[:60]}",
             "timestamp": now_ts(),
         })
-        await hermes_run_query(text, broadcast_event, session_id)
+        await hermes_run_query(text, broadcast_chat, session_id)
     finally:
         _chat_running = False
 
 
-async def broadcast_event(event: dict) -> int:
+async def _broadcast_to_set(event: dict, clients: set[WebSocket]) -> int:
     disconnected: list[WebSocket] = []
     count = 0
-    for ws in connected_clients:
+    for ws in clients:
         try:
             await ws.send_json(event)
             count += 1
         except Exception:
             disconnected.append(ws)
     for ws in disconnected:
-        connected_clients.discard(ws)
+        clients.discard(ws)
     return count
+
+
+async def broadcast_chat(event: dict) -> int:
+    return await _broadcast_to_set(event, chat_clients)
+
+
+async def broadcast_log(event: dict) -> int:
+    return await _broadcast_to_set(event, log_clients)
 
 
 @app.get("/")
@@ -141,19 +150,34 @@ def health():
     }
 
 
-@app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
+@app.websocket("/ws/chat")
+async def websocket_chat(ws: WebSocket):
     await ws.accept()
-    connected_clients.add(ws)
-    print(f"Client connected ({len(connected_clients)} total)")
+    chat_clients.add(ws)
+    print(f"Chat client connected ({len(chat_clients)} total)")
     try:
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:
         pass
     finally:
-        connected_clients.discard(ws)
-        print(f"Client disconnected ({len(connected_clients)} total)")
+        chat_clients.discard(ws)
+        print(f"Chat client disconnected ({len(chat_clients)} total)")
+
+
+@app.websocket("/ws/logs")
+async def websocket_logs(ws: WebSocket):
+    await ws.accept()
+    log_clients.add(ws)
+    print(f"Log client connected ({len(log_clients)} total)")
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        log_clients.discard(ws)
+        print(f"Log client disconnected ({len(log_clients)} total)")
 
 
 @app.get("/test-event")
@@ -165,10 +189,10 @@ async def test_event():
         "message": f"Test-Event triggered at {datetime.datetime.now().isoformat()}",
         "timestamp": now_ts(),
     }
-    count = await broadcast_event(event)
+    count = await broadcast_chat(event)
     return JSONResponse({
         "status": "broadcast",
-        "clients_count": len(connected_clients),
+        "clients_count": len(chat_clients),
         "broadcast_count": count,
         "event": event,
     })
@@ -180,13 +204,13 @@ async def ingest_event(event: Event):
     if not payload.get("timestamp"):
         payload["timestamp"] = now_ts()
 
-    count = await broadcast_event(payload)
+    count = await broadcast_chat(payload)
     print(f"[Event] type={event.type} level={event.level} source={event.source} "
           f"→ {count} clients")
 
     return JSONResponse({
         "status": "broadcast" if count > 0 else "stored",
-        "clients_count": len(connected_clients),
+        "clients_count": len(chat_clients),
         "broadcast_count": count,
         "event": payload,
     })
