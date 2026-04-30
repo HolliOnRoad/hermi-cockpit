@@ -374,7 +374,7 @@ def agents():
 def cron_jobs():
     try:
         result = subprocess.run(
-            ["hermes", "cron", "list"],
+            [os.path.expanduser("~/.local/bin/hermes"), "cron", "list"],
             capture_output=True,
             text=True,
             timeout=10,
