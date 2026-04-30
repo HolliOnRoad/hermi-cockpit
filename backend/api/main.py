@@ -69,6 +69,15 @@ class QueryRequest(BaseModel):
     text: str
 
 
+class ChatRequest(BaseModel):
+    text: str
+    session_id: str
+
+
+_chat_lock = asyncio.Lock()
+_chat_running = False
+
+
 def now_ts() -> str:
     return datetime.datetime.now().strftime("%H:%M:%S")
 
@@ -87,6 +96,22 @@ async def _run_query(text: str):
         await hermes_run_query(text, broadcast_event)
     finally:
         _query_running = False
+
+
+async def _run_chat(text: str, session_id: str):
+    global _chat_running
+    _chat_running = True
+    try:
+        await broadcast_event({
+            "type": "query",
+            "level": "info",
+            "source": "system",
+            "message": f"Hermes Chat: {text[:60]}",
+            "timestamp": now_ts(),
+        })
+        await hermes_run_query(text, broadcast_event, session_id)
+    finally:
+        _chat_running = False
 
 
 async def broadcast_event(event: dict) -> int:
@@ -238,6 +263,22 @@ async def query_hermes(req: QueryRequest):
     asyncio.create_task(_run_query(req.text.strip()))
 
     return JSONResponse({"status": "accepted", "text": req.text[:60]})
+
+
+@app.post("/api/chat")
+async def chat_hermes(req: ChatRequest):
+    global _chat_running
+
+    if not req.text or not req.text.strip():
+        raise HTTPException(status_code=422, detail="Leerer Chat-Text")
+
+    if _chat_running:
+        raise HTTPException(status_code=409, detail="Chat läuft bereits")
+
+    _chat_running = True
+    asyncio.create_task(_run_chat(req.text.strip(), req.session_id))
+
+    return JSONResponse({"status": "accepted", "text": req.text[:60], "session_id": req.session_id})
 
 
 @app.get("/api/memory")

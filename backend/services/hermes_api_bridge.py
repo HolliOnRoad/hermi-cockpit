@@ -14,14 +14,17 @@ def _ts() -> str:
     return datetime.datetime.now().strftime("%H:%M:%S")
 
 
-async def run_query(text: str, broadcast_fn) -> None:
+async def run_query(text: str, broadcast_fn, session_id: str | None = None) -> None:
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(connect=5, read=QUERY_TIMEOUT, write=10, pool=5)
         ) as client:
+            body: dict = {"input": text}
+            if session_id:
+                body["session_id"] = session_id
             r = await client.post(
                 f"{HERMES_API_URL}/v1/runs",
-                json={"input": text},
+                json=body,
                 headers=HEADERS,
             )
             if not (200 <= r.status_code < 300):
