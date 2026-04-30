@@ -242,13 +242,56 @@ async def query_hermes(req: QueryRequest):
 
 @app.get("/api/memory")
 def memory():
-    memory_path = Path.home() / ".hermes" / "learnings.md"
+    memory_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
     if not memory_path.exists():
-        return {"content": ""}
+        return {"content": "", "memory_chars": 0, "user_chars": 0,
+                "total_chars": 0, "memory_pct": 0, "user_pct": 0, "entries": 0}
     try:
-        return {"content": memory_path.read_text()}
+        text = memory_path.read_text()
     except OSError:
-        return {"content": ""}
+        return {"content": "", "memory_chars": 0, "user_chars": 0,
+                "total_chars": 0, "memory_pct": 0, "user_pct": 0, "entries": 0}
+
+    total_chars = len(text)
+    entries = text.count("\n\u00a7\n") + (1 if text.startswith("\u00a7\n") else 0)
+
+    memory_section = text
+    user_section = ""
+
+    memory_marker = "## MEMORY"
+    user_marker = "## USER PROFILE"
+
+    mem_idx = text.find(memory_marker)
+    user_idx = text.find(user_marker)
+
+    if mem_idx >= 0 and user_idx >= 0:
+        if mem_idx < user_idx:
+            memory_section = text[mem_idx + len(memory_marker):user_idx].strip()
+            user_section = text[user_idx + len(user_marker):].strip()
+        else:
+            user_section = text[user_idx + len(user_marker):mem_idx].strip()
+            memory_section = text[mem_idx + len(memory_marker):].strip()
+    elif mem_idx >= 0:
+        memory_section = text[mem_idx + len(memory_marker):].strip()
+        user_section = ""
+    elif user_idx >= 0:
+        memory_section = ""
+        user_section = text[user_idx + len(user_marker):].strip()
+
+    memory_chars = len(memory_section)
+    user_chars = len(user_section)
+    memory_pct = round(memory_chars / total_chars * 100) if total_chars > 0 else 0
+    user_pct = round(user_chars / total_chars * 100) if total_chars > 0 else 0
+
+    return {
+        "content": text,
+        "memory_chars": memory_chars,
+        "user_chars": user_chars,
+        "total_chars": total_chars,
+        "memory_pct": memory_pct,
+        "user_pct": user_pct,
+        "entries": entries,
+    }
 
 
 @app.get("/api/sessions")
@@ -331,7 +374,7 @@ def agents():
 def cron_jobs():
     try:
         result = subprocess.run(
-            ["hermes", "cronjob", "list"],
+            ["hermes", "cron", "list"],
             capture_output=True,
             text=True,
             timeout=10,

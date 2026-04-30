@@ -165,6 +165,8 @@ fi
     echo ""
     echo "[Browser]  Oeffne http://localhost:$FRONTEND_PORT ..."
     open "http://localhost:$FRONTEND_PORT"
+    echo "[Dashboard] Oeffne v8 Dashboard ..."
+    open "$PROJECT_DIR/hermes-cockpit-dashboard-v8.html"
 
     echo ""
     bold "=== Hermi Cockpit laeuft ==="
