@@ -127,3 +127,64 @@ async def test_chat_log_channel_separation():
     finally:
         api.main.chat_clients.discard(chat_mock)
         api.main.log_clients.discard(log_mock)
+
+
+async def test_pty_echo_output():
+    from services.hermes_pty import PtyBridge
+    bridge = PtyBridge(cmd=["echo", "hello"])
+
+    chunks = []
+    async def collect(data: bytes):
+        if data:
+            chunks.append(data)
+
+    await bridge.start(collect)
+    await asyncio.sleep(0.3)
+
+    output = b"".join(chunks)
+    assert b"hello" in output
+    assert bridge.exit_code == 0
+
+
+async def test_pty_write_read():
+    from services.hermes_pty import PtyBridge
+    bridge = PtyBridge(cmd=["python3", "-c",
+        "import sys; sys.stdout.write('READY\\n'); sys.stdout.flush(); "
+        "line = sys.stdin.readline(); sys.stdout.write('GOT:' + line); sys.stdout.flush()"])
+
+    chunks = []
+    async def collect(data: bytes):
+        if data:
+            chunks.append(data)
+
+    await bridge.start(collect)
+    await asyncio.sleep(0.3)
+
+    bridge.write(b"HELLO\n")
+    await asyncio.sleep(0.3)
+
+    output = b"".join(chunks)
+    assert b"READY" in output
+    assert b"GOT:HELLO" in output
+    assert bridge.exit_code == 0
+
+
+async def test_pty_cleanup():
+    from services.hermes_pty import PtyBridge
+    bridge = PtyBridge(cmd=["sleep", "30"])
+
+    chunks = []
+    async def collect(data: bytes):
+        if data:
+            chunks.append(data)
+
+    await bridge.start(collect)
+    await asyncio.sleep(0.2)
+
+    assert bridge._process is not None
+    assert bridge._process.isalive()
+
+    await bridge.stop()
+    await asyncio.sleep(0.2)
+
+    assert bridge.exit_code is not None
