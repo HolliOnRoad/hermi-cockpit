@@ -1358,7 +1358,12 @@
 
     ptyTerm.onData(function(data) {
       if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
-        ptyWs.send(JSON.stringify({ type: 'input', data: btoa(data) }));
+        var bytes = new TextEncoder().encode(data);
+        var binary = '';
+        for (var i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        ptyWs.send(JSON.stringify({ type: 'input', data: btoa(binary) }));
       }
     });
 
@@ -1409,7 +1414,12 @@
       try {
         var msg = JSON.parse(raw.data);
         if (msg.type === 'output' && ptyTerm) {
-          ptyTerm.write(atob(msg.data));
+          var binary = atob(msg.data);
+          var out = new Uint8Array(binary.length);
+          for (var i = 0; i < binary.length; i++) {
+            out[i] = binary.charCodeAt(i);
+          }
+          ptyTerm.write(out);
         } else if (msg.type === 'exit') {
           if (ptyTerm) ptyTerm.writeln('\r\n\x1b[33m[Prozess beendet, Code: ' + msg.code + ']\x1b[0m');
         }
