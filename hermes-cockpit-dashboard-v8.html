@@ -532,19 +532,15 @@
   .job-stat.ok { color: var(--success); }
   .job-stat.err { color: var(--danger); }
 
-  .term-body { font-family: var(--font-mono); font-size: 1em; line-height: 1.7; color: #b0b8cc; padding: 4px 0; }
-  .term-p { color: var(--accent-blue); }
+  .pty-container { flex: 1; overflow: hidden; }
+  .pty-container .xterm { height: 100%; padding: 4px; }
+  .pty-container .xterm-viewport { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
+
   .term-success { color: var(--success); }
   .term-warn { color: var(--warning); }
   .term-err { color: var(--danger); }
   .term-dim { color: #6a7080; }
   .term-live { color: var(--accent-yellow); }
-
-  .term-line { font-size: 1em; line-height: 1.7; }
-  .term-line.term-user { color: #e1e5f2; font-weight: 500; }
-  .term-ts { color: var(--text-dim); font-size: 0.85em; margin-right: 4px; }
-  .term-badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 0.75em; font-weight: 600; text-transform: uppercase; margin-right: 2px; }
-  .term-src { color: var(--text-dim); font-size: 0.85em; }
 
   .term-footer {
     display: flex; align-items: center; gap: 5px;
@@ -560,20 +556,6 @@
   .term-status-dot--connecting { background: var(--warning); animation: blink 1s infinite; }
   .term-status-dot--disconnected { background: var(--danger); }
   @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-
-  .term-input-row {
-    display: flex; align-items: center; gap: 6px;
-    padding-top: 6px; margin-top: 6px;
-    border-top: 1px solid rgba(255,255,255,0.05);
-    flex-shrink: 0;
-  }
-
-  .term-input {
-    flex: 1; background: transparent; border: none; outline: none;
-    color: var(--text-primary); font-family: var(--font-mono); font-size: 1em;
-    caret-color: var(--accent-blue);
-  }
-  .term-input::placeholder { color: var(--text-dim); font-style: italic; }
 
   .news-item, .weather-stat { font-size: 1em; color: var(--text-secondary); padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.02); }
   .news-item:last-child { border-bottom: none; }
@@ -619,6 +601,10 @@
 
   .widget { animation: fadeSlideUp 0.3s ease-out backwards; }
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
 </head>
 <body>
 <div class="app-shell" id="appShell">
@@ -774,12 +760,15 @@
       name: 'Terminal', icon: '\u27e9_',
       render(body, fs) {
         body.style.fontSize = fs + 'px';
+        if (body.querySelector('#ptyContainer')) {
+          if (ptyTerm) {
+            ptyTerm.options.fontSize = fs;
+            if (ptyFitAddon) ptyFitAddon.fit();
+          }
+          return;
+        }
         body.innerHTML = `
-          <div class="term-body" id="termBody"></div>
-          <div class="term-input-row">
-            <span class="term-p">\u276f</span>
-            <input class="term-input" placeholder="Kommando..." onkeydown="handleTerminal(event, this)">
-          </div>
+          <div class="pty-container" id="ptyContainer"></div>
           <div class="term-footer" id="termStatusFooter">
             <span class="term-status-dot term-status-dot--connecting"></span><span>verbinde...</span>
           </div>
@@ -834,12 +823,11 @@
 
   // ========== TERM LOG ==========
   function termLog(msg) {
-    const tb = document.getElementById('termBody');
-    if (!tb) return;
-    const l = document.createElement('div');
-    l.innerHTML = '<span class="term-success">✓</span> <span class="term-dim">' + esc(msg) + '</span>';
-    tb.appendChild(l);
-    tb.scrollTop = tb.scrollHeight;
+    if (window._ptyTerm) {
+      window._ptyTerm.writeln('\x1b[32m\u2713\x1b[0m \x1b[2m' + msg + '\x1b[0m');
+    } else {
+      console.log('[Cockpit]', msg);
+    }
   }
 
   // ========== FONT SIZE ==========
@@ -1147,6 +1135,8 @@
     const body = widget.querySelector('.widget-body');
     def.render(body, cfg.fs);
 
+    if (widgetId === 'terminal') ptyInit();
+
     appState.order = getActiveWidgets();
     saveState();
     updateSidebar();
@@ -1161,6 +1151,7 @@
   function removeWidget(event, widgetId) {
     if (appState.locked) return;
     event.stopPropagation();
+    if (widgetId === 'terminal') ptyDispose();
     const widget = document.querySelector(`#dashboard .widget[data-widget="${widgetId}"]`);
     if (widget) {
       const name = WIDGET_DEFS[widgetId]?.name || widgetId;
@@ -1329,118 +1320,110 @@
     dragSourceElement = null;
   });
 
-  // ========== TERMINAL WEBSOCKET ==========
-  const MAX_TERM_LINES = 300;
-  const WS_URL = 'ws://127.0.0.1:8000/ws/chat';
-  const WS_RECONNECT_MS = 3000;
-  let termWs = null;
-  let termReconnectTimer = null;
-  let termConnected = false;
+  // ========== PTY TERMINAL ==========
+  const PTY_WS_URL = 'ws://127.0.0.1:8000/ws/pty';
+  const PTY_RECONNECT_MS = 3000;
+  let ptyWs = null;
+  let ptyReconnectTimer = null;
+  let ptyTerm = null;
+  let ptyFitAddon = null;
+  let ptyResizeObserver = null;
 
-  const BADGE_COLORS = {
-    tool:   { bg: '#172554', fg: '#f0a050' },
-    done:   { bg: '#1e3a5f', fg: '#93c5fd' },
-    error:  { bg: '#7c2d12', fg: '#f97316' },
-    agent:  { bg: '#1e2a4a', fg: '#a5b4fc' },
-    system: { bg: '#1f2937', fg: '#9ca3af' },
-    log:    { bg: '#1e293b', fg: '#94a3b8' },
-    task:   { bg: '#172554', fg: '#93c5fd' },
-    query:  { bg: '#172554', fg: '#93c5fd' },
-  };
+  function ptyInit() {
+    const container = document.getElementById('ptyContainer');
+    if (!container || ptyTerm) return;
 
-  function termWsConnect() {
-    if (termWs && (termWs.readyState === WebSocket.OPEN || termWs.readyState === WebSocket.CONNECTING)) return;
+    ptyTerm = new Terminal({
+      cursorBlink: true,
+      cursorStyle: 'bar',
+      fontSize: 13,
+      fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", monospace',
+      theme: {
+        background: '#0d1117',
+        foreground: '#e1e5f2',
+        cursor: '#7fb3ff',
+        selectionBackground: '#1e3a5f',
+      },
+      allowProposedApi: true,
+    });
 
-    termWs = new WebSocket(WS_URL);
-    const footer = document.getElementById('termStatusFooter');
+    ptyFitAddon = new FitAddon.FitAddon();
+    ptyTerm.loadAddon(ptyFitAddon);
+    ptyTerm.loadAddon(new WebLinksAddon.WebLinksAddon());
+
+    ptyTerm.open(container);
+    ptyFitAddon.fit();
+
+    window._ptyTerm = ptyTerm;
+
+    ptyTerm.onData(function(data) {
+      if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+        ptyWs.send(JSON.stringify({ type: 'input', data: btoa(data) }));
+      }
+    });
+
+    ptyWsConnect();
+
+    const widget = container.closest('.widget');
+    if (widget) {
+      ptyResizeObserver = new ResizeObserver(function() {
+        if (ptyFitAddon && ptyTerm) {
+          ptyFitAddon.fit();
+          var dims = ptyFitAddon.proposeDimensions();
+          if (dims && ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+            ptyWs.send(JSON.stringify({ type: 'resize', rows: dims.rows, cols: dims.cols }));
+          }
+        }
+      });
+      ptyResizeObserver.observe(widget);
+    }
+  }
+
+  function ptyDispose() {
+    if (ptyResizeObserver) { ptyResizeObserver.disconnect(); ptyResizeObserver = null; }
+    if (ptyWs) { ptyWs.close(); ptyWs = null; }
+    if (ptyReconnectTimer) { clearTimeout(ptyReconnectTimer); ptyReconnectTimer = null; }
+    if (ptyTerm) { ptyTerm.dispose(); ptyTerm = null; ptyFitAddon = null; }
+    window._ptyTerm = undefined;
+  }
+
+  function ptyWsConnect() {
+    if (ptyWs && (ptyWs.readyState === WebSocket.OPEN || ptyWs.readyState === WebSocket.CONNECTING)) return;
+
+    ptyWs = new WebSocket(PTY_WS_URL);
+    var footer = document.getElementById('termStatusFooter');
     if (footer) footer.innerHTML = '<span class="term-status-dot term-status-dot--connecting"></span><span>verbinde...</span>';
 
-    termWs.onopen = () => {
-      termConnected = true;
+    ptyWs.onopen = function() {
       if (footer) footer.innerHTML = '<span class="term-status-dot term-status-dot--connected"></span><span>verbunden</span>';
+      if (ptyFitAddon && ptyTerm) {
+        ptyFitAddon.fit();
+        var dims = ptyFitAddon.proposeDimensions();
+        if (dims && ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+          ptyWs.send(JSON.stringify({ type: 'resize', rows: dims.rows, cols: dims.cols }));
+        }
+      }
     };
 
-    termWs.onmessage = (raw) => {
+    ptyWs.onmessage = function(raw) {
       try {
-        const e = JSON.parse(raw.data);
-        const tb = document.getElementById('termBody');
-        if (!tb) return;
-        const badge = BADGE_COLORS[e.type] || BADGE_COLORS.log;
-        const ts = e.timestamp || '';
-        const shortTs = ts.length > 8 ? ts.slice(-8) : ts;
-        const div = document.createElement('div');
-        div.className = 'term-line';
-        div.innerHTML = '<span class="term-ts">' + (shortTs ? shortTs + ' ' : '') + '</span>'
-          + '<span class="term-badge" style="background:' + badge.bg + ';color:' + badge.fg + ';">' + esc(e.type) + '</span>'
-          + (e.source ? ' <span class="term-src">' + esc(e.source) + '</span>' : '')
-          + ' <span>' + esc(e.message || '') + '</span>';
-        tb.insertBefore(div, tb.firstChild);
-        while (tb.children.length > MAX_TERM_LINES) {
-          tb.removeChild(tb.lastChild);
+        var msg = JSON.parse(raw.data);
+        if (msg.type === 'output' && ptyTerm) {
+          ptyTerm.write(atob(msg.data));
+        } else if (msg.type === 'exit') {
+          if (ptyTerm) ptyTerm.writeln('\r\n\x1b[33m[Prozess beendet, Code: ' + msg.code + ']\x1b[0m');
         }
       } catch (_) {}
     };
 
-    termWs.onclose = () => {
-      termConnected = false;
-      termWs = null;
+    ptyWs.onclose = function() {
+      ptyWs = null;
       if (footer) footer.innerHTML = '<span class="term-status-dot term-status-dot--disconnected"></span><span>getrennt</span>';
-      if (termReconnectTimer) clearTimeout(termReconnectTimer);
-      termReconnectTimer = setTimeout(termWsConnect, WS_RECONNECT_MS);
+      if (ptyReconnectTimer) clearTimeout(ptyReconnectTimer);
+      ptyReconnectTimer = setTimeout(ptyWsConnect, PTY_RECONNECT_MS);
     };
 
-    termWs.onerror = () => {};
-  }
-
-  termWsConnect();
-
-  function getSessionId() {
-    let sid = localStorage.getItem('hdc_session');
-    if (!sid) {
-      sid = 'hdc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-      localStorage.setItem('hdc_session', sid);
-    }
-    return sid;
-  }
-
-  async function handleTerminal(e, input) {
-    if (e.key !== 'Enter') return;
-    const cmd = input.value.trim();
-    if (!cmd) return;
-    input.value = '';
-    const tb = document.getElementById('termBody');
-    if (!tb) return;
-
-    // Echo user input
-    const div = document.createElement('div');
-    div.className = 'term-line term-user';
-    div.innerHTML = '<span class="term-p">> </span><span>' + esc(cmd) + '</span>';
-    tb.insertBefore(div, tb.firstChild);
-    while (tb.children.length > MAX_TERM_LINES) {
-      tb.removeChild(tb.lastChild);
-    }
-
-    // POST to chat endpoint
-    const sid = getSessionId();
-    try {
-      const resp = await fetch(API_BASE + '/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cmd, session_id: sid }),
-      });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({}));
-        const errDiv = document.createElement('div');
-        errDiv.className = 'term-line';
-        errDiv.innerHTML = '<span class="term-err">Fehler: ' + esc(data.detail || 'HTTP ' + resp.status) + '</span>';
-        tb.insertBefore(errDiv, tb.firstChild);
-      }
-    } catch (err) {
-      const errDiv = document.createElement('div');
-      errDiv.className = 'term-line';
-      errDiv.innerHTML = '<span class="term-err">Verbindungsfehler</span>';
-      tb.insertBefore(errDiv, tb.firstChild);
-    }
+    ptyWs.onerror = function() {};
   }
 
   // ========== v8: LIVE DATA ==========
@@ -1779,6 +1762,8 @@
 
     fetchMemory();
     setInterval(fetchMemory, 30000);
+
+    ptyInit();
   }
 
   window.addEventListener('DOMContentLoaded', init);
