@@ -14,6 +14,14 @@ def _ts() -> str:
     return datetime.datetime.now().strftime("%H:%M:%S")
 
 
+def _emit(broadcast_fn, event: dict, run_id: str | None, session_id: str | None):
+    if run_id:
+        event["run_id"] = run_id
+    if session_id:
+        event["session_id"] = session_id
+    return broadcast_fn(event)
+
+
 async def run_query(text: str, broadcast_fn, session_id: str | None = None) -> None:
     try:
         async with httpx.AsyncClient(
@@ -28,25 +36,25 @@ async def run_query(text: str, broadcast_fn, session_id: str | None = None) -> N
                 headers=HEADERS,
             )
             if not (200 <= r.status_code < 300):
-                await broadcast_fn({
+                await _emit(broadcast_fn, {
                     "type": "error",
                     "level": "error",
                     "source": "system",
                     "message": f"Hermes API Fehler (POST /v1/runs): {r.status_code}",
                     "timestamp": _ts(),
-                })
+                }, None, session_id)
                 return
 
             data = r.json()
             run_id = data.get("run_id")
             if not run_id:
-                await broadcast_fn({
+                await _emit(broadcast_fn, {
                     "type": "error",
                     "level": "error",
                     "source": "system",
                     "message": "Kein run_id in API-Response",
                     "timestamp": _ts(),
-                })
+                }, None, session_id)
                 return
 
             async with client.stream(
@@ -55,13 +63,13 @@ async def run_query(text: str, broadcast_fn, session_id: str | None = None) -> N
                 headers=HEADERS,
             ) as response:
                 if not (200 <= response.status_code < 300):
-                    await broadcast_fn({
+                    await _emit(broadcast_fn, {
                         "type": "error",
                         "level": "error",
                         "source": "system",
                         "message": f"Hermes SSE Stream Fehler: {response.status_code}",
                         "timestamp": _ts(),
-                    })
+                    }, run_id, session_id)
                     return
 
                 delta_buffer = ""
@@ -80,25 +88,25 @@ async def run_query(text: str, broadcast_fn, session_id: str | None = None) -> N
                     if event_type == "tool.started":
                         tool = event.get("tool", "unknown")
                         preview = event.get("preview", "")
-                        await broadcast_fn({
+                        await _emit(broadcast_fn, {
                             "type": "tool",
                             "level": "info",
                             "source": "hermes",
                             "message": f"\u27f3 {tool}: {preview[:80]}",
                             "timestamp": _ts(),
-                        })
+                        }, run_id, session_id)
 
                     elif event_type == "tool.completed":
                         tool = event.get("tool", "unknown")
                         duration = event.get("duration", 0)
                         has_error = event.get("error", False)
-                        await broadcast_fn({
+                        await _emit(broadcast_fn, {
                             "type": "tool",
                             "level": "warning" if has_error else "info",
                             "source": "hermes",
                             "message": f"\u2713 {tool} ({duration:.1f}s)",
                             "timestamp": _ts(),
-                        })
+                        }, run_id, session_id)
 
                     elif event_type == "message.delta":
                         delta_buffer += event.get("delta", "")
@@ -108,7 +116,7 @@ async def run_query(text: str, broadcast_fn, session_id: str | None = None) -> N
                         usage = event.get("usage", {})
                         message = output if output else delta_buffer
                         if message:
-                            await broadcast_fn({
+                            await _emit(broadcast_fn, {
                                 "type": "done",
                                 "level": "success",
                                 "source": "hermes",
@@ -118,47 +126,47 @@ async def run_query(text: str, broadcast_fn, session_id: str | None = None) -> N
                                     "output_tokens": usage.get("output_tokens"),
                                 },
                                 "timestamp": _ts(),
-                            })
-                        await broadcast_fn({
+                            }, run_id, session_id)
+                        await _emit(broadcast_fn, {
                             "type": "query",
                             "level": "success",
                             "source": "system",
                             "message": "Query abgeschlossen",
                             "timestamp": _ts(),
-                        })
+                        }, run_id, session_id)
 
                     elif event_type == "run.failed":
-                        await broadcast_fn({
+                        await _emit(broadcast_fn, {
                             "type": "error",
                             "level": "error",
                             "source": "hermes",
                             "message": f"Hermes Fehler: {event.get('error', 'unbekannt')}",
                             "timestamp": _ts(),
-                        })
+                        }, run_id, session_id)
 
     except httpx.ConnectError:
-        await broadcast_fn({
+        await _emit(broadcast_fn, {
             "type": "error",
             "level": "error",
             "source": "system",
             "message": "Hermes API Server nicht erreichbar \u2014 l\u00e4uft hermes gateway?",
             "timestamp": _ts(),
-        })
+        }, None, session_id)
     except httpx.TimeoutException:
-        await broadcast_fn({
+        await _emit(broadcast_fn, {
             "type": "error",
             "level": "error",
             "source": "system",
             "message": "Query Timeout (120s)",
             "timestamp": _ts(),
-        })
+        }, None, session_id)
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        await broadcast_fn({
+        await _emit(broadcast_fn, {
             "type": "error",
             "level": "error",
             "source": "system",
             "message": f"Query Fehler: {str(e)}",
             "timestamp": _ts(),
-        })
+        }, None, session_id)
