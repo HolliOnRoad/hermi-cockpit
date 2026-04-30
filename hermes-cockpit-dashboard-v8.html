@@ -1,0 +1,1787 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Cockpit v8 — Sentinel</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg-deep: #070a14;
+    --bg-surface: #0e1222;
+    --bg-glass: rgba(14, 18, 34, 0.7);
+    --bg-glass-hover: rgba(20, 25, 44, 0.8);
+    --bg-card: rgba(16, 20, 36, 0.65);
+    --bg-card-hover: rgba(20, 25, 44, 0.75);
+    --border-glass: rgba(255, 255, 255, 0.06);
+    --border-glass-hover: rgba(255, 255, 255, 0.12);
+    --accent-blue: #5b9cf5;
+    --accent-blue-glow: rgba(91, 156, 245, 0.2);
+    --accent-orange: #f0a050;
+    --accent-yellow: #e0c44c;
+    --accent-purple: #9b6cf0;
+    --text-primary: #e1e5f2;
+    --text-secondary: #8b90a6;
+    --text-dim: #545a6e;
+    --success: #40c463;
+    --warning: #f0a050;
+    --danger: #e05555;
+    --radius-xl: 20px;
+    --radius-lg: 14px;
+    --radius-md: 10px;
+    --radius-sm: 7px;
+    --shadow-glass: 0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    --shadow-glass-hover: 0 12px 44px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.07) inset;
+    --shadow-card: 0 4px 20px rgba(0,0,0,0.35);
+    --font-ui: 'Inter', -apple-system, 'Helvetica Neue', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-ui);
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(ellipse at 15% 20%, rgba(91,156,245,0.04) 0%, transparent 55%),
+      radial-gradient(ellipse at 75% 50%, rgba(240,160,80,0.03) 0%, transparent 55%),
+      radial-gradient(ellipse at 40% 85%, rgba(224,196,76,0.02) 0%, transparent 55%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* === LAYOUT === */
+  .app-shell { display: flex; height: 100vh; position: relative; z-index: 1; }
+
+  /* === SIDEBAR === */
+  :root { --sidebar-width: 280px; }
+
+  .sidebar {
+    width: var(--sidebar-width); flex-shrink: 0;
+    background: var(--bg-glass);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border-right: 1px solid var(--border-glass);
+    display: flex; flex-direction: column;
+    padding: 12px 8px; gap: 2px;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .sidebar-resize-handle {
+    position: absolute; top: 0; right: 0; bottom: 0;
+    width: 5px; cursor: col-resize; z-index: 10;
+  }
+  .sidebar-resize-handle:hover { background: rgba(91,156,245,0.15); }
+
+  .sidebar-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 2px 6px 10px;
+    border-bottom: 1px solid var(--border-glass);
+    margin-bottom: 4px;
+  }
+
+  .sidebar-logo {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent-blue), #3b74c0);
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    box-shadow: 0 4px 14px var(--accent-blue-glow);
+  }
+
+  .sidebar-title { font-weight: 700; font-size: 13px; color: var(--text-primary); }
+  .sidebar-subtitle { font-size: 8px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+
+  .widget-library-label {
+    font-size: 8px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-secondary); font-weight: 700; padding: 10px 6px 4px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
+  .widget-library-label .hint { font-weight: 400; font-size: 7px; color: var(--text-secondary); opacity: 0.6; }
+
+  .lib-widget {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 6px; border-radius: var(--radius-sm);
+    background: rgba(91,156,245,0.04);
+    border: 1px solid transparent;
+    cursor: grab; transition: var(--transition);
+    font-size: 11px; color: var(--text-primary);
+    user-select: none; position: relative;
+  }
+
+  .lib-widget:hover { background: var(--bg-glass-hover); border-color: rgba(91,156,245,0.15); color: var(--text-primary); }
+
+  .lib-widget span { color: var(--text-primary); }
+  .lib-widget:active { cursor: grabbing; }
+  .lib-widget.dragging { opacity: 0.4; border: 1px dashed var(--accent-blue); }
+
+  .lib-widget.placed {
+    background: rgba(91,156,245,0.04);
+    border-color: rgba(91,156,245,0.1);
+    color: var(--accent-blue);
+    cursor: default; opacity: 0.5; pointer-events: none;
+  }
+
+  .lib-widget.placed::after {
+    content: '✓ platziert'; position: absolute; right: 6px;
+    font-size: 8px; color: var(--success); opacity: 0.7;
+  }
+
+  /* Locked state — sidebar dims */
+  .app-shell.locked .lib-widget:not(.placed) {
+    opacity: 0.3; cursor: not-allowed; pointer-events: none;
+  }
+
+  .lib-icon {
+    width: 22px; height: 22px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; flex-shrink: 0;
+  }
+
+  .lib-icon.tasks { background: rgba(91,156,245,0.15); color: var(--accent-blue); }
+  .lib-icon.agents { background: rgba(64,196,99,0.12); color: var(--success); }
+  .lib-icon.system { background: rgba(240,160,80,0.12); color: var(--accent-orange); }
+  .lib-icon.jobs { background: rgba(224,196,76,0.12); color: var(--accent-yellow); }
+  .lib-icon.terminal { background: rgba(91,156,245,0.12); color: var(--accent-blue); }
+  .lib-icon.news { background: rgba(240,160,80,0.10); color: var(--accent-orange); }
+  .lib-icon.weather { background: rgba(91,156,245,0.10); color: var(--accent-blue); }
+  .lib-icon.skills { background: rgba(155,108,240,0.12); color: var(--accent-purple); }
+
+  .sidebar-footer { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border-glass); }
+  .sidebar-footer .stat-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 9px; }
+  .sidebar-footer .stat-row .lbl { color: var(--text-secondary); }
+  .sidebar-footer .stat-row .val { font-family: var(--font-mono); font-size: 9px; color: var(--text-primary); }
+  .mini-bar { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin: 3px 0 6px; overflow: hidden; }
+  .mini-bar-fill { height: 100%; border-radius: 2px; transition: width 1s; }
+  .mini-bar-fill.blue { background: var(--accent-blue); }
+
+  /* === DASHBOARD === */
+  .dashboard {
+    flex: 1; display: flex; flex-wrap: wrap; align-content: flex-start;
+    padding: 10px; gap: 8px; overflow-y: auto; position: relative; min-height: 0;
+  }
+
+  .dashboard.drag-over {
+    background: rgba(91,156,245,0.02);
+    outline: 2px dashed rgba(91,156,245,0.15); outline-offset: -6px;
+  }
+
+  /* === v8: DROP PREVIEW (Auto-Umordnen) === */
+  .drop-preview {
+    border: 2px dashed var(--accent-blue) !important;
+    background: rgba(91,156,245,0.06) !important;
+    border-radius: var(--radius-md);
+    min-width: 180px; min-height: 100px;
+    flex-shrink: 0;
+    animation: previewPulse 1.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes previewPulse {
+    0%, 100% { border-color: rgba(91,156,245,0.3); box-shadow: 0 0 8px rgba(91,156,245,0.05); }
+    50%      { border-color: rgba(91,156,245,0.6); box-shadow: 0 0 16px rgba(91,156,245,0.12); }
+  }
+
+  .widget.reorder-shift {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* === v8: SIZE PICKER OVERLAY (Auto-Size) === */
+  .size-picker {
+    position: fixed;
+    background: var(--bg-glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 6px;
+    display: flex; gap: 4px;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    animation: fadeSlideUp 0.2s ease-out;
+    pointer-events: auto;
+  }
+
+  .size-btn {
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    transition: var(--transition);
+    white-space: nowrap;
+  }
+
+  .size-btn:hover {
+    background: rgba(91,156,245,0.12);
+    border-color: rgba(91,156,245,0.3);
+    color: var(--text-primary);
+  }
+
+  .size-btn.active {
+    background: rgba(91,156,245,0.15);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+  }
+
+  /* === v8: LOCK BUTTON === */
+  .lock-toggle {
+    position: fixed;
+    top: 12px; right: 16px; z-index: 50;
+    width: 36px; height: 36px;
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    transition: var(--transition);
+    color: var(--text-dim);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+
+  .lock-toggle:hover { border-color: var(--border-glass-hover); color: var(--text-primary); }
+  .lock-toggle.locked { color: var(--accent-orange); border-color: rgba(240,160,80,0.2); background: rgba(240,160,80,0.06); }
+
+  /* Locked dashboard state */
+  .app-shell.locked .widget .widget-header { cursor: default; }
+  .app-shell.locked .widget .w-remove { display: none; }
+  .app-shell.locked .widget .resize-handle { display: none; }
+  .app-shell.locked .widget { cursor: default; }
+  .app-shell.locked .widget[draggable="true"] { pointer-events: auto; }
+  .app-shell.locked .dashboard.drag-over { outline: none; background: transparent; }
+
+  .lock-indicator {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 60;
+    font-size: 10px; font-weight: 600; color: var(--accent-orange);
+    background: rgba(240,160,80,0.08); border: 1px solid rgba(240,160,80,0.15);
+    padding: 4px 14px; border-radius: 20px;
+    pointer-events: none;
+    animation: fadeSlideUp 0.3s ease-out;
+    display: none;
+  }
+
+  .app-shell.locked .lock-indicator { display: none; }
+
+  /* === WIDGETS === */
+  .widget {
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    transition: var(--transition);
+    position: relative;
+    min-width: 180px;
+    min-height: 100px;
+    display: flex; flex-direction: column;
+  }
+
+  .widget:hover {
+    border-color: var(--border-glass-hover);
+    box-shadow: var(--shadow-glass-hover);
+  }
+
+  .widget.drag-ghost { opacity: 0.3; transform: scale(0.97); }
+  .widget.resizing { transition: none; user-select: none; }
+
+  .widget-header {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    cursor: grab; user-select: none;
+    flex-shrink: 0;
+  }
+
+  .widget-header:active { cursor: grabbing; }
+
+  .widget-header .w-icon { font-size: 13px; }
+  .widget-header .w-name { font-weight: 600; font-size: 10px; flex: 1; }
+
+  .w-fs-btn {
+    width: 18px; height: 18px; border-radius: 4px;
+    background: rgba(255,255,255,0.04); border: none; cursor: pointer;
+    color: var(--text-dim); font-size: 10px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    transition: var(--transition); flex-shrink: 0;
+    font-family: var(--font-ui); line-height: 1;
+  }
+
+  .w-fs-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+
+  .w-remove {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(255,255,255,0.04); border: none; cursor: pointer;
+    color: var(--text-dim); font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    transition: var(--transition); flex-shrink: 0;
+  }
+
+  .w-remove:hover { background: rgba(224,85,85,0.15); color: var(--danger); }
+
+  .widget-body {
+    padding: 8px 10px;
+    flex: 1; overflow-y: auto;
+    min-height: 0;
+    font-size: 10px;
+  }
+
+  /* Resize handle */
+  .resize-handle {
+    position: absolute;
+    bottom: 2px; right: 2px;
+    width: 16px; height: 16px;
+    cursor: nwse-resize;
+    display: flex; align-items: flex-end; justify-content: flex-end;
+    opacity: 0; transition: opacity 0.15s;
+    z-index: 5;
+  }
+
+  .widget:hover .resize-handle { opacity: 0.5; }
+  .resize-handle:hover { opacity: 1 !important; }
+
+  .resize-handle::after {
+    content: '╱';
+    font-size: 11px; color: var(--text-secondary);
+    line-height: 1; font-family: var(--font-mono);
+  }
+
+  /* ================================================================
+     TASK ANIMATIONS (v4-Style)
+     ================================================================ */
+  @keyframes taskComplete {
+    0%   { transform: scale(1); opacity: 1; filter: brightness(1); }
+    40%  { transform: scale(1.03); filter: brightness(1.4); border-color: var(--success); background: rgba(64,196,99,0.06); }
+    80%  { transform: scale(0.96); opacity: 0.7; }
+    100% { transform: scale(0.98); opacity: 0.5; filter: brightness(0.8); }
+  }
+
+  @keyframes taskArrive {
+    from { transform: translateY(-12px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 0.5; }
+  }
+
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .task-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    transition: var(--transition);
+    animation: fadeSlideUp 0.35s ease-out backwards;
+  }
+
+  .task-card:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-glass-hover);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+
+  .task-card.pending-card { border-left: 2px solid var(--accent-blue); }
+  .task-card.completed-card {
+    border-left: 2px solid var(--success);
+    opacity: 0.55;
+  }
+
+  .task-card.completing {
+    animation: taskComplete 0.5s ease-out forwards;
+    pointer-events: none;
+  }
+
+  .task-card.arriving {
+    animation: taskArrive 0.4s ease-out forwards;
+    pointer-events: none;
+  }
+
+  .task-card-header {
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .task-check-circle {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--text-dim); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8em; color: transparent;
+    transition: var(--transition);
+  }
+
+  .task-card:hover .task-check-circle { border-color: var(--accent-blue); }
+
+  .task-card.completed-card .task-check-circle {
+    background: var(--success); border-color: var(--success);
+    color: #fff;
+  }
+
+  .task-title { font-weight: 500; font-size: 1.1em; color: var(--text-secondary); flex: 1; }
+  .task-card:hover .task-title { color: var(--text-primary); }
+  .task-card.completed-card .task-title { text-decoration: line-through; color: var(--text-dim); }
+
+  .task-meta {
+    display: flex; gap: 8px; align-items: center;
+    margin-top: 5px; font-size: 0.85em; color: var(--text-dim);
+  }
+
+  .priority { font-size: 0.7em; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
+  .priority.high { background: rgba(224,85,85,0.15); color: var(--danger); }
+  .priority.medium { background: rgba(240,160,80,0.12); color: var(--warning); }
+
+  .task-col { flex: 1; }
+  .task-col-label {
+    font-size: 0.9em; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; margin-bottom: 6px;
+  }
+  .task-col-label.pending { color: var(--accent-blue); }
+  .task-col-label.done { color: var(--text-dim); }
+
+  .task-add {
+    font-size: 0.9em; color: var(--text-dim); cursor: pointer;
+    padding: 6px 10px; margin-top: 4px;
+    background: rgba(255,255,255,0.015);
+    border: 1px dashed var(--border-glass);
+    border-radius: var(--radius-sm);
+    text-align: center; transition: var(--transition);
+  }
+  .task-add:hover { color: var(--text-secondary); border-color: var(--border-glass-hover); background: rgba(255,255,255,0.03); }
+
+  .task-split { display: flex; gap: 12px; }
+
+  /* Empty state */
+  .empty-column {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 30px 20px; gap: 6px;
+    color: var(--text-dim); font-size: 1em;
+    flex: 1;
+  }
+  .empty-column .ec-icon { font-size: 2.2em; margin-bottom: 4px; opacity: 0.35; }
+
+  /* ================================================================
+     AGENTS (v3-Style Avatars)
+     ================================================================ */
+  .agent-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.02);
+    transition: var(--transition);
+  }
+  .agent-card:last-child { border-bottom: none; }
+  .agent-card:hover { color: var(--text-primary); }
+
+  .agent-avatar {
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3em; font-weight: 700; flex-shrink: 0;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+  }
+  .agent-avatar.hermes    { background: linear-gradient(135deg, var(--accent-blue), #3b74c0); }
+  .agent-avatar.kai       { background: linear-gradient(135deg, var(--accent-orange), #d08030); }
+  .agent-avatar.community { background: linear-gradient(135deg, var(--accent-purple), #7040c0); }
+  .agent-avatar.finanz    { background: linear-gradient(135deg, var(--accent-yellow), #b09030); color: #1a1a1a; }
+
+  .agent-info { flex: 1; }
+  .agent-name { font-weight: 600; font-size: 1.05em; }
+  .agent-stat { font-size: 0.85em; color: var(--text-dim); margin-top: 1px; }
+
+  .agent-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .agent-status-dot.on   { background: var(--success); box-shadow: 0 0 6px rgba(64,196,99,0.5); }
+  .agent-status-dot.idle { background: var(--text-dim); }
+  .agent-status-dot.err  { background: var(--danger); box-shadow: 0 0 6px rgba(224,85,85,0.5); }
+
+  /* ================================================================
+     SYSTEM / JOBS / NEWS / WEATHER / SKILLS (em-basiert)
+     ================================================================ */
+  .sys-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 1em; }
+  .sys-label { color: var(--text-secondary); }
+  .sys-val { font-family: var(--font-mono); font-size: 1em; }
+  .sys-bar-track { height: 3px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; margin-top: 1px; }
+  .sys-bar-fill { height: 100%; border-radius: 2px; transition: width 1s; }
+  .sys-bar-fill.cpu { background: var(--accent-blue); }
+  .sys-bar-fill.ram { background: var(--accent-orange); }
+  .sys-bar-fill.disk { background: var(--accent-purple); }
+
+  .job-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 1em; }
+  .job-row:last-child { border-bottom: none; }
+  .job-title { color: var(--text-secondary); }
+  .job-sched { font-size: 0.8em; color: var(--text-dim); }
+  .job-stat { font-family: var(--font-mono); font-size: 0.9em; }
+  .job-stat.ok { color: var(--success); }
+  .job-stat.err { color: var(--danger); }
+
+  .term-body { font-family: var(--font-mono); font-size: 1em; line-height: 1.7; color: #b0b8cc; padding: 4px 0; }
+  .term-p { color: var(--accent-blue); }
+  .term-success { color: var(--success); }
+  .term-warn { color: var(--warning); }
+  .term-err { color: var(--danger); }
+  .term-dim { color: #6a7080; }
+  .term-live { color: var(--accent-yellow); }
+
+  .term-line { font-size: 1em; line-height: 1.7; }
+  .term-line.term-user { color: #e1e5f2; font-weight: 500; }
+  .term-ts { color: var(--text-dim); font-size: 0.85em; margin-right: 4px; }
+  .term-badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 0.75em; font-weight: 600; text-transform: uppercase; margin-right: 2px; }
+  .term-src { color: var(--text-dim); font-size: 0.85em; }
+
+  .term-footer {
+    display: flex; align-items: center; gap: 5px;
+    padding-top: 4px; margin-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.8em; color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .term-status-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  }
+  .term-status-dot--connected { background: var(--success); box-shadow: 0 0 6px rgba(64,196,99,0.5); }
+  .term-status-dot--connecting { background: var(--warning); animation: blink 1s infinite; }
+  .term-status-dot--disconnected { background: var(--danger); }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .term-input-row {
+    display: flex; align-items: center; gap: 6px;
+    padding-top: 6px; margin-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    flex-shrink: 0;
+  }
+
+  .term-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text-primary); font-family: var(--font-mono); font-size: 1em;
+    caret-color: var(--accent-blue);
+  }
+  .term-input::placeholder { color: var(--text-dim); font-style: italic; }
+
+  .news-item, .weather-stat { font-size: 1em; color: var(--text-secondary); padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.02); }
+  .news-item:last-child { border-bottom: none; }
+  .news-item .n-title { font-weight: 600; }
+  .news-item .n-source { font-size: 0.8em; color: var(--text-dim); margin-top: 1px; }
+  .news-more { font-size: 0.9em; color: var(--text-dim); margin-top: 4px; text-align: center; cursor: pointer; }
+
+  .weather-main { display: flex; align-items: center; gap: 12px; }
+  .weather-icon { font-size: 2.8em; }
+  .weather-temp { font-size: 2.2em; font-weight: 700; }
+  .weather-detail { font-size: 0.9em; color: var(--text-dim); margin-top: 3px; }
+  .weather-stats { display: flex; gap: 14px; margin-top: 6px; font-size: 0.9em; color: var(--text-dim); }
+  .weather-forecast { font-size: 0.9em; color: var(--text-dim); margin-top: 4px; }
+  .weather-fetching { font-size: 0.9em; color: var(--text-dim); font-style: italic; }
+
+  .skill-tag {
+    display: inline-block; padding: 2px 6px; margin: 2px;
+    background: rgba(155,108,240,0.08); border-radius: 4px;
+    border: 1px solid rgba(155,108,240,0.1);
+    font-size: 0.9em; color: var(--text-secondary);
+  }
+
+  /* Placeholder */
+  .placeholder-msg {
+    text-align: center; padding: 40px 20px;
+    color: var(--text-dim); font-size: 12px;
+    opacity: 0.4; width: 100%;
+  }
+  .placeholder-msg .ph-icon { font-size: 32px; margin-bottom: 8px; display: block; }
+
+  .reset-layout {
+    position: fixed; bottom: 12px; right: 12px; z-index: 10;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass);
+    color: var(--text-dim); font-size: 9px; padding: 5px 10px;
+    border-radius: var(--radius-sm); cursor: pointer; transition: var(--transition);
+    font-family: var(--font-ui);
+  }
+  .reset-layout:hover { color: var(--text-secondary); border-color: var(--border-glass-hover); }
+
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.04); border-radius: 2px; }
+
+  .widget { animation: fadeSlideUp 0.3s ease-out backwards; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="appShell">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">⚡</div>
+      <div>
+        <div class="sidebar-title">Hermes Cockpit</div>
+        <div class="sidebar-subtitle">v8.0 · Sentinel</div>
+      </div>
+    </div>
+
+    <div class="widget-library-label">
+      <span>Widget-Bibliothek</span>
+      <span class="hint">auf Dashboard ziehen →</span>
+    </div>
+
+    <div class="lib-widget" data-widget="tasks" draggable="true">
+      <div class="lib-icon tasks">☐</div><span>Task Board</span>
+    </div>
+    <div class="lib-widget" data-widget="agents" draggable="true">
+      <div class="lib-icon agents">◈</div><span>Agenten</span>
+    </div>
+    <div class="lib-widget" data-widget="system" draggable="true">
+      <div class="lib-icon system">⊞</div><span>System Monitor</span>
+    </div>
+    <div class="lib-widget" data-widget="jobs" draggable="true">
+      <div class="lib-icon jobs">⚙</div><span>Cron Jobs</span>
+    </div>
+    <div class="lib-widget" data-widget="terminal" draggable="true">
+      <div class="lib-icon terminal">⟩_</div><span>Terminal</span>
+    </div>
+    <div class="lib-widget" data-widget="news" draggable="true">
+      <div class="lib-icon news">☀</div><span>News Feed</span>
+    </div>
+    <div class="lib-widget" data-widget="weather" draggable="true">
+      <div class="lib-icon weather">☁</div><span>Wetter</span>
+    </div>
+    <div class="lib-widget" data-widget="skills" draggable="true">
+      <div class="lib-icon skills">✦</div><span>Skills</span>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="stat-row"><span class="lbl">Memory</span><span class="val" id="sidebarMemoryVal" style="color:var(--accent-blue);">…</span></div>
+      <div class="mini-bar"><div class="mini-bar-fill blue" id="sidebarMemoryBar" style="width:0%;"></div></div>
+      <div class="stat-row"><span class="lbl">Skills</span><span class="val" id="sidebarSkillsVal">…</span></div>
+      <div class="stat-row"><span class="lbl">Heute</span><span class="val" id="sidebarDate">30.04.2026</span></div>
+    </div>
+    <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
+  </aside>
+
+  <!-- ===== DASHBOARD ===== -->
+  <main class="dashboard" id="dashboard">
+    <div class="placeholder-msg" id="emptyPlaceholder">
+      <span class="ph-icon">⬌</span>
+      Widget aus der Sidebar<br>hierher ziehen
+    </div>
+  </main>
+
+  <!-- ===== v8: LOCK TOGGLE ===== -->
+  <button class="lock-toggle" id="lockToggle" title="Layout sperren (⌘L)" onclick="toggleLock()">🔓</button>
+  <div class="lock-indicator" id="lockIndicator">🔒 Layout gesperrt</div>
+
+  <button class="reset-layout" onclick="resetAllLayout()">↺ Layout zurücksetzen</button>
+
+</div>
+
+<!-- ===== v8: SIZE PICKER (dynamisch eingefügt) ===== -->
+
+<script>
+  // ========== CONSTANTS ==========
+  const SNAP = 20;
+  const STORAGE_KEY = 'hermes-cockpit-v8';
+
+  // ========== STATE ==========
+  let appState = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || {
+    order: ['tasks', 'agents', 'system', 'terminal', 'jobs'],
+    configs: {},
+    locked: false
+  };
+
+  const DEFAULT_CONFIGS = {
+    tasks:    { w: '360px', h: 'auto', fs: 10 },
+    agents:   { w: '260px', h: 'auto', fs: 10 },
+    system:   { w: '260px', h: 'auto', fs: 10 },
+    jobs:     { w: '260px', h: 'auto', fs: 10 },
+    terminal: { w: '400px', h: 'auto', fs: 10 },
+    news:     { w: '300px', h: 'auto', fs: 10 },
+    weather:  { w: '240px', h: 'auto', fs: 10 },
+    skills:   { w: '280px', h: 'auto', fs: 10 }
+  };
+
+  // Size presets for Auto-Size
+  const SIZE_PRESETS = [
+    { label: '¼', w: '25%', desc: 'Viertel' },
+    { label: '½', w: '50%', desc: 'Halb' },
+    { label: '¾', w: '75%', desc: 'Dreiviertel' },
+    { label: '≡', w: '100%', desc: 'Voll' },
+    { label: '↺', w: null, desc: 'Standard' }
+  ];
+
+  // ========== WIDGET DEFINITIONS ==========
+  const WIDGET_DEFS = {
+    tasks: {
+      name: 'Task Board', icon: '☐',
+      render(body, fs) {
+        body.style.fontSize = fs + 'px';
+        body.innerHTML = `
+          <div class="task-split" id="tasksContainer">
+            <div class="task-col" id="taskColPending">
+              <div class="task-col-label pending">⬜ Offen (<span class="cnt">0</span>)</div>
+            </div>
+            <div class="task-col" id="taskColDone">
+              <div class="task-col-label done">✅ Erledigt (<span class="cnt">0</span>)</div>
+            </div>
+          </div>
+        `;
+      }
+    },
+    agents: {
+      name: 'Agenten', icon: '◈',
+      render(body, fs) {
+        body.style.fontSize = fs + 'px';
+        body.innerHTML = '<div id="agentsContainer"><span class="term-dim">Lade Agenten…</span></div>';
+      }
+    },
+    system: {
+      name: 'System Monitor', icon: '⊞',
+      render(body, fs) {
+        body.style.fontSize = fs + 'px';
+        body.innerHTML = `
+          <div class="sys-row"><span class="sys-label">CPU</span><span class="sys-val" style="color:var(--accent-blue);" id="sysCpuVal">…</span></div>
+          <div class="sys-bar-track"><div class="sys-bar-fill cpu" id="sysCpuBar" style="width:0%;"></div></div>
+          <div class="sys-row" style="margin-top:6px;"><span class="sys-label">RAM</span><span class="sys-val" style="color:var(--accent-orange);" id="sysRamVal">…</span></div>
+          <div class="sys-bar-track"><div class="sys-bar-fill ram" id="sysRamBar" style="width:0%;"></div></div>
+          <div class="sys-row" style="margin-top:6px;"><span class="sys-label">Disk</span><span class="sys-val" id="sysDiskVal">…</span></div>
+          <div class="sys-bar-track"><div class="sys-bar-fill disk" id="sysDiskBar" style="width:0%;"></div></div>
+          <div class="sys-row" style="margin-top:6px;"><span class="sys-label">Network</span><span class="sys-val" id="sysNetVal">…</span></div>
+          <div class="sys-row" style="margin-top:2px;"><span class="sys-label">Online seit</span><span class="sys-val" style="font-size:0.85em;" id="sysUptimeVal">… (seit Seitenaufruf)</span></div>
+        `;
+      }
+    },
+    jobs: {
+      name: 'Cron Jobs', icon: '⚙',
+      render(body, fs) {
+        body.style.fontSize = fs + 'px';
+        body.innerHTML = '<div id="jobsContainer"><span class="term-dim">Lade Jobs…</span></div>';
+      }
+    },
+    terminal: {
+      name: 'Terminal', icon: '\u27e9_',
+      render(body, fs) {
+        body.style.fontSize = fs + 'px';
+        body.innerHTML = `
+          <div class="term-body" id="termBody"></div>
+          <div class="term-input-row">
+            <span class="term-p">\u276f</span>
+            <input class="term-input" placeholder="Kommando..." onkeydown="handleTerminal(event, this)">
+          </div>
+          <div class="term-footer" id="termStatusFooter">
+            <span class="term-status-dot term-status-dot--connecting"></span><span>verbinde...</span>
+          </div>
+        `;
+      }
+    },
+    news: {
+      name: 'News Feed', icon: '☀',
+      render(body, fs) {
+        body.style.fontSize = fs + 'px';
+        body.innerHTML = '<div id="newsContainer"><span class="term-dim">Lade News…</span></div>';
+      }
+    },
+    weather: {
+      name: 'Wetter', icon: '☁',
+      render(body, fs) {
+        body.style.fontSize = fs + 'px';
+        body.innerHTML = `
+          <div class="weather-main">
+            <div class="weather-icon" id="wxIcon">⏳</div>
+            <div><div class="weather-temp" id="wxTemp">…</div><div class="weather-detail" id="wxDesc">Wetter wird geladen…</div></div>
+          </div>
+          <div class="weather-stats" id="wxStats"><span class="weather-fetching">via wttr.in…</span></div>
+          <div class="weather-forecast" id="wxForecast"></div>
+        `;
+      }
+    },
+    skills: {
+      name: 'Skills', icon: '✦',
+      render(body, fs) {
+        body.style.fontSize = fs + 'px';
+        body.innerHTML = '<div id="skillsContainer"><span class="term-dim">Lade Skills…</span></div>';
+      }
+    }
+  };
+
+  // ========== HELPERS ==========
+  function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState)); }
+
+  function getWidgetConfig(widgetId) {
+    if (!appState.configs[widgetId]) {
+      appState.configs[widgetId] = { ...DEFAULT_CONFIGS[widgetId] };
+    }
+    return appState.configs[widgetId];
+  }
+
+  function getActiveWidgets() {
+    return Array.from(document.querySelectorAll('#dashboard .widget')).map(w => w.dataset.widget);
+  }
+
+  function esc(s) { return s.replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ========== TERM LOG ==========
+  function termLog(msg) {
+    const tb = document.getElementById('termBody');
+    if (!tb) return;
+    const l = document.createElement('div');
+    l.innerHTML = '<span class="term-success">✓</span> <span class="term-dim">' + esc(msg) + '</span>';
+    tb.appendChild(l);
+    tb.scrollTop = tb.scrollHeight;
+  }
+
+  // ========== FONT SIZE ==========
+  function changeFont(event, widgetId, delta) {
+    if (appState.locked) return;
+    event.stopPropagation();
+    const cfg = getWidgetConfig(widgetId);
+    cfg.fs = Math.max(7, Math.min(18, cfg.fs + delta));
+    appState.order = getActiveWidgets();
+    saveState();
+    const widget = document.querySelector(`#dashboard .widget[data-widget="${widgetId}"]`);
+    if (widget) {
+      const body = widget.querySelector('.widget-body');
+      const def = WIDGET_DEFS[widgetId];
+      if (def) def.render(body, cfg.fs);
+    }
+  }
+
+  // ========== TASK ANIMATIONS ==========
+  function completeTask(card) {
+    if (card.classList.contains('completing')) return;
+    card.classList.add('completing');
+    card.onclick = null;
+    setTimeout(() => {
+      card.classList.remove('completing', 'pending-card');
+      card.classList.add('completed-card', 'arriving');
+      card.onclick = function() { uncompleteTask(this); };
+      const doneCol = document.getElementById('taskColDone');
+      if (doneCol) {
+        const label = doneCol.querySelector('.task-col-label');
+        doneCol.insertBefore(card, label ? label.nextSibling : doneCol.firstChild);
+      }
+      updateTaskCounts();
+      termLog('Task erledigt');
+      setTimeout(() => card.classList.remove('arriving'), 400);
+    }, 450);
+  }
+
+  function uncompleteTask(card) {
+    card.classList.remove('completed-card', 'arriving');
+    card.classList.add('pending-card');
+    card.onclick = function() { completeTask(this); };
+    const pendingCol = document.getElementById('taskColPending');
+    if (pendingCol) {
+      const addLink = pendingCol.querySelector('.task-add');
+      if (addLink) pendingCol.insertBefore(card, addLink);
+      else pendingCol.appendChild(card);
+    }
+    updateTaskCounts();
+    termLog('Task wieder aktiv');
+  }
+
+  function updateTaskCounts() {
+    const pendingCol = document.getElementById('taskColPending');
+    const doneCol = document.getElementById('taskColDone');
+    if (!pendingCol || !doneCol) return;
+    const pendingCards = pendingCol.querySelectorAll('.task-card.pending-card').length;
+    const doneCards = doneCol.querySelectorAll('.task-card.completed-card').length;
+    const pendingCnt = pendingCol.querySelector('.cnt');
+    const doneCnt = doneCol.querySelector('.cnt');
+    if (pendingCnt) pendingCnt.textContent = pendingCards;
+    if (doneCnt) doneCnt.textContent = doneCards;
+    if (pendingCards === 0 && !pendingCol.querySelector('.empty-column')) {
+      const addLink = pendingCol.querySelector('.task-add');
+      const empty = document.createElement('div');
+      empty.className = 'empty-column';
+      empty.innerHTML = '<div class="ec-icon">🎉</div><div>Alles erledigt!</div><div style="font-size:0.85em;">Neue Task mit + anlegen</div>';
+      if (addLink) pendingCol.insertBefore(empty, addLink);
+      else pendingCol.appendChild(empty);
+    } else if (pendingCards > 0) {
+      const empty = pendingCol.querySelector('.empty-column');
+      if (empty) empty.remove();
+    }
+    if (doneCards === 0 && !doneCol.querySelector('.empty-column')) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-column';
+      empty.innerHTML = '<div class="ec-icon">📋</div><div>Noch nichts erledigt</div><div style="font-size:0.85em;">Erste Task abhaken!</div>';
+      doneCol.appendChild(empty);
+    } else if (doneCards > 0) {
+      const empty = doneCol.querySelector('.empty-column');
+      if (empty) empty.remove();
+    }
+  }
+
+  function addNewTask(body) {
+    const title = prompt('Neue Task:');
+    if (!title) return;
+    const pendingCol = document.getElementById('taskColPending');
+    if (!pendingCol) return;
+    const addLink = pendingCol.querySelector('.task-add');
+    const empty = pendingCol.querySelector('.empty-column');
+    if (empty) empty.remove();
+    const card = document.createElement('div');
+    card.className = 'task-card pending-card';
+    card.onclick = function() { completeTask(this); };
+    card.innerHTML = `
+      <div class="task-card-header">
+        <div class="task-check-circle">✓</div>
+        <div class="task-title">${esc(title)}</div>
+      </div>
+      <div class="task-meta"><span class="priority medium">MEDIUM</span><span>Neu</span><span>Heute</span></div>
+    `;
+    if (addLink) pendingCol.insertBefore(card, addLink);
+    else pendingCol.appendChild(card);
+    updateTaskCounts();
+    termLog('Neue Task: ' + title);
+  }
+
+  // ========== v8: LOCK / UNLOCK ==========
+  function toggleLock() {
+    appState.locked = !appState.locked;
+    saveState();
+    applyLockState();
+    termLog(appState.locked ? 'Layout gesperrt 🔒' : 'Layout entsperrt 🔓');
+  }
+
+  function applyLockState() {
+    const shell = document.getElementById('appShell');
+    const btn = document.getElementById('lockToggle');
+    if (appState.locked) {
+      shell.classList.add('locked');
+      btn.classList.add('locked');
+      btn.textContent = '🔒';
+      btn.title = 'Layout entsperren (⌘L)';
+    } else {
+      shell.classList.remove('locked');
+      btn.classList.remove('locked');
+      btn.textContent = '🔓';
+      btn.title = 'Layout sperren (⌘L)';
+    }
+    // Update widget draggability
+    document.querySelectorAll('#dashboard .widget').forEach(w => {
+      w.draggable = !appState.locked;
+    });
+  }
+
+  // ========== v8: AUTO-SIZE PICKER ==========
+  let sizePickerTimeout = null;
+
+  function showSizePicker(widget, widgetId) {
+    removeSizePicker();
+    const rect = widget.getBoundingClientRect();
+    const cfg = getWidgetConfig(widgetId);
+    const dashW = document.getElementById('dashboard').clientWidth - 20;
+
+    const picker = document.createElement('div');
+    picker.className = 'size-picker';
+    picker.id = 'sizePicker';
+
+    SIZE_PRESETS.forEach(preset => {
+      const btn = document.createElement('button');
+      btn.className = 'size-btn';
+      btn.textContent = preset.label;
+      btn.title = preset.desc;
+      // Highlight current approximate width
+      const currentW = widget.offsetWidth;
+      if (preset.w) {
+        const pct = parseInt(preset.w);
+        const targetW = dashW * pct / 100;
+        if (Math.abs(currentW - targetW) < 30) btn.classList.add('active');
+      } else if (cfg.w === DEFAULT_CONFIGS[widgetId].w) {
+        btn.classList.add('active');
+      }
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (preset.w) {
+          widget.style.width = preset.w;
+          cfg.w = preset.w;
+        } else {
+          widget.style.width = DEFAULT_CONFIGS[widgetId].w;
+          cfg.w = DEFAULT_CONFIGS[widgetId].w;
+        }
+        appState.order = getActiveWidgets();
+        saveState();
+        termLog('Größe: ' + (preset.w || 'Standard'));
+        removeSizePicker();
+      });
+      picker.appendChild(btn);
+    });
+
+    document.body.appendChild(picker);
+
+    // Position above widget
+    let top = rect.top - picker.offsetHeight - 8;
+    if (top < 10) top = rect.bottom + 8;
+    let left = rect.left + rect.width / 2 - picker.offsetWidth / 2;
+    if (left < 10) left = 10;
+    if (left + picker.offsetWidth > window.innerWidth - 10) left = window.innerWidth - picker.offsetWidth - 10;
+
+    picker.style.top = top + 'px';
+    picker.style.left = left + 'px';
+
+    sizePickerTimeout = setTimeout(() => removeSizePicker(), 5000);
+  }
+
+  function removeSizePicker() {
+    const p = document.getElementById('sizePicker');
+    if (p) p.remove();
+    if (sizePickerTimeout) { clearTimeout(sizePickerTimeout); sizePickerTimeout = null; }
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.size-picker') && !e.target.closest('.widget')) {
+      removeSizePicker();
+    }
+  });
+
+  // ========== v8: DROP PREVIEW (Auto-Umordnen) ==========
+  let dropPreview = null;
+
+  function showDropPreview(idx) {
+    removeDropPreview();
+    const dash = document.getElementById('dashboard');
+    const preview = document.createElement('div');
+    preview.className = 'drop-preview';
+    preview.id = 'dropPreview';
+    const widgets = dash.querySelectorAll('.widget');
+    if (idx < widgets.length) {
+      dash.insertBefore(preview, widgets[idx]);
+    } else {
+      const ph = document.getElementById('emptyPlaceholder');
+      if (ph) dash.insertBefore(preview, ph);
+      else dash.appendChild(preview);
+    }
+  }
+
+  function removeDropPreview() {
+    const p = document.getElementById('dropPreview');
+    if (p) p.remove();
+  }
+
+  function getDropIndex(e) {
+    const dash = document.getElementById('dashboard');
+    const widgets = Array.from(dash.querySelectorAll('.widget:not(#dropPreview)'));
+    let insertIdx = widgets.length;
+    // Find position based on cursor
+    for (let i = 0; i < widgets.length; i++) {
+      const rect = widgets[i].getBoundingClientRect();
+      const midX = rect.left + rect.width / 2;
+      const midY = rect.top + rect.height / 2;
+      // Simple heuristic: if cursor is above the vertical midpoint, insert before
+      if (e.clientY < midY) { insertIdx = i; break; }
+      // If same row, use horizontal position
+      if (Math.abs(e.clientY - midY) < rect.height / 2 && e.clientX < midX) { insertIdx = i; break; }
+    }
+    return insertIdx;
+  }
+
+  // ========== ADD / REMOVE WIDGET ==========
+  function addWidgetToDashboard(widgetId, position = -1) {
+    if (document.querySelector(`#dashboard .widget[data-widget="${widgetId}"]`)) return;
+    const def = WIDGET_DEFS[widgetId];
+    if (!def) return;
+    const cfg = getWidgetConfig(widgetId);
+
+    const widget = document.createElement('div');
+    widget.className = 'widget';
+    widget.dataset.widget = widgetId;
+    widget.draggable = !appState.locked;
+    widget.style.width = cfg.w;
+    if (cfg.h !== 'auto') widget.style.height = cfg.h;
+
+    widget.innerHTML = `
+      <div class="widget-header">
+        <span class="w-icon">${def.icon}</span>
+        <span class="w-name">${def.name}</span>
+        <button class="w-fs-btn" title="Schrift kleiner" onclick="changeFont(event, '${widgetId}', -1)">A⁻</button>
+        <button class="w-fs-btn" title="Schrift größer" onclick="changeFont(event, '${widgetId}', 1)">A⁺</button>
+        <button class="w-remove" title="Widget entfernen" onclick="removeWidget(event, '${widgetId}')">×</button>
+      </div>
+      <div class="widget-body"></div>
+      <div class="resize-handle" title="Größe anpassen"></div>
+    `;
+
+    widget.addEventListener('dragstart', onWidgetDragStart);
+    widget.addEventListener('dragend', onWidgetDragEnd);
+
+    // v8: Click on widget header shows size picker
+    widget.querySelector('.widget-header').addEventListener('dblclick', (e) => {
+      if (appState.locked) return;
+      showSizePicker(widget, widgetId);
+    });
+
+    const handle = widget.querySelector('.resize-handle');
+    handle.addEventListener('mousedown', (e) => startResize(e, widget, widgetId));
+
+    const dashboard = document.getElementById('dashboard');
+    const placeholder = document.getElementById('emptyPlaceholder');
+
+    if (position >= 0) {
+      const widgets = dashboard.querySelectorAll('.widget');
+      if (position < widgets.length) {
+        dashboard.insertBefore(widget, widgets[position]);
+      } else {
+        if (placeholder) dashboard.insertBefore(widget, placeholder);
+        else dashboard.appendChild(widget);
+      }
+    } else {
+      if (placeholder) dashboard.insertBefore(widget, placeholder);
+      else dashboard.appendChild(widget);
+    }
+
+    if (placeholder) placeholder.style.display = 'none';
+
+    const body = widget.querySelector('.widget-body');
+    def.render(body, cfg.fs);
+
+    appState.order = getActiveWidgets();
+    saveState();
+    updateSidebar();
+    termLog('Widget ' + def.name + ' hinzugefügt');
+
+    // Show size picker briefly for new widgets
+    setTimeout(() => {
+      if (!appState.locked) showSizePicker(widget, widgetId);
+    }, 400);
+  }
+
+  function removeWidget(event, widgetId) {
+    if (appState.locked) return;
+    event.stopPropagation();
+    const widget = document.querySelector(`#dashboard .widget[data-widget="${widgetId}"]`);
+    if (widget) {
+      const name = WIDGET_DEFS[widgetId]?.name || widgetId;
+      widget.style.transition = 'opacity 0.15s, transform 0.15s';
+      widget.style.opacity = '0';
+      widget.style.transform = 'scale(0.95)';
+      removeSizePicker();
+      setTimeout(() => {
+        widget.remove();
+        const db = document.getElementById('dashboard');
+        if (!db.querySelector('.widget')) {
+          const ph = document.getElementById('emptyPlaceholder');
+          if (ph) ph.style.display = '';
+        }
+        appState.order = getActiveWidgets();
+        saveState();
+        updateSidebar();
+        termLog('Widget ' + name + ' entfernt');
+      }, 150);
+    }
+  }
+
+  function updateSidebar() {
+    const active = getActiveWidgets();
+    document.querySelectorAll('.lib-widget').forEach(lib => {
+      const wid = lib.dataset.widget;
+      if (active.includes(wid)) {
+        lib.classList.add('placed');
+        lib.draggable = false;
+      } else {
+        lib.classList.remove('placed');
+        lib.draggable = !appState.locked;
+      }
+    });
+  }
+
+  // ========== RESIZE ==========
+  let resizeState = null;
+
+  function startResize(e, widget, widgetId) {
+    if (appState.locked) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = widget.getBoundingClientRect();
+    resizeState = { widget, widgetId, startX: e.clientX, startY: e.clientY, startW: rect.width, startH: rect.height };
+    widget.classList.add('resizing');
+    document.addEventListener('mousemove', onResizeMove);
+    document.addEventListener('mouseup', onResizeEnd);
+  }
+
+  function onResizeMove(e) {
+    if (!resizeState) return;
+    const { widget, startX, startY, startW, startH } = resizeState;
+    let newW = startW + (e.clientX - startX);
+    let newH = startH + (e.clientY - startY);
+    newW = Math.round(newW / SNAP) * SNAP;
+    newH = Math.round(newH / SNAP) * SNAP;
+    newW = Math.max(180, newW);
+    newH = Math.max(100, newH);
+    widget.style.width = newW + 'px';
+    widget.style.height = newH + 'px';
+  }
+
+  function onResizeEnd(e) {
+    if (!resizeState) return;
+    const { widget, widgetId } = resizeState;
+    widget.classList.remove('resizing');
+    resizeState = null;
+    document.removeEventListener('mousemove', onResizeMove);
+    document.removeEventListener('mouseup', onResizeEnd);
+    const cfg = getWidgetConfig(widgetId);
+    cfg.w = widget.style.width;
+    cfg.h = widget.style.height;
+    appState.order = getActiveWidgets();
+    saveState();
+  }
+
+  // ========== DRAG & DROP ==========
+  let draggedWidgetId = null;
+  let draggedFromSidebar = false;
+  let dragSourceElement = null;
+
+  document.querySelectorAll('.lib-widget').forEach(lib => {
+    lib.addEventListener('dragstart', e => {
+      if (appState.locked || lib.classList.contains('placed')) { e.preventDefault(); return; }
+      draggedWidgetId = lib.dataset.widget;
+      draggedFromSidebar = true;
+      dragSourceElement = lib;
+      lib.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+    lib.addEventListener('dragend', e => {
+      lib.classList.remove('dragging');
+      draggedWidgetId = null;
+      draggedFromSidebar = false;
+      dragSourceElement = null;
+      removeDropPreview();
+    });
+  });
+
+  function onWidgetDragStart(e) {
+    if (appState.locked) { e.preventDefault(); return; }
+    if (e.target.closest('.w-remove, .w-fs-btn, .resize-handle')) { e.preventDefault(); return; }
+    removeSizePicker();
+    draggedWidgetId = this.dataset.widget;
+    draggedFromSidebar = false;
+    dragSourceElement = this;
+    this.classList.add('drag-ghost');
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function onWidgetDragEnd(e) {
+    this.classList.remove('drag-ghost');
+    draggedWidgetId = null;
+    draggedFromSidebar = false;
+    dragSourceElement = null;
+    removeDropPreview();
+  }
+
+  const dashboard = document.getElementById('dashboard');
+
+  dashboard.addEventListener('dragover', e => {
+    if (appState.locked) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = draggedFromSidebar ? 'copy' : 'move';
+    dashboard.classList.add('drag-over');
+
+    // v8: Show drop preview (auto-reorder)
+    const insertIdx = getDropIndex(e);
+    showDropPreview(insertIdx);
+  });
+
+  dashboard.addEventListener('dragleave', e => {
+    if (!dashboard.contains(e.relatedTarget)) {
+      dashboard.classList.remove('drag-over');
+      removeDropPreview();
+    }
+  });
+
+  dashboard.addEventListener('drop', e => {
+    e.preventDefault();
+    dashboard.classList.remove('drag-over');
+    removeDropPreview();
+    if (appState.locked || !draggedWidgetId) return;
+
+    const insertIdx = getDropIndex(e);
+
+    if (!draggedFromSidebar && dragSourceElement) {
+      const widgets = Array.from(dashboard.querySelectorAll('.widget'));
+      const srcIdx = widgets.indexOf(dragSourceElement);
+      if (srcIdx >= 0 && srcIdx < insertIdx) {
+        // Adjust because we're removing the source
+        dragSourceElement.remove();
+        addWidgetToDashboard(draggedWidgetId, insertIdx - 1);
+      } else {
+        dragSourceElement.remove();
+        addWidgetToDashboard(draggedWidgetId, insertIdx);
+      }
+    } else {
+      addWidgetToDashboard(draggedWidgetId, insertIdx);
+    }
+
+    draggedWidgetId = null;
+    draggedFromSidebar = false;
+    if (dragSourceElement && !draggedFromSidebar) dragSourceElement.classList.remove('drag-ghost');
+    dragSourceElement = null;
+  });
+
+  // ========== TERMINAL WEBSOCKET ==========
+  const MAX_TERM_LINES = 300;
+  const WS_URL = 'ws://127.0.0.1:8000/ws';
+  const WS_RECONNECT_MS = 3000;
+  let termWs = null;
+  let termReconnectTimer = null;
+  let termConnected = false;
+
+  const BADGE_COLORS = {
+    tool:   { bg: '#172554', fg: '#f0a050' },
+    done:   { bg: '#1e3a5f', fg: '#93c5fd' },
+    error:  { bg: '#7c2d12', fg: '#f97316' },
+    agent:  { bg: '#1e2a4a', fg: '#a5b4fc' },
+    system: { bg: '#1f2937', fg: '#9ca3af' },
+    log:    { bg: '#1e293b', fg: '#94a3b8' },
+    task:   { bg: '#172554', fg: '#93c5fd' },
+    query:  { bg: '#172554', fg: '#93c5fd' },
+  };
+
+  function termWsConnect() {
+    if (termWs && (termWs.readyState === WebSocket.OPEN || termWs.readyState === WebSocket.CONNECTING)) return;
+
+    termWs = new WebSocket(WS_URL);
+    const footer = document.getElementById('termStatusFooter');
+    if (footer) footer.innerHTML = '<span class="term-status-dot term-status-dot--connecting"></span><span>verbinde...</span>';
+
+    termWs.onopen = () => {
+      termConnected = true;
+      if (footer) footer.innerHTML = '<span class="term-status-dot term-status-dot--connected"></span><span>verbunden</span>';
+    };
+
+    termWs.onmessage = (raw) => {
+      try {
+        const e = JSON.parse(raw.data);
+        const tb = document.getElementById('termBody');
+        if (!tb) return;
+        const badge = BADGE_COLORS[e.type] || BADGE_COLORS.log;
+        const ts = e.timestamp || '';
+        const shortTs = ts.length > 8 ? ts.slice(-8) : ts;
+        const div = document.createElement('div');
+        div.className = 'term-line';
+        div.innerHTML = '<span class="term-ts">' + (shortTs ? shortTs + ' ' : '') + '</span>'
+          + '<span class="term-badge" style="background:' + badge.bg + ';color:' + badge.fg + ';">' + esc(e.type) + '</span>'
+          + (e.source ? ' <span class="term-src">' + esc(e.source) + '</span>' : '')
+          + ' <span>' + esc(e.message || '') + '</span>';
+        tb.insertBefore(div, tb.firstChild);
+        while (tb.children.length > MAX_TERM_LINES) {
+          tb.removeChild(tb.lastChild);
+        }
+      } catch (_) {}
+    };
+
+    termWs.onclose = () => {
+      termConnected = false;
+      termWs = null;
+      if (footer) footer.innerHTML = '<span class="term-status-dot term-status-dot--disconnected"></span><span>getrennt</span>';
+      if (termReconnectTimer) clearTimeout(termReconnectTimer);
+      termReconnectTimer = setTimeout(termWsConnect, WS_RECONNECT_MS);
+    };
+
+    termWs.onerror = () => {};
+  }
+
+  termWsConnect();
+
+  function getSessionId() {
+    let sid = localStorage.getItem('hdc_session');
+    if (!sid) {
+      sid = 'hdc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem('hdc_session', sid);
+    }
+    return sid;
+  }
+
+  async function handleTerminal(e, input) {
+    if (e.key !== 'Enter') return;
+    const cmd = input.value.trim();
+    if (!cmd) return;
+    input.value = '';
+    const tb = document.getElementById('termBody');
+    if (!tb) return;
+
+    // Echo user input
+    const div = document.createElement('div');
+    div.className = 'term-line term-user';
+    div.innerHTML = '<span class="term-p">> </span><span>' + esc(cmd) + '</span>';
+    tb.insertBefore(div, tb.firstChild);
+    while (tb.children.length > MAX_TERM_LINES) {
+      tb.removeChild(tb.lastChild);
+    }
+
+    // POST to chat endpoint
+    const sid = getSessionId();
+    try {
+      const resp = await fetch(API_BASE + '/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cmd, session_id: sid }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        const errDiv = document.createElement('div');
+        errDiv.className = 'term-line';
+        errDiv.innerHTML = '<span class="term-err">Fehler: ' + esc(data.detail || 'HTTP ' + resp.status) + '</span>';
+        tb.insertBefore(errDiv, tb.firstChild);
+      }
+    } catch (err) {
+      const errDiv = document.createElement('div');
+      errDiv.className = 'term-line';
+      errDiv.innerHTML = '<span class="term-err">Verbindungsfehler</span>';
+      tb.insertBefore(errDiv, tb.firstChild);
+    }
+  }
+
+  // ========== v8: LIVE DATA ==========
+  const API_BASE = 'http://127.0.0.1:8000';
+  let pageStartTime = performance.now();
+
+  function updateLiveClock() {
+    const now = new Date();
+    const dateEl = document.getElementById('sidebarDate');
+    if (dateEl) {
+      dateEl.textContent = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    const uptimeEl = document.getElementById('sysUptimeVal');
+    if (uptimeEl) {
+      const mins = Math.floor((performance.now() - pageStartTime) / 60000);
+      const hrs = Math.floor(mins / 60);
+      uptimeEl.textContent = hrs + 'h ' + (mins % 60) + 'm (seit Seitenaufruf)';
+    }
+  }
+
+  // ── System ──
+  async function fetchSystem() {
+    try {
+      const resp = await fetch(API_BASE + '/api/system');
+      if (!resp.ok) return;
+      const d = await resp.json();
+      const cpuEl = document.getElementById('sysCpuVal');
+      const cpuBar = document.getElementById('sysCpuBar');
+      if (cpuEl) cpuEl.textContent = d.cpu_percent + '%';
+      if (cpuBar) cpuBar.style.width = d.cpu_percent + '%';
+
+      const ramEl = document.getElementById('sysRamVal');
+      const ramBar = document.getElementById('sysRamBar');
+      if (ramEl) ramEl.textContent = d.ram_used_gb + ' / ' + d.ram_total_gb + ' GB (' + d.ram_percent + '%)';
+      if (ramBar) ramBar.style.width = d.ram_percent + '%';
+
+      const diskEl = document.getElementById('sysDiskVal');
+      const diskBar = document.getElementById('sysDiskBar');
+      if (diskEl) diskEl.textContent = d.disk_used_gb + ' / ' + d.disk_total_gb + ' GB (' + d.disk_percent + '%)';
+      if (diskBar) diskBar.style.width = d.disk_percent + '%';
+
+      const netEl = document.getElementById('sysNetVal');
+      if (netEl) netEl.textContent = d.network_kb_s + ' KB/s';
+    } catch (err) {
+      console.warn('System fetch failed:', err);
+    }
+  }
+
+  // ── Weather ──
+  async function fetchWeather() {
+    try {
+      const resp = await fetch(API_BASE + '/api/weather');
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      const current = data.current_condition[0];
+      const wxIcon = document.getElementById('wxIcon');
+      const wxTemp = document.getElementById('wxTemp');
+      const wxDesc = document.getElementById('wxDesc');
+      const wxStats = document.getElementById('wxStats');
+      const wxForecast = document.getElementById('wxForecast');
+
+      if (wxTemp) wxTemp.textContent = current.temp_C + '\u00b0';
+      if (wxDesc) wxDesc.textContent = current.weatherDesc[0].value;
+      if (wxIcon) {
+        const code = current.weatherCode;
+        const icons = { 113: '\u2600', 116: '\u26c5', 119: '\u2601', 122: '\u2601', 143: '\ud83c\udf2b', 176: '\ud83c\udf26', 179: '\ud83c\udf28', 182: '\ud83c\udf28', 185: '\ud83c\udf28', 200: '\u26c8', 227: '\ud83c\udf2c', 230: '\ud83c\udf2c', 248: '\ud83c\udf2b', 260: '\ud83c\udf2b', 263: '\ud83c\udf27', 266: '\ud83c\udf27', 281: '\ud83c\udf27', 284: '\ud83c\udf27', 293: '\ud83c\udf27', 296: '\ud83c\udf27', 299: '\ud83c\udf27', 302: '\ud83c\udf27', 305: '\ud83c\udf27', 308: '\ud83c\udf27', 311: '\ud83c\udf27', 314: '\ud83c\udf27', 317: '\ud83c\udf27', 320: '\ud83c\udf28', 323: '\ud83c\udf28', 326: '\ud83c\udf28', 329: '\ud83c\udf28', 332: '\ud83c\udf28', 335: '\ud83c\udf28', 338: '\ud83c\udf28', 350: '\ud83c\udf28', 353: '\ud83c\udf27', 356: '\ud83c\udf27', 359: '\ud83c\udf27', 362: '\ud83c\udf28', 365: '\ud83c\udf28', 368: '\ud83c\udf28', 371: '\ud83c\udf28', 374: '\ud83c\udf28', 377: '\ud83c\udf28', 386: '\u26c8', 389: '\u26c8', 392: '\u26c8', 395: '\ud83c\udf28' };
+        wxIcon.textContent = icons[code] || '\ud83c\udf24';
+      }
+      if (wxStats) wxStats.innerHTML = '<span>\ud83d\udca7 ' + current.humidity + '%</span><span>\ud83c\udf2c ' + current.windspeedKmph + ' km/h</span><span>\ud83d\udc41 ' + current.visibility + ' km</span>';
+      if (wxForecast && data.weather) {
+        const t = data.weather;
+        wxForecast.textContent = 'Morgen: ' + (t[1] ? t[1].mintempC + '\u2013' + t[1].maxtempC + '\u00b0' : '?') + ' \u00b7 Uebermorgen: ' + (t[2] ? t[2].mintempC + '\u2013' + t[2].maxtempC + '\u00b0' : '?');
+      }
+    } catch (err) {
+      const wxDesc = document.getElementById('wxDesc');
+      const wxTemp = document.getElementById('wxTemp');
+      if (wxDesc) wxDesc.textContent = 'API offline';
+      if (wxTemp) wxTemp.textContent = '--';
+    }
+  }
+
+  // ── Jobs ──
+  async function fetchJobs() {
+    try {
+      const resp = await fetch(API_BASE + '/api/cron');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const container = document.getElementById('jobsContainer');
+      if (!container) return;
+      if (!data.jobs || data.jobs.length === 0) {
+        container.innerHTML = '<span class="term-dim">Keine Cron-Jobs gefunden</span>';
+        return;
+      }
+      container.innerHTML = data.jobs.map(j => {
+        const name = j.name || j.id || '?';
+        const sched = j.schedule || '';
+        const lastRun = j.last_run || '';
+        const statusClass = (lastRun.includes('ok') || j.status === 'active') ? 'ok' : '';
+        const statusText = j.status || (lastRun.includes('ok') ? 'ok' : '--');
+        return '<div class="job-row"><div><div class="job-title">' + name + '</div><div class="job-sched">' + sched + '</div></div><span class="job-stat ' + statusClass + '">' + statusText + '</span></div>';
+      }).join('');
+    } catch (err) {
+      console.warn('Jobs fetch failed:', err);
+    }
+  }
+
+  // ── News ──
+  async function fetchNews() {
+    try {
+      const resp = await fetch(API_BASE + '/api/news');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const container = document.getElementById('newsContainer');
+      if (!container) return;
+      if (!data.news || data.news.length === 0) {
+        container.innerHTML = '<span class="term-dim">Keine News geladen</span>';
+        return;
+      }
+      container.innerHTML = data.news.map(n =>
+        '<div class="news-item"><div class="n-title">' + (n.title || '') + '</div><div class="n-source">' + (n.source || '') + (n.time ? ' \u00b7 ' + n.time : '') + '</div></div>'
+      ).join('') + '<div class="news-more">Mehr News laden \u2192</div>';
+    } catch (err) {
+      console.warn('News fetch failed:', err);
+    }
+  }
+
+  // ── Agents ──
+  async function fetchAgents() {
+    try {
+      const resp = await fetch(API_BASE + '/api/agents');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const container = document.getElementById('agentsContainer');
+      if (!container) return;
+      if (!data.agents || data.agents.length === 0) {
+        container.innerHTML = '<span class="term-dim">Keine Agenten gefunden</span>';
+        return;
+      }
+      container.innerHTML = data.agents.map(a => {
+        const isLive = a.reifegrad !== 'local';
+        const dotClass = isLive ? 'on' : 'idle';
+        return '<div class="agent-card">'
+          + '<div class="agent-avatar' + (isLive ? ' hermes' : '') + '">' + (a.name || '?')[0].toUpperCase() + '</div>'
+          + '<div class="agent-info"><div class="agent-name">' + a.name + '</div><div class="agent-stat">Runs: ' + a.runs + (a.errors ? ' \u00b7 Fehler: ' + a.errors : '') + '</div></div>'
+          + '<div class="agent-status-dot ' + dotClass + '"></div>'
+          + '</div>';
+      }).join('');
+    } catch (err) {
+      console.warn('Agents fetch failed:', err);
+    }
+  }
+
+  // ── Tasks ──
+  async function fetchTasks() {
+    try {
+      const resp = await fetch(API_BASE + '/api/tasks');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const pendingCol = document.getElementById('taskColPending');
+      const doneCol = document.getElementById('taskColDone');
+      if (!pendingCol && !doneCol) return;
+
+      const tasks = data.tasks || [];
+      const pending = tasks.filter(t => t.status !== 'done' && t.status !== 'erledigt');
+      const done = tasks.filter(t => t.status === 'done' || t.status === 'erledigt');
+
+      if (pendingCol) {
+        const cntEl = pendingCol.querySelector('.cnt');
+        if (cntEl) cntEl.textContent = pending.length;
+        const existing = pendingCol.querySelectorAll('.task-card');
+        existing.forEach(el => el.remove());
+        const addEl = pendingCol.querySelector('.task-add');
+        pending.forEach(t => {
+          const card = document.createElement('div');
+          card.className = 'task-card pending-card';
+          card.innerHTML = '<div class="task-card-header"><div class="task-check-circle">\u2713</div><div class="task-title">' + (t.title || '') + '</div></div>'
+            + '<div class="task-meta">' + (t.priority ? '<span class="priority ' + t.priority.toLowerCase() + '">' + t.priority.toUpperCase() + '</span>' : '') + (t.agent ? '<span>' + t.agent + '</span>' : '') + (t.due ? '<span>' + t.due + '</span>' : '') + '</div>';
+          card.addEventListener('click', () => completeTask(card));
+          if (addEl) pendingCol.insertBefore(card, addEl);
+        });
+        if (!pendingCol.querySelector('.task-add')) {
+          const newAdd = document.createElement('div');
+          newAdd.className = 'task-add';
+          newAdd.textContent = '+ Neue Task';
+          newAdd.addEventListener('click', (e) => addNewTask(e.currentTarget.closest('.widget-body')));
+          pendingCol.appendChild(newAdd);
+        }
+      }
+
+      if (doneCol) {
+        const cntEl = doneCol.querySelector('.cnt');
+        if (cntEl) cntEl.textContent = done.length;
+        const existing = doneCol.querySelectorAll('.task-card');
+        existing.forEach(el => el.remove());
+        done.forEach(t => {
+          const card = document.createElement('div');
+          card.className = 'task-card completed-card';
+          card.innerHTML = '<div class="task-card-header"><div class="task-check-circle">\u2713</div><div class="task-title">' + (t.title || '') + '</div></div>'
+            + '<div class="task-meta">' + (t.agent ? '<span>' + t.agent + '</span>' : '') + (t.due ? '<span>' + t.due + '</span>' : '') + '</div>';
+          card.addEventListener('click', () => uncompleteTask(card));
+          doneCol.appendChild(card);
+        });
+      }
+    } catch (err) {
+      console.warn('Tasks fetch failed:', err);
+    }
+  }
+
+  // ── Skills ──
+  async function fetchSkills() {
+    try {
+      const resp = await fetch(API_BASE + '/api/skills');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const container = document.getElementById('skillsContainer');
+      if (!container) return;
+      if (!data.skills || data.skills.length === 0) {
+        container.innerHTML = '<span class="term-dim">Keine Skills gefunden</span>';
+        return;
+      }
+      container.innerHTML = data.skills.map(s =>
+          '<span class="skill-tag">' + s + '</span>'
+      ).join('');
+
+    // Update sidebar skills counter
+    const skillsVal = document.getElementById('sidebarSkillsVal');
+    if (skillsVal) skillsVal.textContent = (data.skills || []).length + ' verfuegbar';
+    } catch (err) {
+      console.warn('Skills fetch failed:', err);
+    }
+  }
+
+  // ── Memory ──
+  async function fetchMemory() {
+    try {
+      const resp = await fetch(API_BASE + '/api/memory');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const content = data.content || '';
+      const chars = content.length;
+      const maxChars = 8000;
+      const percent = Math.min(100, Math.round(chars / maxChars * 100));
+      const memVal = document.getElementById('sidebarMemoryVal');
+      const memBar = document.getElementById('sidebarMemoryBar');
+      if (memVal) memVal.textContent = chars.toLocaleString() + ' / ' + maxChars.toLocaleString();
+      if (memBar) memBar.style.width = percent + '%';
+    } catch (err) {
+      console.warn('Memory fetch failed:', err);
+    }
+  }
+
+  // ========== SIDEBAR RESIZE ==========
+  function initSidebarResize() {
+    const sidebar = document.getElementById('sidebar');
+    const handle = document.getElementById('sidebarResizeHandle');
+    if (!sidebar || !handle) return;
+
+    let startX, startWidth;
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startX = e.clientX;
+      startWidth = sidebar.offsetWidth;
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      function onMouseMove(e) {
+        const delta = e.clientX - startX;
+        const newWidth = Math.max(220, Math.min(400, startWidth + delta));
+        sidebar.style.width = newWidth + 'px';
+        document.documentElement.style.setProperty('--sidebar-width', newWidth + 'px');
+      }
+
+      function onMouseUp() {
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  }
+
+  // ========== KEYBOARD SHORTCUT ==========
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+      e.preventDefault();
+      toggleLock();
+    }
+  });
+
+  // ========== RESET ==========
+  function resetAllLayout() {
+    if (!confirm('Gesamtes Layout zuruecksetzen? Alle Widgets und Groessen gehen verloren.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+  }
+
+  // ========== INIT ==========
+  function init() {
+    pageStartTime = performance.now();
+    applyLockState();
+
+    const { order } = appState;
+    order.forEach(wid => addWidgetToDashboard(wid));
+    updateSidebar();
+
+    initSidebarResize();
+
+    updateLiveClock();
+    setInterval(updateLiveClock, 30000);
+
+    fetchSystem();
+    setInterval(fetchSystem, 2000);
+
+    fetchWeather();
+    setInterval(fetchWeather, 30000);
+
+    fetchJobs();
+    setInterval(fetchJobs, 30000);
+
+    fetchNews();
+    setInterval(fetchNews, 30000);
+
+    fetchAgents();
+    setInterval(fetchAgents, 30000);
+
+    fetchTasks();
+    setInterval(fetchTasks, 30000);
+
+    fetchSkills();
+    setInterval(fetchSkills, 30000);
+
+    fetchMemory();
+    setInterval(fetchMemory, 30000);
+  }
+
+  window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
