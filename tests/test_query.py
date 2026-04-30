@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 from httpx import AsyncClient, ASGITransport
 
@@ -61,7 +61,7 @@ async def test_api_server_offline():
         })
 
     with patch("api.main.hermes_run_query", side_effect=mock_run_query):
-        with patch("api.main.broadcast_event") as mock_broadcast:
+        with patch("api.main.broadcast_chat") as mock_broadcast:
             mock_broadcast.return_value = 0
 
             async with AsyncClient(
@@ -84,3 +84,46 @@ async def test_api_server_offline():
                     "Hermes API Server nicht erreichbar" in m
                     for m in error_msgs
                 )
+
+
+async def test_chat_log_channel_separation():
+    chat_mock = AsyncMock()
+    log_mock = AsyncMock()
+
+    import api.main
+    api.main.chat_clients.add(chat_mock)
+    api.main.log_clients.add(log_mock)
+
+    try:
+        async def mock_query(text, broadcast_fn, session_id=None):
+            await broadcast_fn({
+                "type": "tool",
+                "level": "info",
+                "source": "hermes",
+                "message": "test tool event",
+                "timestamp": "12:00:00",
+            })
+            await broadcast_fn({
+                "type": "done",
+                "level": "success",
+                "source": "hermes",
+                "message": "test done",
+                "timestamp": "12:00:01",
+            })
+
+        with patch("api.main.hermes_run_query", side_effect=mock_query):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                res = await client.post(
+                    "/api/chat",
+                    json={"text": "test", "session_id": "test-session"},
+                )
+                assert res.status_code == 200
+                await asyncio.sleep(0.05)
+
+        chat_mock.send_json.assert_called()
+        log_mock.send_json.assert_not_called()
+    finally:
+        api.main.chat_clients.discard(chat_mock)
+        api.main.log_clients.discard(log_mock)
