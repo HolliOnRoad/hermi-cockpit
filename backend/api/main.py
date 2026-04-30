@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import sqlite3
 from contextlib import asynccontextmanager
 from datetime import datetime as dt, timezone
@@ -19,6 +20,7 @@ import urllib.error
 
 from services.hermes_log_stream import get_log_stream
 from services.hermes_api_bridge import run_query as hermes_run_query
+from services.hermes_pty import PtyBridge
 
 GATEWAY_STATE_PATH = Path.home() / ".hermes" / "gateway_state.json"
 
@@ -178,6 +180,57 @@ async def websocket_logs(ws: WebSocket):
     finally:
         log_clients.discard(ws)
         print(f"Log client disconnected ({len(log_clients)} total)")
+
+
+@app.websocket("/ws/pty")
+async def websocket_pty(ws: WebSocket):
+    await ws.accept()
+    print(f"PTY client connected")
+    bridge = PtyBridge()
+
+    async def on_output(data: bytes):
+        if data:
+            try:
+                await ws.send_json({
+                    "type": "output",
+                    "data": base64.b64encode(data).decode("ascii"),
+                })
+            except Exception:
+                pass
+        else:
+            try:
+                await ws.send_json({"type": "exit", "code": bridge.exit_code or 0})
+            except Exception:
+                pass
+
+    await bridge.start(on_output)
+
+    try:
+        while True:
+            raw = await ws.receive_text()
+            try:
+                msg = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+
+            if msg.get("type") == "input":
+                data = msg.get("data", "")
+                if data:
+                    try:
+                        bridge.write(base64.b64decode(data))
+                    except Exception:
+                        pass
+            elif msg.get("type") == "resize":
+                rows = msg.get("rows")
+                cols = msg.get("cols")
+                if isinstance(rows, int) and isinstance(cols, int) and rows > 0 and cols > 0:
+                    bridge.resize(rows, cols)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await bridge.stop()
+        print(f"PTY client disconnected")
+
 
 
 @app.get("/test-event")
