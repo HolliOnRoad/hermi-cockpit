@@ -388,13 +388,14 @@ def cron_jobs():
 
         for line in result.stdout.strip().split("\n"):
             stripped = line.strip()
+            indent = len(line) - len(line.lstrip(" "))
 
             # Skip box-drawing and header lines
             if not stripped or stripped.startswith("\u250c") or stripped.startswith("\u2502") or stripped.startswith("\u2514"):
                 continue
 
-            # New job: line starts with a hex ID (no leading whitespace)
-            if not line.startswith(" ") and " " in stripped:
+            # New job: 2-space indent + hex ID + [status]
+            if indent == 2 and " " in stripped:
                 parts = stripped.rsplit(" ", 1)
                 job_id = parts[0]
                 status = parts[1].strip("[]") if len(parts) > 1 and parts[1].startswith("[") else "unknown"
@@ -402,8 +403,8 @@ def cron_jobs():
                 jobs.append(current)
                 continue
 
-            # Property line: indented with key: value
-            if current is not None and ":" in stripped:
+            # Property line: 4-space indent with key: value
+            if current is not None and indent >= 4 and ":" in stripped:
                 key, _, value = stripped.partition(":")
                 key = key.strip().lower().replace(" ", "_")
                 value = value.strip()
