@@ -12,6 +12,8 @@ from typing import Optional, Literal
 import datetime
 import json
 import os
+import subprocess
+import time
 import urllib.request
 import urllib.error
 
@@ -57,6 +59,10 @@ class Event(BaseModel):
 
 _query_lock = asyncio.Lock()
 _query_running = False
+
+_weather_cache: dict | None = None
+_weather_cache_ts: float = 0
+WEATHER_CACHE_TTL = 300  # 5 Minuten
 
 
 class QueryRequest(BaseModel):
@@ -316,3 +322,107 @@ def agents():
 
     agent_list = sorted(agent_map.values(), key=lambda x: x["runs"], reverse=True)
     return {"agents": agent_list}
+
+
+# ── Neue API-Endpunkte ──────────────────────────────────────────────
+
+
+@app.get("/api/cron")
+def cron_jobs():
+    try:
+        result = subprocess.run(
+            ["hermes", "cronjob", "list"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            print(f"[Cron] hermes cronjob list fehlgeschlagen: {result.stderr.strip()}")
+            return {"jobs": []}
+
+        jobs: list[dict] = []
+        for line in result.stdout.strip().split("\n"):
+            line = line.strip()
+            if not line or line.startswith("---") or line.startswith("ID"):
+                continue
+            parts = line.split()
+            if len(parts) >= 4:
+                jobs.append({
+                    "id": parts[0],
+                    "name": " ".join(parts[1:-2]),
+                    "schedule": parts[-2],
+                    "status": parts[-1],
+                })
+        return {"jobs": jobs}
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        print("[Cron] hermes CLI nicht verfügbar oder Timeout")
+        return {"jobs": []}
+    except Exception as e:
+        print(f"[Cron] Fehler: {e}")
+        return {"jobs": []}
+
+
+@app.get("/api/weather")
+def weather_proxy():
+    global _weather_cache, _weather_cache_ts
+
+    now = time.time()
+    if _weather_cache and (now - _weather_cache_ts) < WEATHER_CACHE_TTL:
+        return _weather_cache
+
+    try:
+        req = urllib.request.Request("https://wttr.in/Schwerin?format=j1")
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        print(f"[Weather] wttr.in nicht erreichbar: {e}")
+        if _weather_cache:
+            return _weather_cache
+        return JSONResponse(
+            {"error": "Wetterdienst nicht erreichbar"},
+            status_code=502,
+        )
+
+    data["cached_until"] = datetime.datetime.fromtimestamp(
+        now + WEATHER_CACHE_TTL
+    ).isoformat()
+    _weather_cache = data
+    _weather_cache_ts = now
+    return data
+
+
+@app.get("/api/news")
+def news():
+    news_path = Path.home() / ".hermes" / "news" / "latest.json"
+    if not news_path.exists():
+        return {"news": []}
+    try:
+        return {"news": json.loads(news_path.read_text())}
+    except (json.JSONDecodeError, OSError):
+        return {"news": []}
+
+
+@app.get("/api/tasks")
+def tasks():
+    tasks_path = Path.home() / ".hermes" / "tasks.json"
+    if not tasks_path.exists():
+        return {"tasks": []}
+    try:
+        return {"tasks": json.loads(tasks_path.read_text())}
+    except (json.JSONDecodeError, OSError):
+        return {"tasks": []}
+
+
+@app.get("/api/skills")
+def skills():
+    skills_dir = Path.home() / ".hermes" / "skills" / "holger"
+    if not skills_dir.is_dir():
+        return {"skills": []}
+    try:
+        names = sorted(
+            entry for entry in os.listdir(skills_dir)
+            if (skills_dir / entry).is_dir()
+        )
+        return {"skills": names}
+    except OSError:
+        return {"skills": []}
