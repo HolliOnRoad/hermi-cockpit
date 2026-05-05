@@ -986,24 +986,24 @@
   .widget { animation: fadeSlideUp 0.3s ease-out backwards; }
 
   /* ================================================================
-     ACTION RESULT PANEL (zentrales Feedback)
+     ACTION RESULT PANEL (zentrales Feedback — In-Flow, oben)
      ================================================================ */
   .action-panel {
-    position: fixed; bottom: 0; left: var(--sidebar-width);
-    right: 0; z-index: 40;
+    width: 100%; flex-basis: 100%; flex-shrink: 0;
     background: var(--bg-glass);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid var(--border-glass);
-    box-shadow: 0 -8px 32px rgba(0,0,0,0.55);
-    padding: 12px 20px 14px;
-    max-height: 40vh; overflow-y: auto;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.3s ease;
-    display: flex; flex-direction: column; gap: 8px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    padding: 10px 16px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: opacity 0.25s ease, margin 0.25s ease;
+    order: -1; /* always first in dashboard */
+    margin-bottom: 6px;
   }
   .action-panel.hidden {
-    transform: translateY(100%); opacity: 0; pointer-events: none;
+    display: none;
   }
 
   .arp-header {
@@ -1039,15 +1039,34 @@
   .arp-label { color: var(--text-dim); }
   .arp-value { color: var(--text-primary); font-weight: 600; font-family: var(--font-mono); }
 
+  .arp-body-scroll {
+    max-height: 150px; overflow-y: auto;
+    font-size: 0.85em; color: var(--text-secondary);
+    padding: 6px; margin-top: 4px;
+    background: rgba(0,0,0,0.2);
+    border-radius: var(--radius-sm);
+    white-space: pre-wrap; word-break: break-word;
+  }
+
   @keyframes panelGlow {
-    0%, 100% { box-shadow: 0 -8px 32px rgba(0,0,0,0.55); }
-    50%      { box-shadow: 0 -8px 32px rgba(0,0,0,0.55), 0 0 40px rgba(91,156,245,0.08); }
+    0%, 100% { border-color: var(--border-glass); }
+    50%      { border-color: rgba(91,156,245,0.5); box-shadow: 0 0 24px rgba(91,156,245,0.1); }
   }
   .action-panel.glow {
     animation: panelGlow 1.5s ease-in-out 1;
   }
 
-  .app-shell.collapsed .action-panel { left: 56px; }
+  /* Schnellstart prominent */
+  .steu-action-btn.steu-primary {
+    background: rgba(91,156,245,0.08);
+    border-color: rgba(91,156,245,0.2);
+    font-size: 1.1em; padding: 10px 14px;
+  }
+  .steu-action-btn.steu-primary:hover {
+    background: rgba(91,156,245,0.14);
+    border-color: rgba(91,156,245,0.35);
+  }
+  .steu-action-btn.steu-primary .btn-label { font-weight: 700; }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
@@ -1142,22 +1161,21 @@
 
   <!-- ===== DASHBOARD ===== -->
   <main class="dashboard" id="dashboard">
+    <!-- ===== ACTION RESULT PANEL ===== -->
+    <div id="actionResultPanel" class="action-panel hidden">
+      <div class="arp-header">
+        <span class="arp-title" id="arpTitle">—</span>
+        <span class="arp-duration" id="arpDuration"></span>
+        <span class="arp-status" id="arpStatus" data-status="ok"></span>
+      </div>
+      <div class="arp-output" id="arpOutput"></div>
+      <div class="arp-items" id="arpItems"></div>
+    </div>
     <div class="placeholder-msg" id="emptyPlaceholder">
       <span class="ph-icon">⬌</span>
       Widget aus der Sidebar<br>hierher ziehen
     </div>
   </main>
-
-  <!-- ===== ACTION RESULT PANEL ===== -->
-  <div id="actionResultPanel" class="action-panel hidden">
-    <div class="arp-header">
-      <span class="arp-title" id="arpTitle">—</span>
-      <span class="arp-duration" id="arpDuration"></span>
-      <span class="arp-status" id="arpStatus" data-status="ok"></span>
-    </div>
-    <div class="arp-output" id="arpOutput"></div>
-    <div class="arp-items" id="arpItems"></div>
-  </div>
 
   <!-- ===== v8: LOCK TOGGLE ===== -->
   <button class="lock-toggle" id="lockToggle" title="Layout sperren (⌘L)" onclick="toggleLock()">🔓</button>
@@ -1368,9 +1386,10 @@
 
     // Aktionen als grosse Icon-Buttons (immer offen)
     html += '<div class="collapsible-section open"><div class="collapsible-header" onclick="toggleCollapsible(this.parentElement)"><span class="collapsible-arrow">\u25b6</span><span>Aktionen</span></div><div class="collapsible-body">';
-    // Quickstart + Fullcheck row
+    // Schnellstart — prominent
+    html += '<button class="steu-action-btn steu-primary" data-action="quick" onclick="handleWidgetAction(\'quick\')" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;margin-bottom:8px;"><span>\u26a1</span><span class="btn-label">Schnellstart</span><span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span></button>';
+    // Vollcheck + sekundäre Actions
     html += '<div style="display:flex;gap:4px;margin-bottom:6px;">';
-    html += '<button class="steu-action-btn" data-action="quick" onclick="handleWidgetAction(\'quick\')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;"><span>\u26a1</span><span class="btn-label">Schnellstart</span><span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span></button>';
     html += '<button class="steu-action-btn" data-action="fullcheck" onclick="handleWidgetAction(\'fullcheck\')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;"><span>\ud83d\udd0d</span><span class="btn-label">Vollcheck</span><span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span></button>';
     html += '</div>';
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:4px;">';
@@ -1553,10 +1572,34 @@
       }
     }
 
-    // Kurzer Glow-Impuls
+    // Body/Prompt — in scrollbarem Container
+    const oldBody = panel.querySelector('.arp-body-scroll');
+    if (oldBody) oldBody.remove();
+    if (res.body) {
+      const bodyEl = document.createElement('div');
+      bodyEl.className = 'arp-body-scroll';
+      bodyEl.textContent = res.body;
+      panel.appendChild(bodyEl);
+    }
+    if (res.prompt) {
+      const promptEl = document.createElement('div');
+      promptEl.className = 'arp-body-scroll';
+      promptEl.id = 'christianPrompt';
+      promptEl.textContent = res.prompt;
+      panel.appendChild(promptEl);
+      // Copy button
+      const copyBtn = document.createElement('button');
+      copyBtn.textContent = '📋 Kopieren';
+      copyBtn.onclick = copyChristianPrompt;
+      copyBtn.style.cssText = 'margin-top:4px;padding:4px 10px;font-size:0.8em;background:rgba(91,156,245,0.1);border:1px solid rgba(91,156,245,0.2);border-radius:var(--radius-sm);color:var(--accent-blue);cursor:pointer;align-self:flex-start;';
+      panel.appendChild(copyBtn);
+    }
+
+    // Kurzer Glow-Impuls + Scroll zum Panel
     panel.classList.remove('glow');
     void panel.offsetWidth;
     panel.classList.add('glow');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   async function handleWidgetAction(actionId) {
@@ -1666,10 +1709,10 @@
 
     // Extra content for spotlight/christian
     if (data.body) {
-      resultEl.innerHTML += `<pre style="font-size:0.82em;color:var(--text-secondary);white-space:pre-wrap;word-break:break-word;margin-top:6px;padding:8px;background:rgba(0,0,0,0.2);border-radius:var(--radius-sm);max-height:300px;overflow-y:auto;">${esc(data.body)}</pre>`;
+      resultEl.innerHTML += `<pre class="arp-body-scroll">${esc(data.body)}</pre>`;
     }
     if (data.prompt) {
-      resultEl.innerHTML += `<pre id="christianPrompt" style="font-size:0.82em;color:var(--text-secondary);white-space:pre-wrap;word-break:break-word;margin-top:6px;padding:8px;background:rgba(0,0,0,0.2);border-radius:var(--radius-sm);max-height:300px;overflow-y:auto;">${esc(data.prompt)}</pre>`;
+      resultEl.innerHTML += `<pre class="arp-body-scroll" id="christianPrompt">${esc(data.prompt)}</pre>`;
       resultEl.innerHTML += `<button onclick="copyChristianPrompt()" style="margin-top:4px;padding:4px 10px;font-size:0.8em;background:rgba(91,156,245,0.1);border:1px solid rgba(91,156,245,0.2);border-radius:var(--radius-sm);color:var(--accent-blue);cursor:pointer;">📋 Kopieren</button>`;
     }
   }
