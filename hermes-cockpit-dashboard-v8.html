@@ -1304,7 +1304,9 @@
       { k: 'cronjobs', label: 'Cronjobs', icon: '\u2699' },
       { k: 'skills', label: 'Skills', icon: '\u2726' },
       { k: 'memory', label: 'Memory', icon: '\ud83e\udde0' },
-      { k: 'update', label: 'Update', icon: '\u2b06' }
+      { k: 'update', label: 'Update', icon: '\u2b06' },
+      { k: 'spotlight', label: 'Spotlight', icon: '\ud83d\udd0d' },
+      { k: 'christian', label: 'An Christian', icon: '\u2709' }
     ];
     html += actions.map(a => `
       <button class="steu-action-btn" data-action="${a.k}" onclick="handleWidgetAction('${a.k}')" style="flex-direction:column;align-items:center;gap:2px;padding:8px 6px;border-radius:var(--radius-sm);">
@@ -1437,7 +1439,7 @@
     updateActionStatus(widgetBody, actionId, 'running');
 
     // Alle Actions nutzen individuelle /api/actions/* Endpunkte
-    const namedActions = ['ollama', 'cronjobs', 'skills', 'memory', 'update', 'quick', 'fullcheck'];
+    const namedActions = ['ollama', 'cronjobs', 'skills', 'memory', 'update', 'quick', 'fullcheck', 'spotlight', 'christian'];
     const apiUrl = namedActions.includes(actionId)
       ? API_BASE + '/api/actions/' + actionId
       : ACTION_API;
@@ -1528,6 +1530,24 @@
     }
 
     resultEl.innerHTML = html;
+
+    // Extra content for spotlight/christian
+    if (data.body) {
+      resultEl.innerHTML += `<pre style="font-size:0.82em;color:var(--text-secondary);white-space:pre-wrap;word-break:break-word;margin-top:6px;padding:8px;background:rgba(0,0,0,0.2);border-radius:var(--radius-sm);max-height:300px;overflow-y:auto;">${esc(data.body)}</pre>`;
+    }
+    if (data.prompt) {
+      resultEl.innerHTML += `<pre id="christianPrompt" style="font-size:0.82em;color:var(--text-secondary);white-space:pre-wrap;word-break:break-word;margin-top:6px;padding:8px;background:rgba(0,0,0,0.2);border-radius:var(--radius-sm);max-height:300px;overflow-y:auto;">${esc(data.prompt)}</pre>`;
+      resultEl.innerHTML += `<button onclick="copyChristianPrompt()" style="margin-top:4px;padding:4px 10px;font-size:0.8em;background:rgba(91,156,245,0.1);border:1px solid rgba(91,156,245,0.2);border-radius:var(--radius-sm);color:var(--accent-blue);cursor:pointer;">📋 Kopieren</button>`;
+    }
+  }
+
+  function copyChristianPrompt() {
+    const pre = document.getElementById('christianPrompt');
+    if (!pre) return;
+    navigator.clipboard.writeText(pre.textContent).then(() => {
+      const btn = pre.nextElementSibling;
+      if (btn) { btn.textContent = '✓ Kopiert!'; setTimeout(() => { btn.textContent = '📋 Kopieren'; }, 2000); }
+    }).catch(() => {});
   }
 
   // ========== v8.1: CHAT HELPERS ==========

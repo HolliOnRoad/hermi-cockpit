@@ -1272,3 +1272,159 @@ def action_fullcheck():
                 "duration_ms": round((time.time() - start) * 1000), "items": items}
     finally:
         _action_lock.release()
+
+
+# ── Spotlight / Christian ──────────────────────────────────────────
+
+OBSIDIAN_VAULT = Path.home() / "Library" / "Mobile Documents" / "iCloud~md~obsidian" / "Documents" / "Obsidian-mobile"
+SPOTLIGHT_DIR = OBSIDIAN_VAULT / "4_Ressourcen" / "Recherchen" / "KI-News-Analysen"
+SPOTLIGHT_MAX_CHARS = 12000
+SPOTLIGHT_MAX_FILES = 20
+
+
+def _find_newest_spotlight() -> Path | None:
+    """Find the newest Markdown file in the Spotlight directory."""
+    if not SPOTLIGHT_DIR.is_dir():
+        return None
+    md_files = sorted(
+        (p for p in SPOTLIGHT_DIR.iterdir() if p.suffix == ".md" and p.is_file()),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )[:SPOTLIGHT_MAX_FILES]
+    return md_files[0] if md_files else None
+
+
+def _parse_frontmatter(text: str) -> dict:
+    """Parse simple YAML-like frontmatter between --- markers."""
+    result: dict = {}
+    if not text.startswith("---"):
+        return result
+    end = text.find("---", 3)
+    if end == -1:
+        return result
+    block = text[3:end].strip()
+    for line in block.split("\n"):
+        if ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        key = key.strip()
+        value = value.strip().strip("'\"").strip("[]")
+        if value:
+            result[key] = value
+    return result
+
+
+@app.post("/api/actions/spotlight")
+def action_spotlight():
+    busy = _acquire_action_lock("spotlight")
+    if busy:
+        return busy
+    try:
+        start = time.time()
+        path = _find_newest_spotlight()
+        if not path:
+            return {"status": "error", "action": "spotlight",
+                    "output": "Keine Spotlight-Notiz gefunden",
+                    "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+        try:
+            raw = path.read_text()
+        except OSError:
+            return {"status": "error", "action": "spotlight",
+                    "output": "Datei nicht lesbar: " + str(path),
+                    "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+        fm = _parse_frontmatter(raw)
+
+        # Extract body (after frontmatter, skip first heading)
+        end_fm = raw.find("---", 3)
+        body = raw[end_fm + 3:].strip() if end_fm != -1 else raw
+        # Remove leading # Title line
+        if body.startswith("# "):
+            nl = body.find("\n")
+            title = body[2:nl].strip() if nl != -1 else body[2:].strip()
+            body = body[nl + 1:].strip() if nl != -1 else ""
+        else:
+            title = path.stem
+
+        # Limit body
+        body = body[:SPOTLIGHT_MAX_CHARS]
+
+        items = [
+            {"label": "Titel", "value": title},
+            {"label": "Datum", "value": fm.get("date", "—")},
+            {"label": "Quelle", "value": fm.get("source", "—")},
+            {"label": "Autor", "value": fm.get("autor", "—")},
+            {"label": "Relevanz", "value": fm.get("relevanz", "—") + "/100"},
+            {"label": "Hermes", "value": fm.get("hermes_impact", "—")},
+            {"label": "Zeichen", "value": str(len(raw))},
+        ]
+
+        return {"status": "ok", "action": "spotlight",
+                "output": title,
+                "duration_ms": round((time.time() - start) * 1000),
+                "items": items,
+                "body": body}
+    finally:
+        _action_lock.release()
+
+
+@app.post("/api/actions/christian")
+def action_christian():
+    busy = _acquire_action_lock("christian")
+    if busy:
+        return busy
+    try:
+        start = time.time()
+        path = _find_newest_spotlight()
+        if not path:
+            return {"status": "error", "action": "christian",
+                    "output": "Keine Spotlight-Notiz gefunden",
+                    "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+        try:
+            raw = path.read_text()
+        except OSError:
+            return {"status": "error", "action": "christian",
+                    "output": "Datei nicht lesbar",
+                    "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+        fm = _parse_frontmatter(raw)
+        end_fm = raw.find("---", 3)
+        body = raw[end_fm + 3:].strip() if end_fm != -1 else raw
+
+        if body.startswith("# "):
+            nl = body.find("\n")
+            title = body[2:nl].strip() if nl != -1 else body[2:].strip()
+            body = body[nl + 1:].strip() if nl != -1 else ""
+        else:
+            title = path.stem
+
+        # Limit body for the prompt
+        body = body[:SPOTLIGHT_MAX_CHARS]
+
+        prompt = (
+            f"SPOTLIGHT: {title}\n"
+            f"Datum: {fm.get('date', '—')}\n"
+            f"Quelle: {fm.get('source', '—')}\n"
+            f"Pfad: {path}\n"
+            f"\nZUSAMMENFASSUNG / ANALYSE:\n{body}\n"
+            f"\n---\n"
+            f"Christian, hier die neueste KI-News-Analyse aus dem Hermes-Spotlight.\n"
+            f"Schau dir bitte die Quelle und Analyse an und lass uns kurz dazu austauschen.\n"
+        )
+
+        # Truncate if too long
+        if len(prompt) > SPOTLIGHT_MAX_CHARS:
+            prompt = prompt[:SPOTLIGHT_MAX_CHARS] + "\n… [gekürzt]"
+
+        return {"status": "ok", "action": "christian",
+                "output": title,
+                "duration_ms": round((time.time() - start) * 1000),
+                "items": [{"label": "Titel", "value": title},
+                          {"label": "Datum", "value": fm.get("date", "—")},
+                          {"label": "Quelle", "value": fm.get("source", "—")},
+                          {"label": "Pfad", "value": str(path)}],
+                "prompt": prompt}
+    finally:
+        _action_lock.release()
