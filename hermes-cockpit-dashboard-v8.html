@@ -478,7 +478,10 @@
   .widget[data-widget="terminal"] .widget-body {
     display: flex; flex-direction: column;
     overflow: hidden; padding: 6px 8px 4px;
+    max-height: 300px;
   }
+  .widget[data-widget="terminal"] { opacity: 0.85; }
+  .widget[data-widget="terminal"]:hover { opacity: 1; }
 
   /* === STEUERUNG WIDGET === */
   .steuerung-panel { display: flex; flex-direction: column; gap: 8px; }
@@ -1010,7 +1013,8 @@
     display: flex; align-items: center; gap: 12px;
   }
   .arp-title {
-    font-weight: 700; font-size: 13px; color: var(--text-primary); flex: 1;
+    font-weight: 700; font-size: 14px; color: var(--text-primary); flex: 1;
+    letter-spacing: 0.01em;
   }
   .arp-duration {
     font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
@@ -1208,7 +1212,7 @@
     news:     { w: '300px', h: 'auto', fs: 10 },
     weather:  { w: '240px', h: 'auto', fs: 10 },
     skills:   { w: '280px', h: 'auto', fs: 10 },
-    steuerung:{ w: '420px', h: 'auto', fs: 10 },
+    steuerung:{ w: '520px', h: 'auto', fs: 10 },
     chat:     { w: '360px', h: 'auto', fs: 10 },
     inbox:    { w: '320px', h: 'auto', fs: 10 },
     notes:    { w: '300px', h: 'auto', fs: 10 }
@@ -1342,7 +1346,7 @@
         const idSuffix = Date.now();
         body.innerHTML = `
           <div class="chat-panel">
-            <div class="chat-output" id="chatOutput_${idSuffix}" contenteditable="true">Copy/Paste-Panel \u2014 kein KI-Backend.\nText hier ablegen oder von KI-Tools reinkopieren.</div>
+            <div class="chat-output" id="chatOutput_${idSuffix}" contenteditable="true">Kein KI-Backend verbunden.\nNotizblock \u2013 Text hier ablegen.</div>
             <div class="chat-input-row">
               <input class="chat-input" id="chatInput_${idSuffix}" placeholder="Text hier eingeben oder pasten..." onkeydown="if(event.key==='Enter')chatAppend('${idSuffix}')">
               <button class="chat-btn" onclick="chatAppend('${idSuffix}')">+</button>
@@ -2018,7 +2022,7 @@
       const addLink = pendingCol.querySelector('.task-add');
       const empty = document.createElement('div');
       empty.className = 'empty-column';
-      empty.innerHTML = '<div class="ec-icon">🎉</div><div>Alles erledigt!</div><div style="font-size:0.85em;">Neue Task mit + anlegen</div>';
+      empty.innerHTML = '<div class="ec-icon">🎉</div><div>Keine Aufgaben &ndash; alles ruhig</div><div style="font-size:0.85em;">Neue Task mit + anlegen</div>';
       if (addLink) pendingCol.insertBefore(empty, addLink);
       else pendingCol.appendChild(empty);
     } else if (pendingCards > 0) {
@@ -2028,7 +2032,7 @@
     if (doneCards === 0 && !doneCol.querySelector('.empty-column')) {
       const empty = document.createElement('div');
       empty.className = 'empty-column';
-      empty.innerHTML = '<div class="ec-icon">📋</div><div>Noch nichts erledigt</div><div style="font-size:0.85em;">Erste Task abhaken!</div>';
+      empty.innerHTML = '<div class="ec-icon">📋</div><div>Keine erledigten Aufgaben</div><div style="font-size:0.85em;">Erste Task abhaken</div>';
       doneCol.appendChild(empty);
     } else if (doneCards > 0) {
       const empty = doneCol.querySelector('.empty-column');
@@ -2077,7 +2081,7 @@
   }
 
   function applyCollapseState() {
-    const collapsed = localStorage.getItem('hermes-sidebar-collapsed') === 'true';
+    const collapsed = localStorage.getItem('hermes-sidebar-collapsed') !== 'false';
     const shell = document.getElementById('appShell');
     if (collapsed) shell.classList.add('collapsed');
     else shell.classList.remove('collapsed');
@@ -2889,7 +2893,7 @@
         return;
       }
       if (!data.jobs || data.jobs.length === 0) {
-        container.innerHTML = '<span class="term-dim">Keine Cron-Jobs gefunden</span>';
+        container.innerHTML = '<span class="term-dim">Keine Cron-Jobs</span>';
         return;
       }
       container.innerHTML = data.jobs.map(j => {
@@ -2922,7 +2926,7 @@
         return;
       }
       if (!data.news || data.news.length === 0) {
-        container.innerHTML = '<span class="term-dim">Keine News geladen</span><br><span style="font-size:0.8em;opacity:0.5;">News-Liste ist leer</span>';
+        container.innerHTML = '<span class="term-dim">Keine News \u2013 Backend pr\u00fcfen</span><br><span style="font-size:0.8em;opacity:0.5;">News-Liste ist leer</span>';
         return;
       }
       container.innerHTML = data.news.map(n =>
@@ -2946,7 +2950,7 @@
       const container = document.getElementById('agentsContainer');
       if (!container) return;
       if (!data.agents || data.agents.length === 0) {
-        container.innerHTML = '<span class="term-dim">Keine Agenten gefunden</span>';
+        container.innerHTML = '<span class="term-dim">Keine Agenten aktiv</span>';
         return;
       }
       container.innerHTML = data.agents.map(a => {
@@ -3046,7 +3050,7 @@
       const container = document.getElementById('skillsContainer');
       if (!container) return;
       if (!data.skills || data.skills.length === 0) {
-        container.innerHTML = '<span class="term-dim">Keine Skills gefunden</span>';
+        container.innerHTML = '<span class="term-dim">Keine Skills geladen</span>';
         return;
       }
       container.innerHTML = data.skills.map(s =>
