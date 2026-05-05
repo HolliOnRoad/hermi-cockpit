@@ -632,6 +632,18 @@
   .inbox-btn.active { background: rgba(91,156,245,0.1); border-color: rgba(91,156,245,0.2); color: var(--accent-blue); }
   .inbox-empty { text-align: center; padding: 20px; color: var(--text-dim); opacity: 0.5; font-style: italic; }
 
+  .inbox-toolbar { display: flex; align-items: center; gap: 8px; padding: 2px 0 6px; }
+  .inbox-refresh-btn {
+    font-size: 9px; padding: 2px 8px; border-radius: 4px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass);
+    color: var(--text-dim); cursor: pointer; transition: var(--transition);
+    font-family: var(--font-ui); white-space: nowrap;
+  }
+  .inbox-refresh-btn:hover {
+    background: rgba(255,255,255,0.08); color: var(--text-primary);
+    border-color: var(--border-glass-hover);
+  }
+
   /* ================================================================
      NOTES WIDGET
      ================================================================ */
@@ -1305,10 +1317,10 @@
       }
     },
     inbox: {
-      name: 'Inbox', icon: '✉',
+      name: 'Inbox', icon: '\u2709',
       render(body, fs) {
         body.style.fontSize = fs + 'px';
-        body.innerHTML = '<div id="inboxContainer"><span class="term-dim">Lade Inbox…</span></div>';
+        body.innerHTML = '<div class="inbox-toolbar"><button class="inbox-refresh-btn" onclick="fetchInbox()">\u21bb Aktualisieren</button></div><div id="inboxContainer"><span class="term-dim">Lade Inbox\u2026</span></div>';
         fetchInbox();
       }
     },
