@@ -971,10 +971,17 @@ def dashboard_inbox():
     try:
         raw = inbox_path.read_text()
         entries = []
-        for line in raw.strip().split("\n"):
+        for i, line in enumerate(raw.strip().split("\n")):
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
+            # Strip status markers: [x] [o] [>]
+            status = "new"
+            for marker, st in [("[x]", "done"), ("[o]", "seen"), ("[>]", "later")]:
+                if line.startswith(marker + " "):
+                    status = st
+                    line = line[len(marker) + 1:].strip()
+                    break
             if line.startswith("- "):
                 line = line[2:]
             if "|" in line:
@@ -984,7 +991,7 @@ def dashboard_inbox():
                 t = parts[2] if len(parts) > 2 else ""
             else:
                 title, source, t = line, "", ""
-            entries.append({"id": title[:40], "title": title, "source": source, "time": t})
+            entries.append({"id": title[:40], "title": title, "source": source, "time": t, "status": status, "line_index": i})
         return {"connected": True, "entries": entries[:MAX_ITEMS]}
     except OSError as e:
         return {"connected": False, "message": str(e), "entries": []}
@@ -1270,6 +1277,84 @@ def action_fullcheck():
         return {"status": "ok", "action": "fullcheck",
                 "output": "Briefing erledigt",
                 "duration_ms": round((time.time() - start) * 1000), "items": items}
+    finally:
+        _action_lock.release()
+
+
+@app.post("/api/actions/inbox")
+def action_inbox(body: dict):
+    """Update status of an inbox entry by title match."""
+    busy = _acquire_action_lock("inbox")
+    if busy:
+        return busy
+    try:
+        start = time.time()
+        inbox_path = Path.home() / ".hermes" / "shared" / "inbox.md"
+        if not inbox_path.exists():
+            return {"status": "error", "action": "inbox",
+                    "output": "inbox.md nicht gefunden",
+                    "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+        action_type = body.get("action", "seen")
+        entry_title = body.get("title", "")
+
+        if not entry_title:
+            return {"status": "error", "action": "inbox",
+                    "output": "title fehlt",
+                    "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+        try:
+            raw = inbox_path.read_text()
+        except OSError:
+            return {"status": "error", "action": "inbox",
+                    "output": "Datei nicht lesbar",
+                    "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+        lines = raw.split("\n")
+        found = False
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            # Strip existing markers
+            for marker in ["[x]", "[o]", "[>]"]:
+                if stripped.startswith(marker + " "):
+                    stripped = stripped[len(marker) + 1:].strip()
+                    break
+            if stripped.startswith("- "):
+                stripped = stripped[2:].strip()
+            # Check if this line contains our title
+            if entry_title in stripped or stripped == entry_title:
+                # Remove existing markers, apply new one
+                clean = line
+                for marker in ["[x] ", "[o] ", "[>] "]:
+                    pl = len(line) - len(line.lstrip())
+                    if line.lstrip().startswith(marker):
+                        clean = line[:pl] + line[pl:].replace(marker, "", 1).lstrip()
+                        break
+                marker_map = {"done": "[x]", "later": "[>]", "seen": "[o]"}
+                marker = marker_map.get(action_type, "[o]")
+                leading = " " * (len(line) - len(line.lstrip()))
+                lines[i] = leading + marker + " " + clean.lstrip()
+                found = True
+                break
+
+        if not found:
+            return {"status": "error", "action": "inbox",
+                    "output": "Eintrag nicht gefunden",
+                    "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+        try:
+            inbox_path.write_text("\n".join(lines))
+        except OSError:
+            return {"status": "error", "action": "inbox",
+                    "output": "Datei nicht schreibbar",
+                    "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+        return {"status": "ok", "action": "inbox",
+                "output": f"Status {action_type} gesetzt",
+                "duration_ms": round((time.time() - start) * 1000),
+                "items": [{"label": "Status", "value": action_type}]}
     finally:
         _action_lock.release()
 

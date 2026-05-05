@@ -1821,7 +1821,7 @@
     updateActionPanel({ status: 'busy', action: actionId, output: 'Wird ausgeführt…', items: [] }, 0);
 
     // Alle Actions nutzen individuelle /api/actions/* Endpunkte
-    const namedActions = ['ollama', 'cronjobs', 'skills', 'memory', 'update', 'quick', 'fullcheck', 'spotlight', 'christian'];
+    const namedActions = ['ollama', 'cronjobs', 'skills', 'memory', 'update', 'quick', 'fullcheck', 'spotlight', 'christian', 'inbox'];
     const apiUrl = namedActions.includes(actionId)
       ? API_BASE + '/api/actions/' + actionId
       : ACTION_API;
@@ -2029,18 +2029,16 @@
   }
 
   function renderInboxEntries(container, entries, state) {
-    state._cached = entries;
-    saveInboxState(state);
-
     container.innerHTML = entries.map((e, i) => {
       const id = e.id || 'entry_' + i;
-      const entryState = state[id] || 'new';
+      const entryState = e.status || state[id] || 'new';
+      const lineIndex = e.line_index;
       const dotClass = entryState === 'new' ? 'new' : entryState === 'seen' ? 'seen' : entryState === 'later' ? 'later' : 'done';
       const title = e.title || e.subject || 'Eintrag ' + (i + 1);
       const source = e.source || e.from || '';
       const time = e.time || e.date || '';
       return `
-        <div class="inbox-item" data-inbox-id="${id}" data-state="${entryState}">
+        <div class="inbox-item" data-inbox-id="${id}" data-state="${entryState}" data-line-index="${lineIndex}">
           <div class="inbox-dot ${dotClass}"></div>
           <div class="inbox-content">
             <div class="inbox-title">${esc(title)}</div>
@@ -2060,21 +2058,24 @@
   }
 
   function updateInboxItem(id, newState) {
-    const state = getInboxState();
-    state[id] = newState;
-    saveInboxState(state);
-
+    // Persist via backend using title match
     const item = document.querySelector(`.inbox-item[data-inbox-id="${id}"]`);
-    if (item) {
-      item.dataset.state = newState;
-      const dot = item.querySelector('.inbox-dot');
-      if (dot) dot.className = 'inbox-dot ' + newState;
-      const buttons = item.querySelectorAll('.inbox-btn');
-      buttons.forEach(b => b.classList.remove('active'));
-      const target = item.querySelector(`.inbox-btn${newState === 'seen' ? ':first-child' : newState === 'later' ? ':nth-child(2)' : ':last-child'}`);
-      if (target) target.classList.add('active');
-    }
-    termLog('Inbox: ' + id + ' \u2192 ' + newState);
+    const titleEl = item ? item.querySelector('.inbox-title') : null;
+    const title = titleEl ? titleEl.textContent.trim() : id;
+    if (!title) return;
+
+    fetch(API_BASE + '/api/actions/inbox', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: newState, title: title })
+    }).then(r => r.json()).then(res => {
+      if (res.status === 'ok') {
+        fetchInbox();
+        updateActionPanel(res, res.duration_ms || 0);
+      }
+    }).catch(err => {
+      console.warn('Inbox update failed:', err);
+    });
   }
 
   // ========== v8.1: NOTES ==========
