@@ -2849,8 +2849,7 @@
       const resp = await fetch(API_BASE + '/api/memory');
       if (!resp.ok) return;
       const data = await resp.json();
-      const content = data.content || '';
-      const chars = content.length;
+      const chars = data.total_chars || 0;
       const maxChars = 8000;
       const percent = Math.min(100, Math.round(chars / maxChars * 100));
       const memVal = document.getElementById('sidebarMemoryVal');

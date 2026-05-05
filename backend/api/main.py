@@ -370,13 +370,13 @@ async def chat_hermes(req: ChatRequest):
 def memory():
     memory_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
     if not memory_path.exists():
-        return {"content": "", "memory_chars": 0, "user_chars": 0,
-                "total_chars": 0, "memory_pct": 0, "user_pct": 0, "entries": 0}
+        return {"status": "empty", "total_chars": 0, "memory_chars": 0, "user_chars": 0,
+                "memory_pct": 0, "user_pct": 0, "entries": 0, "preview": ""}
     try:
         text = memory_path.read_text()
     except OSError:
-        return {"content": "", "memory_chars": 0, "user_chars": 0,
-                "total_chars": 0, "memory_pct": 0, "user_pct": 0, "entries": 0}
+        return {"status": "empty", "total_chars": 0, "memory_chars": 0, "user_chars": 0,
+                "memory_pct": 0, "user_pct": 0, "entries": 0, "preview": ""}
 
     total_chars = len(text)
     entries = text.count("\n\u00a7\n") + (1 if text.startswith("\u00a7\n") else 0)
@@ -409,14 +409,18 @@ def memory():
     memory_pct = round(memory_chars / total_chars * 100) if total_chars > 0 else 0
     user_pct = round(user_chars / total_chars * 100) if total_chars > 0 else 0
 
+    # Kurze Vorschau (erste 200 Zeichen des Memory-Bereichs)
+    preview = memory_section[:200].strip() if memory_section else ""
+
     return {
-        "content": text,
+        "status": "ok",
+        "total_chars": total_chars,
         "memory_chars": memory_chars,
         "user_chars": user_chars,
-        "total_chars": total_chars,
         "memory_pct": memory_pct,
         "user_pct": user_pct,
         "entries": entries,
+        "preview": preview,
     }
 
 
@@ -587,22 +591,28 @@ def weather_proxy():
 
 @app.get("/api/news")
 def news():
+    MAX_ITEMS = 20
     news_path = Path.home() / ".hermes" / "news" / "latest.json"
     if not news_path.exists():
         return {"news": []}
     try:
-        return {"news": json.loads(news_path.read_text())}
+        data = json.loads(news_path.read_text())
+        items = data if isinstance(data, list) else data.get("news", data.get("items", []))
+        return {"news": items[:MAX_ITEMS]}
     except (json.JSONDecodeError, OSError):
         return {"news": []}
 
 
 @app.get("/api/tasks")
 def tasks():
+    MAX_TASKS = 50
     tasks_path = Path.home() / ".hermes" / "tasks.json"
     if not tasks_path.exists():
         return {"tasks": []}
     try:
-        return {"tasks": json.loads(tasks_path.read_text())}
+        tasks_data = json.loads(tasks_path.read_text())
+        items = tasks_data if isinstance(tasks_data, list) else tasks_data.get("tasks", [])
+        return {"tasks": items[:MAX_TASKS]}
     except (json.JSONDecodeError, OSError):
         return {"tasks": []}
 
@@ -804,6 +814,7 @@ def action(body: ActionRequest):
 
 @app.get("/api/inbox")
 def inbox():
+    MAX_ITEMS = 30
     inbox_path = Path.home() / ".hermes" / "shared" / "inbox.md"
     if not inbox_path.exists():
         return {"entries": [], "note": "inbox.md nicht gefunden"}
@@ -824,7 +835,7 @@ def inbox():
             else:
                 title, source, t = line, "", ""
             entries.append({"id": title[:40], "title": title, "source": source, "time": t})
-        return {"entries": entries}
+        return {"entries": entries[:MAX_ITEMS]}
     except OSError as e:
         return {"entries": [], "note": str(e)}
 
@@ -939,19 +950,21 @@ def dashboard_cron():
 
 @app.get("/api/dashboard/tasks")
 def dashboard_tasks():
+    MAX_TASKS = 50
     tasks_path = Path.home() / ".hermes" / "tasks.json"
     if not tasks_path.exists():
         return {"connected": False, "message": "tasks.json nicht gefunden", "tasks": []}
     try:
         tasks_data = json.loads(tasks_path.read_text())
         tasks = tasks_data if isinstance(tasks_data, list) else tasks_data.get("tasks", [])
-        return {"connected": True, "tasks": tasks}
+        return {"connected": True, "tasks": tasks[:MAX_TASKS]}
     except (json.JSONDecodeError, OSError):
         return {"connected": False, "message": "tasks.json nicht lesbar", "tasks": []}
 
 
 @app.get("/api/dashboard/inbox")
 def dashboard_inbox():
+    MAX_ITEMS = 30
     inbox_path = Path.home() / ".hermes" / "shared" / "inbox.md"
     if not inbox_path.exists():
         return {"connected": False, "message": "inbox.md nicht gefunden", "entries": []}
@@ -972,20 +985,21 @@ def dashboard_inbox():
             else:
                 title, source, t = line, "", ""
             entries.append({"id": title[:40], "title": title, "source": source, "time": t})
-        return {"connected": True, "entries": entries}
+        return {"connected": True, "entries": entries[:MAX_ITEMS]}
     except OSError as e:
         return {"connected": False, "message": str(e), "entries": []}
 
 
 @app.get("/api/dashboard/news")
 def dashboard_news():
+    MAX_ITEMS = 20
     news_path = Path.home() / ".hermes" / "news" / "latest.json"
     if not news_path.exists():
         return {"connected": False, "message": "Backend-Hook fehlt", "news": []}
     try:
         data = json.loads(news_path.read_text())
         news = data if isinstance(data, list) else data.get("news", data.get("items", []))
-        return {"connected": True, "news": news}
+        return {"connected": True, "news": news[:MAX_ITEMS]}
     except (json.JSONDecodeError, OSError):
         return {"connected": False, "message": "latest.json nicht lesbar", "news": []}
 
