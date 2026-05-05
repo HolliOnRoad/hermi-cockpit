@@ -1166,7 +1166,9 @@
           <div class="sys-row" style="margin-top:6px;"><span class="sys-label">Disk</span><span class="sys-val" id="sysDiskVal">…</span></div>
           <div class="sys-bar-track"><div class="sys-bar-fill disk" id="sysDiskBar" style="width:0%;"></div></div>
           <div class="sys-row" style="margin-top:6px;"><span class="sys-label">Network</span><span class="sys-val" id="sysNetVal">…</span></div>
-          <div class="sys-row" style="margin-top:2px;"><span class="sys-label">Online seit</span><span class="sys-val" style="font-size:0.85em;" id="sysUptimeVal">… (seit Seitenaufruf)</span></div>
+          <div class="sys-row" style="margin-top:2px;"><span class="sys-label">Net RX</span><span class="sys-val" style="font-size:0.85em;" id="sysNetRxVal">…</span></div>
+          <div class="sys-row"><span class="sys-label">Net TX</span><span class="sys-val" style="font-size:0.85em;" id="sysNetTxVal">…</span></div>
+          <div class="sys-row" style="margin-top:6px;"><span class="sys-label">Online seit</span><span class="sys-val" style="font-size:0.85em;" id="sysUptimeVal">…</span></div>
         `;
       }
     },
@@ -1433,16 +1435,26 @@
     const startTime = performance.now();
     updateActionStatus(widgetBody, actionId, 'running');
 
+    // Use individual /api/actions/* endpoints for named actions, fallback to /api/action for others
+    const namedActions = ['ollama', 'cronjobs', 'skills', 'memory', 'update'];
+    const apiUrl = namedActions.includes(actionId)
+      ? API_BASE + '/api/actions/' + actionId
+      : ACTION_API;
+
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 20000);
 
-      const resp = await fetch(ACTION_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: actionId, mode: 'full' }),
-        signal: controller.signal
-      });
+      const fetchOptions = namedActions.includes(actionId)
+        ? { method: 'POST', signal: controller.signal }
+        : {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: actionId, mode: 'full' }),
+            signal: controller.signal
+          };
+
+      const resp = await fetch(apiUrl, fetchOptions);
       clearTimeout(timeout);
 
       const durationMs = Math.round(performance.now() - startTime);
@@ -1518,7 +1530,7 @@
 
   // ========== v8.1: INBOX ==========
   const INBOX_STORAGE_KEY = 'hermes-inbox';
-  const INBOX_API = 'http://127.0.0.1:8000/api/inbox';
+  const INBOX_API = 'http://127.0.0.1:8000/api/dashboard/inbox';
 
   function getInboxState() {
     try { return JSON.parse(localStorage.getItem(INBOX_STORAGE_KEY) || '{}'); }
@@ -1552,6 +1564,11 @@
       const resp = await fetch(INBOX_API);
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
+      if (!data.connected) {
+        if (!container) return;
+        container.innerHTML = '<div class="inbox-empty">Nicht verbunden<br><span style="font-size:0.8em;">' + (data.message || 'Backend-Hook fehlt') + '</span></div>';
+        return;
+      }
       const entries = data.entries || data.inbox || [];
       updateBadge(entries);
       if (!container) return;
@@ -1568,7 +1585,7 @@
         renderInboxEntries(container, cached, state);
         return;
       }
-      container.innerHTML = '<div class="inbox-empty">Inbox-Platzhalter<br><span style="font-size:0.8em;">GET /api/inbox \u2192 ~/.hermes/shared/inbox.md</span><br><span style="font-size:0.75em;opacity:0.6;">Backend-Hook fehlt</span></div>';
+      container.innerHTML = '<div class="inbox-empty">Nicht verbunden<br><span style="font-size:0.8em;">Backend nicht erreichbar</span></div>';
     }
   }
 
@@ -2495,7 +2512,6 @@
 
   // ========== v8: LIVE DATA ==========
   const API_BASE = 'http://127.0.0.1:8000';
-  let pageStartTime = performance.now();
 
   function updateLiveClock() {
     const now = new Date();
@@ -2503,18 +2519,12 @@
     if (dateEl) {
       dateEl.textContent = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
-    const uptimeEl = document.getElementById('sysUptimeVal');
-    if (uptimeEl) {
-      const mins = Math.floor((performance.now() - pageStartTime) / 60000);
-      const hrs = Math.floor(mins / 60);
-      uptimeEl.textContent = hrs + 'h ' + (mins % 60) + 'm (seit Seitenaufruf)';
-    }
   }
 
   // ── System ──
   async function fetchSystem() {
     try {
-      const resp = await fetch(API_BASE + '/api/system');
+      const resp = await fetch(API_BASE + '/api/dashboard/status');
       if (!resp.ok) return;
       const d = await resp.json();
       const cpuEl = document.getElementById('sysCpuVal');
@@ -2547,7 +2557,22 @@
       if (diskBar) diskBar.style.width = d.disk_percent + '%';
 
       const netEl = document.getElementById('sysNetVal');
-      if (netEl) netEl.textContent = d.network_kb_s + ' KB/s';
+      if (netEl) netEl.textContent = (d.network_rx_kbps + d.network_tx_kbps).toFixed(1) + ' KB/s';
+
+      const netRxEl = document.getElementById('sysNetRxVal');
+      if (netRxEl) netRxEl.textContent = '↓ ' + d.network_rx_kbps + ' KB/s';
+
+      const netTxEl = document.getElementById('sysNetTxVal');
+      if (netTxEl) netTxEl.textContent = '↑ ' + d.network_tx_kbps + ' KB/s';
+
+      const uptimeEl = document.getElementById('sysUptimeVal');
+      if (uptimeEl) {
+        const secs = d.uptime_seconds || 0;
+        const days = Math.floor(secs / 86400);
+        const hrs = Math.floor((secs % 86400) / 3600);
+        const mins = Math.floor((secs % 3600) / 60);
+        uptimeEl.textContent = days + 'd ' + hrs + 'h ' + mins + 'm (System-Uptime)';
+      }
     } catch (err) {
       console.warn('System fetch failed:', err);
     }
@@ -2636,11 +2661,15 @@
   // ── Jobs ──
   async function fetchJobs() {
     try {
-      const resp = await fetch(API_BASE + '/api/cron');
-      if (!resp.ok) return;
+      const resp = await fetch(API_BASE + '/api/dashboard/cron');
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
       const container = document.getElementById('jobsContainer');
       if (!container) return;
+      if (!data.connected) {
+        container.innerHTML = '<span class="term-dim">Nicht verbunden</span><br><span style="font-size:0.8em;opacity:0.5;">' + (data.message || 'Backend-Hook fehlt') + '</span>';
+        return;
+      }
       if (!data.jobs || data.jobs.length === 0) {
         container.innerHTML = '<span class="term-dim">Keine Cron-Jobs gefunden</span>';
         return;
@@ -2656,6 +2685,8 @@
         return '<div class="job-row' + rowClass + '"><div><div class="job-title">' + name + '</div><div class="job-sched">' + sched + '</div></div><span class="job-stat ' + statusClass + '">' + statusText + '</span></div>';
       }).join('');
     } catch (err) {
+      const container = document.getElementById('jobsContainer');
+      if (container) container.innerHTML = '<span class="term-dim">Nicht verbunden</span><br><span style="font-size:0.8em;opacity:0.5;">Backend nicht erreichbar</span>';
       console.warn('Jobs fetch failed:', err);
     }
   }
@@ -2663,13 +2694,17 @@
   // ── News ──
   async function fetchNews() {
     try {
-      const resp = await fetch(API_BASE + '/api/news');
+      const resp = await fetch(API_BASE + '/api/dashboard/news');
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
       const container = document.getElementById('newsContainer');
       if (!container) return;
+      if (!data.connected) {
+        container.innerHTML = '<span class="term-dim">Nicht verbunden</span><br><span style="font-size:0.8em;opacity:0.5;">' + (data.message || 'Backend-Hook fehlt') + '</span>';
+        return;
+      }
       if (!data.news || data.news.length === 0) {
-        container.innerHTML = '<span class="term-dim">Keine News geladen\u2002\u2014\u2002GET /api/news</span><br><span style="font-size:0.8em;opacity:0.5;">Backend-Hook fehlt</span>';
+        container.innerHTML = '<span class="term-dim">Keine News geladen</span><br><span style="font-size:0.8em;opacity:0.5;">News-Liste ist leer</span>';
         return;
       }
       container.innerHTML = data.news.map(n =>
@@ -2678,7 +2713,7 @@
     } catch (err) {
       const container = document.getElementById('newsContainer');
       if (container) {
-        container.innerHTML = '<span class="term-dim">Keine News geladen\u2002\u2014\u2002GET /api/news</span><br><span style="font-size:0.8em;opacity:0.5;">Backend-Hook fehlt</span>';
+        container.innerHTML = '<span class="term-dim">Nicht verbunden</span><br><span style="font-size:0.8em;opacity:0.5;">Backend nicht erreichbar</span>';
       }
       console.warn('News fetch failed:', err);
     }
@@ -2713,12 +2748,30 @@
   // ── Tasks ──
   async function fetchTasks() {
     try {
-      const resp = await fetch(API_BASE + '/api/tasks');
+      const resp = await fetch(API_BASE + '/api/dashboard/tasks');
       if (!resp.ok) return;
       const data = await resp.json();
       const pendingCol = document.getElementById('taskColPending');
       const doneCol = document.getElementById('taskColDone');
       if (!pendingCol && !doneCol) return;
+
+      if (!data.connected && !data.tasks) {
+        if (pendingCol) {
+          const cntEl = pendingCol.querySelector('.cnt');
+          if (cntEl) cntEl.textContent = '0';
+          const existing = pendingCol.querySelectorAll('.task-card');
+          existing.forEach(el => el.remove());
+          if (!pendingCol.querySelector('.empty-column')) {
+            const empty = document.createElement('div');
+            empty.className = 'empty-column';
+            empty.innerHTML = '<div class="ec-icon">⏳</div><div>Backend nicht verbunden</div><div style="font-size:0.8em;opacity:0.5;">' + (data.message || 'tasks.json fehlt') + '</div>';
+            const addEl = pendingCol.querySelector('.task-add');
+            if (addEl) pendingCol.insertBefore(empty, addEl);
+            else pendingCol.appendChild(empty);
+          }
+        }
+        return;
+      }
 
       const tasks = data.tasks || [];
       const pending = tasks.filter(t => t.status !== 'done' && t.status !== 'erledigt');
@@ -2863,7 +2916,6 @@
 
   // ========== INIT ==========
   function init() {
-    pageStartTime = performance.now();
     applyLockState();
     applyCollapseState();
 
@@ -2878,39 +2930,39 @@
     setTimeout(markTopZone, 200);
 
     // Auto quick-check nach 1.5s
-    setTimeout(() => handleWidgetAction('quick'), 1500);
+    // deaktiviert: kein automatischer Quick-Action-Start nach Seitenladung
 
     updateLiveClock();
     setInterval(updateLiveClock, 30000);
 
     fetchSystem();
-    setInterval(fetchSystem, 2000);
+    setInterval(fetchSystem, 15000);
 
     fetchWeather();
-    setInterval(fetchWeather, 30000);
+    setInterval(fetchWeather, 120000);
 
     fetchJobs();
-    setInterval(fetchJobs, 30000);
+    setInterval(fetchJobs, 120000);
 
     fetchNews();
-    setInterval(fetchNews, 30000);
+    setInterval(fetchNews, 120000);
 
     fetchAgents();
-    setInterval(fetchAgents, 30000);
+    setInterval(fetchAgents, 120000);
 
     fetchTasks();
-    setInterval(fetchTasks, 30000);
+    setInterval(fetchTasks, 120000);
 
     fetchSkills();
-    setInterval(fetchSkills, 30000);
+    setInterval(fetchSkills, 120000);
 
     fetchMemory();
-    setInterval(fetchMemory, 30000);
+    setInterval(fetchMemory, 120000);
 
     fetchInbox();
     setInterval(fetchInbox, 60000);
 
-    refreshAllActionStatuses();
+    // deaktiviert: kein automatischer Action-Status-Refresh beim Start
 
     ptyInit();
   }

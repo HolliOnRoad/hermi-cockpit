@@ -284,7 +284,7 @@ def system_metrics():
             status_code=500,
         )
 
-    cpu = psutil.cpu_percent(interval=0.1)
+    cpu = psutil.cpu_percent(interval=None)
     ram = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
     net = psutil.net_io_counters()
@@ -823,3 +823,281 @@ def inbox():
         return {"entries": entries}
     except OSError as e:
         return {"entries": [], "note": str(e)}
+
+
+# ── Dashboard-spezifische Endpunkte ─────────────────────────────────
+
+
+_net_prev_bytes: dict | None = None
+_net_prev_ts: float = 0
+
+
+@app.get("/api/dashboard/status")
+def dashboard_status():
+    global _net_prev_bytes, _net_prev_ts
+
+    try:
+        import psutil
+    except ImportError:
+        return JSONResponse({"error": "psutil not installed"}, status_code=500)
+
+    cpu = psutil.cpu_percent(interval=None)
+    ram = psutil.virtual_memory()
+    disk = psutil.disk_usage("/")
+    net = psutil.net_io_counters()
+    now = time.time()
+
+    # Real OS uptime
+    uptime_seconds = int(time.time() - psutil.boot_time())
+
+    # Network rate (delta-based)
+    net_rx_kbps = 0.0
+    net_tx_kbps = 0.0
+    current = {"bytes_sent": net.bytes_sent, "bytes_recv": net.bytes_recv}
+    if _net_prev_bytes and _net_prev_ts > 0:
+        elapsed = now - _net_prev_ts
+        if elapsed > 0:
+            rx_delta = current["bytes_recv"] - _net_prev_bytes["bytes_recv"]
+            tx_delta = current["bytes_sent"] - _net_prev_bytes["bytes_sent"]
+            net_rx_kbps = round(rx_delta / elapsed / 1024, 1)
+            net_tx_kbps = round(tx_delta / elapsed / 1024, 1)
+    _net_prev_bytes = current
+    _net_prev_ts = now
+
+    return {
+        "cpu_percent": round(cpu, 1),
+        "ram_used_gb": round(ram.used / (1024**3), 1),
+        "ram_total_gb": round(ram.total / (1024**3), 1),
+        "ram_percent": ram.percent,
+        "disk_used_gb": round(disk.used / (1024**3), 1),
+        "disk_total_gb": round(disk.total / (1024**3), 1),
+        "disk_percent": disk.percent,
+        "network_rx_kbps": net_rx_kbps,
+        "network_tx_kbps": net_tx_kbps,
+        "uptime_seconds": uptime_seconds,
+    }
+
+
+@app.get("/api/dashboard/cron")
+def dashboard_cron():
+    try:
+        result = subprocess.run(
+            [os.path.expanduser("~/.local/bin/hermes"), "cron", "list"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return {"connected": False, "message": "hermes cron list fehlgeschlagen", "jobs": []}
+
+        jobs: list[dict] = []
+        current: dict | None = None
+
+        for line in result.stdout.strip().split("\n"):
+            stripped = line.strip()
+            indent = len(line) - len(line.lstrip(" "))
+
+            if not stripped or stripped.startswith("\u250c") or stripped.startswith("\u2502") or stripped.startswith("\u2514"):
+                continue
+
+            if indent == 2 and " " in stripped:
+                parts = stripped.rsplit(" ", 1)
+                job_id = parts[0]
+                status = parts[1].strip("[]") if len(parts) > 1 and parts[1].startswith("[") else "unknown"
+                current = {"id": job_id, "status": status}
+                jobs.append(current)
+                continue
+
+            if current is not None and indent >= 4 and ":" in stripped:
+                key, _, value = stripped.partition(":")
+                key = key.strip().lower().replace(" ", "_")
+                value = value.strip()
+                if key == "name":
+                    current["name"] = value
+                elif key == "schedule":
+                    current["schedule"] = value
+                elif key == "next_run":
+                    current["next_run"] = value
+                elif key == "last_run":
+                    current["last_run"] = value
+                elif key == "skills":
+                    current["skills"] = value
+                elif key == "deliver":
+                    current["deliver"] = value
+
+        return {"connected": True, "jobs": jobs}
+
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return {"connected": False, "message": "hermes CLI nicht verfügbar oder Timeout", "jobs": []}
+    except Exception as e:
+        return {"connected": False, "message": str(e), "jobs": []}
+
+
+@app.get("/api/dashboard/tasks")
+def dashboard_tasks():
+    tasks_path = Path.home() / ".hermes" / "tasks.json"
+    if not tasks_path.exists():
+        return {"connected": False, "message": "tasks.json nicht gefunden", "tasks": []}
+    try:
+        tasks_data = json.loads(tasks_path.read_text())
+        tasks = tasks_data if isinstance(tasks_data, list) else tasks_data.get("tasks", [])
+        return {"connected": True, "tasks": tasks}
+    except (json.JSONDecodeError, OSError):
+        return {"connected": False, "message": "tasks.json nicht lesbar", "tasks": []}
+
+
+@app.get("/api/dashboard/inbox")
+def dashboard_inbox():
+    inbox_path = Path.home() / ".hermes" / "shared" / "inbox.md"
+    if not inbox_path.exists():
+        return {"connected": False, "message": "inbox.md nicht gefunden", "entries": []}
+    try:
+        raw = inbox_path.read_text()
+        entries = []
+        for line in raw.strip().split("\n"):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("- "):
+                line = line[2:]
+            if "|" in line:
+                parts = [p.strip() for p in line.split("|")]
+                title = parts[0] if len(parts) > 0 else line
+                source = parts[1] if len(parts) > 1 else ""
+                t = parts[2] if len(parts) > 2 else ""
+            else:
+                title, source, t = line, "", ""
+            entries.append({"id": title[:40], "title": title, "source": source, "time": t})
+        return {"connected": True, "entries": entries}
+    except OSError as e:
+        return {"connected": False, "message": str(e), "entries": []}
+
+
+@app.get("/api/dashboard/news")
+def dashboard_news():
+    news_path = Path.home() / ".hermes" / "news" / "latest.json"
+    if not news_path.exists():
+        return {"connected": False, "message": "Backend-Hook fehlt", "news": []}
+    try:
+        data = json.loads(news_path.read_text())
+        news = data if isinstance(data, list) else data.get("news", data.get("items", []))
+        return {"connected": True, "news": news}
+    except (json.JSONDecodeError, OSError):
+        return {"connected": False, "message": "latest.json nicht lesbar", "news": []}
+
+
+# ── Einzel-Action-Endpunkte ────────────────────────────────────────
+
+
+@app.post("/api/actions/ollama")
+def action_ollama():
+    start = time.time()
+    try:
+        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
+        if result.returncode != 0:
+            return {"status": "error", "action": "ollama", "output": "Ollama nicht erreichbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        raw = result.stdout.strip()
+        if not raw:
+            return {"status": "ok", "action": "ollama", "output": "Keine Modelle installiert", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        items = []
+        for line in raw.split("\n")[1:]:
+            line = line.strip()
+            if not line:
+                continue
+            cols = line.split()
+            if len(cols) >= 4:
+                items.append({"name": cols[0], "id": cols[1], "size": cols[2] + " " + cols[3], "modified": " ".join(cols[4:])})
+            elif len(cols) >= 2:
+                items.append({"name": cols[0], "id": cols[1], "size": "", "modified": ""})
+        return {"status": "ok", "action": "ollama", "output": f"{len(items)} Modelle", "duration_ms": round((time.time() - start) * 1000), "items": items}
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        return {"status": "error", "action": "ollama", "output": f"Ollama nicht erreichbar: {e}", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    except Exception as e:
+        return {"status": "error", "action": "ollama", "output": str(e), "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+
+@app.post("/api/actions/cronjobs")
+def action_cronjobs():
+    start = time.time()
+    try:
+        result = subprocess.run(["hermes", "cron", "list"], capture_output=True, text=True, timeout=10)
+        raw = (result.stdout + result.stderr).strip()
+        if not raw and result.returncode != 0:
+            return {"status": "error", "action": "cronjobs", "output": "Hermes CLI nicht verfügbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        if not raw:
+            return {"status": "ok", "action": "cronjobs", "output": "Keine Cronjobs eingerichtet", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        items = []
+        for line in raw.split("\n"):
+            line = line.strip()
+            if not line or line.startswith("===") or "NAME" in line.upper():
+                continue
+            parts_line = [p.strip() for p in line.split("|")] if "|" in line else line.split()
+            if len(parts_line) >= 2:
+                items.append({
+                    "name": parts_line[0],
+                    "schedule": parts_line[1] if len(parts_line) > 1 else "",
+                    "next_run": parts_line[2] if len(parts_line) > 2 else "",
+                    "last_run": parts_line[3] if len(parts_line) > 3 else "",
+                    "status": "aktiv" if "ok" in line.lower() or "active" in line.lower() else "--"
+                })
+            else:
+                items.append({"name": line, "schedule": "", "status": "--"})
+        return {"status": "ok", "action": "cronjobs", "output": f"{len(items)} Cronjobs", "duration_ms": round((time.time() - start) * 1000), "items": items}
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return {"status": "error", "action": "cronjobs", "output": "Hermes CLI nicht verfügbar oder Timeout", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    except Exception as e:
+        return {"status": "error", "action": "cronjobs", "output": str(e), "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+
+@app.post("/api/actions/skills")
+def action_skills():
+    start = time.time()
+    skills_dir = Path.home() / ".hermes" / "skills" / "holger"
+    if not skills_dir.is_dir():
+        return {"status": "error", "action": "skills", "output": "Skills-Verzeichnis nicht gefunden", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    try:
+        names = sorted(e for e in os.listdir(skills_dir) if (skills_dir / e).is_dir())
+        items = [{"name": n} for n in names]
+        return {"status": "ok", "action": "skills", "output": f"{len(names)} Skills geladen", "duration_ms": round((time.time() - start) * 1000), "items": items}
+    except OSError:
+        return {"status": "error", "action": "skills", "output": "Skills-Verzeichnis nicht lesbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+
+@app.post("/api/actions/memory")
+def action_memory():
+    start = time.time()
+    mem_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
+    if not mem_path.exists():
+        return {"status": "error", "action": "memory", "output": "Memory-Datei nicht gefunden", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    try:
+        content = mem_path.read_text()
+        chars = len(content)
+        pct = min(100, round(chars / 8000 * 100))
+        return {"status": "ok", "action": "memory", "output": f"Memory {pct}% · {chars} Zeichen", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    except OSError:
+        return {"status": "error", "action": "memory", "output": "Memory-Datei nicht lesbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
+
+
+@app.post("/api/actions/update")
+def action_update():
+    start = time.time()
+    hermes_dir = Path.home() / ".hermes" / "hermes-agent"
+    if not hermes_dir.is_dir():
+        return {"status": "error", "action": "update", "output": "Hermes-Verzeichnis nicht gefunden", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    try:
+        # Nur Dry-Run: fetch + log count, kein pull
+        subprocess.run(["git", "-C", str(hermes_dir), "fetch", "origin"], capture_output=True, text=True, timeout=15)
+        result = subprocess.run(
+            ["git", "-C", str(hermes_dir), "log", "--oneline", "HEAD..origin/main"],
+            capture_output=True, text=True, timeout=10
+        )
+        new = result.stdout.strip()
+        if new:
+            lines = new.split("\n")
+            items = [{"name": l[:100]} for l in lines[:10]]
+            return {"status": "ok", "action": "update", "output": f"{len(lines)} neue(r) Commit(s) · Nur Dry-Run, kein Update ausgeführt", "duration_ms": round((time.time() - start) * 1000), "items": items}
+        return {"status": "ok", "action": "update", "output": "Hermes ist aktuell · Kein Update nötig", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return {"status": "error", "action": "update", "output": "Git nicht verfügbar oder Timeout", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    except Exception as e:
+        return {"status": "error", "action": "update", "output": str(e), "duration_ms": round((time.time() - start) * 1000), "items": []}
