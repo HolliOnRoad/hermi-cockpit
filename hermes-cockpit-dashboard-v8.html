@@ -2915,6 +2915,29 @@
     ptyInit();
   }
 
+
+  // Schutz gegen versehentliches Schließen bei offenem Terminal
+  window.addEventListener('beforeunload', function(event) {
+    const hasTerminalSession =
+      typeof ptySessions !== 'undefined' &&
+      Object.values(ptySessions).some(session =>
+        session &&
+        session.ws &&
+        (
+          session.ws.readyState === WebSocket.OPEN ||
+          session.ws.readyState === WebSocket.CONNECTING
+        )
+      );
+
+    const hasTerminalWidget =
+      !!document.querySelector('.widget[data-widget="terminal"], .widget[data-widget^="terminal-"]');
+
+    if (!hasTerminalSession && !hasTerminalWidget) return;
+
+    event.preventDefault();
+    event.returnValue = '';
+  });
+
   window.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
