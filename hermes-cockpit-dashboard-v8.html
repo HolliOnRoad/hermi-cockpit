@@ -1002,8 +1002,9 @@
     padding: 10px 16px 12px;
     display: flex; flex-direction: column; gap: 6px;
     transition: opacity 0.25s ease, margin 0.25s ease;
-    order: -1; /* always first in dashboard */
+    order: -1;
     margin-bottom: 6px;
+    max-height: 160px; overflow-y: auto;
   }
   .action-panel.hidden {
     display: none;
@@ -1050,6 +1051,32 @@
     background: rgba(0,0,0,0.2);
     border-radius: var(--radius-sm);
     white-space: pre-wrap; word-break: break-word;
+  }
+
+  .arp-details-wrap {
+    max-height: 280px; overflow-y: auto;
+    border-top: 1px solid var(--border-glass);
+    padding-top: 6px; margin-top: 4px;
+  }
+
+  .arp-details-toggle {
+    font-size: 10px; padding: 3px 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim); cursor: pointer;
+    transition: var(--transition);
+    font-family: var(--font-ui); align-self: flex-start;
+  }
+  .arp-details-toggle:hover {
+    background: rgba(91,156,245,0.08);
+    border-color: rgba(91,156,245,0.2);
+    color: var(--accent-blue);
+  }
+
+  .arp-idle {
+    font-size: 11px; color: var(--text-dim); opacity: 0.6;
+    text-align: center; padding: 6px 0;
   }
 
   @keyframes panelGlow {
@@ -1168,11 +1195,11 @@
     <!-- ===== ACTION RESULT PANEL ===== -->
     <div id="actionResultPanel" class="action-panel hidden">
       <div class="arp-header">
-        <span class="arp-title" id="arpTitle">—</span>
+        <span class="arp-title" id="arpTitle">Bereit</span>
         <span class="arp-duration" id="arpDuration"></span>
-        <span class="arp-status" id="arpStatus" data-status="ok"></span>
+        <span class="arp-status" id="arpStatus" data-status="ok">✓ ok</span>
       </div>
-      <div class="arp-output" id="arpOutput"></div>
+      <div class="arp-output" id="arpOutput">Schnellstart klicken oder Aktion wählen</div>
       <div class="arp-items" id="arpItems"></div>
     </div>
     <div class="placeholder-msg" id="emptyPlaceholder">
@@ -1576,27 +1603,46 @@
       }
     }
 
-    // Body/Prompt — in scrollbarem Container
-    const oldBody = panel.querySelector('.arp-body-scroll');
-    if (oldBody) oldBody.remove();
-    if (res.body) {
-      const bodyEl = document.createElement('div');
-      bodyEl.className = 'arp-body-scroll';
-      bodyEl.textContent = res.body;
-      panel.appendChild(bodyEl);
-    }
-    if (res.prompt) {
-      const promptEl = document.createElement('div');
-      promptEl.className = 'arp-body-scroll';
-      promptEl.id = 'christianPrompt';
-      promptEl.textContent = res.prompt;
-      panel.appendChild(promptEl);
-      // Copy button
-      const copyBtn = document.createElement('button');
-      copyBtn.textContent = '📋 Kopieren';
-      copyBtn.onclick = copyChristianPrompt;
-      copyBtn.style.cssText = 'margin-top:4px;padding:4px 10px;font-size:0.8em;background:rgba(91,156,245,0.1);border:1px solid rgba(91,156,245,0.2);border-radius:var(--radius-sm);color:var(--accent-blue);cursor:pointer;align-self:flex-start;';
-      panel.appendChild(copyBtn);
+    // Body/Prompt — einklappbar hinter "Details"
+    const oldDetails = panel.querySelector('.arp-details-wrap');
+    if (oldDetails) oldDetails.remove();
+    const oldBtn = panel.querySelector('.arp-details-toggle');
+    if (oldBtn) oldBtn.remove();
+
+    if (res.body || res.prompt) {
+      const wrap = document.createElement('div');
+      wrap.className = 'arp-details-wrap';
+
+      if (res.body) {
+        const bodyEl = document.createElement('pre');
+        bodyEl.className = 'arp-body-scroll';
+        bodyEl.textContent = res.body;
+        wrap.appendChild(bodyEl);
+      }
+      if (res.prompt) {
+        const promptEl = document.createElement('pre');
+        promptEl.className = 'arp-body-scroll';
+        promptEl.id = 'christianPrompt';
+        promptEl.textContent = res.prompt;
+        wrap.appendChild(promptEl);
+        const copyBtn = document.createElement('button');
+        copyBtn.textContent = '📋 Kopieren';
+        copyBtn.onclick = copyChristianPrompt;
+        copyBtn.style.cssText = 'margin-top:4px;padding:4px 10px;font-size:0.8em;background:rgba(91,156,245,0.1);border:1px solid rgba(91,156,245,0.2);border-radius:var(--radius-sm);color:var(--accent-blue);cursor:pointer;';
+        wrap.appendChild(copyBtn);
+      }
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'arp-details-toggle';
+      toggleBtn.textContent = '▶ Details anzeigen';
+      toggleBtn.onclick = function() {
+        const open = wrap.style.display !== 'none';
+        wrap.style.display = open ? 'none' : '';
+        toggleBtn.textContent = open ? '▶ Details anzeigen' : '▼ Details ausblenden';
+      };
+      panel.appendChild(toggleBtn);
+      wrap.style.display = 'none';
+      panel.appendChild(wrap);
     }
 
     // Kurzer Glow-Impuls + Scroll zum Panel
@@ -1711,13 +1757,24 @@
 
     resultEl.innerHTML = html;
 
-    // Extra content for spotlight/christian
-    if (data.body) {
-      resultEl.innerHTML += `<pre class="arp-body-scroll">${esc(data.body)}</pre>`;
-    }
-    if (data.prompt) {
-      resultEl.innerHTML += `<pre class="arp-body-scroll" id="christianPrompt">${esc(data.prompt)}</pre>`;
-      resultEl.innerHTML += `<button onclick="copyChristianPrompt()" style="margin-top:4px;padding:4px 10px;font-size:0.8em;background:rgba(91,156,245,0.1);border:1px solid rgba(91,156,245,0.2);border-radius:var(--radius-sm);color:var(--accent-blue);cursor:pointer;">📋 Kopieren</button>`;
+    // Extra content for spotlight/christian — collapsed by default
+    if (data.body || data.prompt) {
+      const detailId = 'arpDetail_' + Date.now();
+      let detailHtml = '';
+      if (data.body) {
+        detailHtml += `<pre class="arp-body-scroll">${esc(data.body)}</pre>`;
+      }
+      if (data.prompt) {
+        detailHtml += `<pre class="arp-body-scroll" id="christianPrompt">${esc(data.prompt)}</pre>`;
+        detailHtml += `<button onclick="copyChristianPrompt()" style="margin-top:4px;padding:4px 10px;font-size:0.8em;background:rgba(91,156,245,0.1);border:1px solid rgba(91,156,245,0.2);border-radius:var(--radius-sm);color:var(--accent-blue);cursor:pointer;">📋 Kopieren</button>`;
+      }
+      html += `<button class="arp-details-toggle" onclick="
+        var d=document.getElementById('${detailId}');
+        var o=d.style.display!=='none';
+        d.style.display=o?'none':'';
+        this.textContent=o?'▶ Details anzeigen':'▼ Details ausblenden';
+      ">▶ Details anzeigen</button>`;
+      html += `<div id="${detailId}" class="arp-details-wrap" style="display:none">${detailHtml}</div>`;
     }
   }
 
@@ -3152,6 +3209,12 @@
 
     // Auto quick-check nach 1.5s
     // deaktiviert: kein automatischer Quick-Action-Start nach Seitenladung
+
+    // Panel nach kurzer Verzögerung als "Bereit" sichtbar machen
+    setTimeout(function() {
+      const p = document.getElementById('actionResultPanel');
+      if (p && p.classList.contains('hidden')) p.classList.remove('hidden');
+    }, 800);
 
     updateLiveClock();
     setInterval(updateLiveClock, 30000);
