@@ -1053,6 +1053,13 @@
     white-space: pre-wrap; word-break: break-word;
   }
 
+  .arp-kern {
+    border-left: 2px solid var(--accent-yellow);
+    padding: 6px 10px; margin: 4px 0;
+    background: rgba(240,196,76,0.04);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
   .arp-details-wrap {
     max-height: 280px; overflow-y: auto;
     border-top: 1px solid var(--border-glass);
@@ -1562,14 +1569,24 @@
 
     panel.classList.remove('hidden');
 
-    // Titel: Aktion + Dauer
+    const isSpotlight = res.action === 'spotlight' || res.action === 'christian';
+
+    // Titel: Für Spotlight den realen Titel, sonst Action-Name
     const title = document.getElementById('arpTitle');
-    if (title) title.textContent = res.action || 'Aktion';
+    if (title) {
+      if (isSpotlight && res.output) {
+        title.textContent = res.output;
+        title.style.cssText = 'font-size:18px;font-weight:700;color:var(--text-primary);';
+      } else {
+        title.textContent = res.action || 'Aktion';
+        title.style.cssText = '';
+      }
+    }
 
     const dur = document.getElementById('arpDuration');
     if (dur) dur.textContent = durationMs != null ? durationMs + 'ms' : '';
 
-    // Status: ok / busy / error
+    // Status
     const statusEl = document.getElementById('arpStatus');
     if (statusEl) {
       const st = res.status || 'ok';
@@ -1577,6 +1594,149 @@
       statusEl.setAttribute('data-status', st);
       statusEl.textContent = icon + ' ' + st;
     }
+
+    // Output: Für Spotlight das Action-Label, sonst den Output-Text
+    const outEl = document.getElementById('arpOutput');
+    if (outEl) {
+      if (isSpotlight) {
+        outEl.textContent = (res.action === 'spotlight' ? 'Spotlight' : 'An Christian') + ' · ' + (durationMs != null ? durationMs + 'ms' : '');
+        outEl.style.cssText = 'font-size:10px;color:var(--text-dim);';
+      } else {
+        outEl.textContent = res.output || '';
+        outEl.style.cssText = '';
+      }
+    }
+
+    // Items / Meta
+    const itemsEl = document.getElementById('arpItems');
+    if (itemsEl) {
+      itemsEl.innerHTML = '';
+      if (isSpotlight && Array.isArray(res.items)) {
+        // Meta-Zeile: Datum · Quelle · Autor
+        const findVal = (label) => {
+          const it = res.items.find(i => i.label === label);
+          return it ? it.value : '';
+        };
+        const datum = findVal('Datum');
+        const quelle = findVal('Quelle');
+        const autor = findVal('Autor');
+        const relevanz = findVal('Relevanz');
+        const hermes = findVal('Hermes');
+        const pfad = findVal('Pfad');
+
+        let metaHtml = '';
+        if (datum || quelle || autor) {
+          metaHtml = [datum, quelle, autor].filter(Boolean).join(' · ');
+          if (metaHtml) {
+            itemsEl.innerHTML += `<div style="font-size:10px;color:var(--text-dim);opacity:0.7;padding:2px 0;">${esc(metaHtml)}</div>`;
+          }
+        }
+        // Relevanz + Hermes Badges
+        if (relevanz || hermes) {
+          let badges = '';
+          if (relevanz) badges += `<span style="display:inline-block;padding:1px 8px;border-radius:10px;background:rgba(91,156,245,0.1);color:var(--accent-blue);font-size:10px;margin-right:4px;">${esc(relevanz)}</span>`;
+          if (hermes) badges += `<span style="display:inline-block;padding:1px 8px;border-radius:10px;background:rgba(240,160,80,0.1);color:var(--accent-orange);font-size:10px;">${esc(hermes)}</span>`;
+          itemsEl.innerHTML += `<div>${badges}</div>`;
+        }
+        // Pfad (extrem gedimmt)
+        if (pfad) {
+          itemsEl.innerHTML += `<div style="font-size:8px;color:var(--text-dim);opacity:0.35;margin-top:4px;word-break:break-all;">${esc(pfad)}</div>`;
+        }
+      } else if (Array.isArray(res.items) && res.items.length > 0) {
+        // Non-spotlight: items as chips
+        res.items.forEach(it => {
+          const row = document.createElement('div');
+          row.className = 'arp-item';
+          const label = document.createElement('span');
+          label.className = 'arp-label';
+          label.textContent = (it.label || it.name || '') + ':';
+          const value = document.createElement('span');
+          value.className = 'arp-value';
+          value.textContent = it.value || it.size || it.status || '';
+          row.appendChild(label);
+          row.appendChild(value);
+          itemsEl.appendChild(row);
+        });
+      }
+    }
+
+    // Body/Prompt — einklappbar
+    const oldDetails = panel.querySelector('.arp-details-wrap');
+    if (oldDetails) oldDetails.remove();
+    const oldBtn = panel.querySelector('.arp-details-toggle');
+    if (oldBtn) oldBtn.remove();
+    const oldKern = panel.querySelector('.arp-kern');
+    if (oldKern) oldKern.remove();
+
+    if (res.body || res.prompt) {
+      const raw = res.body || res.prompt || '';
+
+      // Kern-Aussage extrahieren: erster sinnvoller Paragraph nach ##-Überschriften
+      if (isSpotlight && res.body) {
+        let kern = '';
+        const lines = raw.split('\n');
+        let pastHeading = false;
+        for (let i = 0; i < lines.length; i++) {
+          const l = lines[i].trim();
+          if (!l) continue;
+          if (l.startsWith('## ') || l.startsWith('# ')) { pastHeading = true; continue; }
+          if (pastHeading && l.length > 20 && !l.startsWith('-') && !l.startsWith('*') && !l.startsWith('>')) {
+            kern = l;
+            break;
+          }
+        }
+        if (kern) {
+          const kernEl = document.createElement('div');
+          kernEl.className = 'arp-kern';
+          kernEl.innerHTML = `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent-yellow);margin-bottom:3px;">Kern</div><div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">${esc(kern.length > 200 ? kern.slice(0,200)+'…' : kern)}</div>`;
+          panel.appendChild(kernEl);
+        }
+      }
+
+      const wrap = document.createElement('div');
+      wrap.className = 'arp-details-wrap';
+
+      if (res.body) {
+        // Show only tail (after first big paragraph) in details
+        const kernStart = raw.indexOf('\n\n');
+        const detailText = kernStart > 0 && isSpotlight ? raw.slice(kernStart + 2).trim() : raw;
+        const bodyEl = document.createElement('pre');
+        bodyEl.className = 'arp-body-scroll';
+        bodyEl.textContent = detailText;
+        wrap.appendChild(bodyEl);
+      }
+      if (res.prompt) {
+        const promptEl = document.createElement('pre');
+        promptEl.className = 'arp-body-scroll';
+        promptEl.id = 'christianPrompt';
+        promptEl.textContent = res.prompt;
+        wrap.appendChild(promptEl);
+        const copyBtn = document.createElement('button');
+        copyBtn.textContent = '📋 Kopieren';
+        copyBtn.onclick = copyChristianPrompt;
+        copyBtn.style.cssText = 'margin-top:4px;padding:4px 10px;font-size:0.8em;background:rgba(91,156,245,0.1);border:1px solid rgba(91,156,245,0.2);border-radius:var(--radius-sm);color:var(--accent-blue);cursor:pointer;';
+        wrap.appendChild(copyBtn);
+      }
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'arp-details-toggle';
+      toggleBtn.textContent = '▶ Details anzeigen';
+      toggleBtn.onclick = function() {
+        const open = wrap.style.display !== 'none';
+        wrap.style.display = open ? 'none' : '';
+        toggleBtn.textContent = open ? '▶ Details anzeigen' : '▼ Details ausblenden';
+      };
+      panel.appendChild(toggleBtn);
+      wrap.style.display = 'none';
+      panel.appendChild(wrap);
+    }
+
+    // Glow + Scroll
+    panel.classList.remove('glow');
+    void panel.offsetWidth;
+    panel.classList.add('glow');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 
     // Output-Text
     const outEl = document.getElementById('arpOutput');
