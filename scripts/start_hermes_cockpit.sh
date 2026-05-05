@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # start_hermi_cockpit.sh — Startet Backend + Frontend (ohne Kill-Phase).
-# Fuer One-Click-Neustart mit Kill-Phase: ~/Desktop/Hermi_Cockpit.command
+# Fuer One-Click-Neustart mit Kill-Phase: ~/Desktop/Hermes_Cockpit.command
 
 PROJECT_DIR="$HOME/Claude Projekt/hermi-cockpit"
 BACKEND_PORT=8000
@@ -16,13 +16,13 @@ yellow() { printf "\033[33m%s\033[0m\n" "$1"; }
 red()    { printf "\033[31m%s\033[0m\n" "$1"; }
 bold()   { printf "\033[1m%s\033[0m\n" "$1"; }
 
-bold "=== Hermi Cockpit Starter ==="
+bold "=== Hermes Cockpit Starter ==="
 echo ""
 
 # ---- Backend ----
 if lsof -ti :$BACKEND_PORT &>/dev/null; then
     yellow "[Backend]  Port $BACKEND_PORT bereits belegt – ueberspringe Start."
-    yellow "          (Zum Neustart Desktop-Datei Hermi_Cockpit.command verwenden)"
+    yellow "          (Zum Neustart Desktop-Datei Hermes_Cockpit.command verwenden)"
 else
     echo "[Backend]  Starte auf Port $BACKEND_PORT ..."
     cd "$PROJECT_DIR/backend" || exit 1
@@ -36,7 +36,7 @@ fi
 # ---- Frontend ----
 if lsof -ti :$FRONTEND_PORT &>/dev/null; then
     yellow "[Frontend] Port $FRONTEND_PORT bereits belegt – ueberspringe Start."
-    yellow "          (Zum Neustart Desktop-Datei Hermi_Cockpit.command verwenden)"
+    yellow "          (Zum Neustart Desktop-Datei Hermes_Cockpit.command verwenden)"
 else
     echo "[Frontend] Starte auf Port $FRONTEND_PORT ..."
     cd "$PROJECT_DIR/frontend" || exit 1
@@ -79,7 +79,7 @@ echo "[Dashboard] Oeffne v8 Dashboard ..."
 open "$PROJECT_DIR/hermes-cockpit-dashboard-v8.html"
 
 echo ""
-bold "=== Hermi Cockpit laeuft ==="
+bold "=== Hermes Cockpit läuft ==="
 echo ""
 echo "  Backend:  http://127.0.0.1:$BACKEND_PORT"
 echo "  Frontend: http://localhost:$FRONTEND_PORT"
