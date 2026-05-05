@@ -1837,17 +1837,20 @@
     localStorage.setItem(INBOX_STORAGE_KEY, JSON.stringify(state));
   }
 
+  function getEntryStatus(e, state) {
+    const id = e.id || '';
+    return e.status || state[id] || 'new';
+  }
+
   async function fetchInbox() {
     const container = document.getElementById('inboxContainer');
     const state = getInboxState();
 
-    const updateBadge = (entries) => {
+    const updateBadge = (entries, effectiveState) => {
       const badge = document.getElementById('sidebarInboxBadge');
       if (!badge) return;
-      const newCount = entries.filter(e => {
-        const id = e.id || '';
-        return !state[id] || state[id] === 'new';
-      }).length;
+      const s = effectiveState || state;
+      const newCount = entries.filter(e => getEntryStatus(e, s) === 'new').length;
       if (newCount > 0) {
         badge.textContent = newCount;
         badge.style.display = '';
@@ -1866,16 +1869,22 @@
         return;
       }
       const entries = data.entries || data.inbox || [];
-      updateBadge(entries);
+
+      const syncedState = {};
+      entries.forEach(e => { syncedState[e.id || ''] = e.status || 'new'; });
+      syncedState._cached = entries;
+      saveInboxState(syncedState);
+
+      updateBadge(entries, syncedState);
       if (!container) return;
       if (entries.length === 0) {
         container.innerHTML = '<div class="inbox-empty">Inbox ist leer</div>';
         return;
       }
-      renderInboxEntries(container, entries, state);
+      renderInboxEntries(container, entries, syncedState);
     } catch (err) {
       const cached = state._cached || [];
-      updateBadge(cached);
+      updateBadge(cached, state);
       if (!container) return;
       if (cached.length > 0) {
         renderInboxEntries(container, cached, state);
@@ -1886,9 +1895,27 @@
   }
 
   function renderInboxEntries(container, entries, state) {
-    container.innerHTML = entries.map((e, i) => {
+    const visible = entries
+      .filter(e => {
+        const s = getEntryStatus(e, state);
+        return s !== 'done' && s !== 'later';
+      })
+      .sort((a, b) => {
+        const sa = getEntryStatus(a, state);
+        const sb = getEntryStatus(b, state);
+        if (sa === 'new' && sb !== 'new') return -1;
+        if (sa !== 'new' && sb === 'new') return 1;
+        return 0;
+      });
+
+    if (visible.length === 0) {
+      container.innerHTML = '<div class="inbox-empty">Keine offenen Einträge</div>';
+      return;
+    }
+
+    container.innerHTML = visible.map((e, i) => {
       const id = e.id || 'entry_' + i;
-      const entryState = e.status || state[id] || 'new';
+      const entryState = getEntryStatus(e, state);
       const lineIndex = e.line_index;
       const dotClass = entryState === 'new' ? 'new' : entryState === 'seen' ? 'seen' : entryState === 'later' ? 'later' : 'done';
       const title = e.title || e.subject || 'Eintrag ' + (i + 1);
@@ -1915,11 +1942,14 @@
   }
 
   function updateInboxItem(id, newState) {
-    // Persist via backend using title match
     const item = document.querySelector(`.inbox-item[data-inbox-id="${id}"]`);
     const titleEl = item ? item.querySelector('.inbox-title') : null;
     const title = titleEl ? titleEl.textContent.trim() : id;
     if (!title) return;
+
+    const localState = getInboxState();
+    localState[id] = newState;
+    saveInboxState(localState);
 
     fetch(API_BASE + '/api/actions/inbox', {
       method: 'POST',
