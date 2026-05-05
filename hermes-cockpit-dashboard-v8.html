@@ -367,12 +367,12 @@
 
   /* === WIDGETS === */
   .widget {
-    background: rgba(10,14,28,0.75);
+    background: linear-gradient(180deg, rgba(24,31,44,0.98), rgba(15,21,32,0.98));
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.09);
+    border: 1px solid rgba(127,179,255,0.18);
     border-radius: var(--radius-md);
-    box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+    box-shadow: 0 8px 26px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.055);
     transition: var(--transition);
     position: relative;
     min-width: 180px;
@@ -381,11 +381,12 @@
   }
 
   @keyframes cardGlow {
-    0%, 100% { box-shadow: 0 4px 18px rgba(0,0,0,0.35); }
-    50%      { box-shadow: 0 4px 24px rgba(91,156,245,0.15), 0 4px 18px rgba(0,0,0,0.35); }
+    0% { box-shadow: 0 8px 26px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.055); }
+    40% { box-shadow: 0 0 26px rgba(91,156,245,0.28), 0 8px 26px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.055); }
+    100% { box-shadow: 0 8px 26px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.055); }
   }
   .widget:hover {
-    border-color: rgba(255,255,255,0.16);
+    border-color: rgba(127,179,255,0.28);
     animation: cardGlow 0.6s ease-in-out 1;
   }
 
@@ -423,7 +424,8 @@
   .widget-header {
     display: flex; align-items: center; gap: 6px;
     padding: 6px 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
+    background: rgba(127,179,255,0.035);
+    border-bottom: 1px solid rgba(255,255,255,0.055);
     cursor: grab; user-select: none;
     flex-shrink: 0;
   }
@@ -808,10 +810,10 @@
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow-card);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
     padding: 10px 16px 12px;
     display: flex; flex-direction: column; gap: 6px;
-    margin-bottom: 6px;
+    margin-bottom: 12px;
     max-height: 520px; overflow-y: auto;
   }
   .action-panel.hidden {
@@ -937,6 +939,65 @@
     border-color: rgba(91,156,245,0.35);
   }
   .steu-action-btn.steu-primary .btn-label { font-weight: 700; }
+
+  /* === WIDGET DETAIL OVERLAY === */
+  .widget-overlay-container {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 60;
+    pointer-events: none;
+    min-width: 100%;
+  }
+
+  .widget-overlay {
+    pointer-events: auto;
+    background: var(--bg-glass);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06) inset;
+    padding: 10px 12px;
+    max-width: 650px;
+    max-height: 60vh;
+    overflow-y: auto;
+    margin-top: 6px;
+    animation: overlayExpand 0.2s ease-out;
+    display: none;
+  }
+
+  .widget-overlay.open {
+    display: block;
+  }
+
+  @keyframes overlayExpand {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .widget-overlay-detail-close {
+    position: sticky;
+    top: 0;
+    float: right;
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-glass);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    margin: -4px -4px 6px 0;
+    flex-shrink: 0;
+  }
+  .widget-overlay-detail-close:hover {
+    background: rgba(224,85,85,0.15);
+    border-color: rgba(224,85,85,0.3);
+    color: var(--danger);
+  }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
@@ -1698,11 +1759,16 @@
       html += '</div>';
     }
 
+    // Extra content for spotlight/christian — as overlay
+    let detailId = null;
+    if (data.body || data.prompt) {
+      detailId = 'arpDetail_' + Date.now();
+      html += `<button class="arp-details-toggle" data-detail-id="${detailId}" onclick="toggleDetailOverlay(event, '${detailId}')">▼ Details ausblenden</button>`;
+    }
+
     resultEl.innerHTML = html;
 
-    // Extra content for spotlight/christian — collapsed by default
-    if (data.body || data.prompt) {
-      const detailId = 'arpDetail_' + Date.now();
+    if (detailId) {
       let detailHtml = '';
       if (data.body) {
         detailHtml += `<pre class="arp-body-scroll">${esc(data.body)}</pre>`;
@@ -1711,13 +1777,11 @@
         detailHtml += `<pre class="arp-body-scroll" id="christianPrompt">${esc(data.prompt)}</pre>`;
         detailHtml += `<button onclick="copyChristianPrompt()" style="margin-top:4px;padding:4px 10px;font-size:0.8em;background:rgba(91,156,245,0.1);border:1px solid rgba(91,156,245,0.2);border-radius:var(--radius-sm);color:var(--accent-blue);cursor:pointer;">📋 Kopieren</button>`;
       }
-      html += `<button class="arp-details-toggle" onclick="
-        var d=document.getElementById('${detailId}');
-        var o=d.style.display!=='none';
-        d.style.display=o?'none':'';
-        this.textContent=o?'▶ Details anzeigen':'▼ Details ausblenden';
-      ">▼ Details ausblenden</button>`;
-      html += `<div id="${detailId}" class="arp-details-wrap">${detailHtml}</div>`;
+      const widget = document.querySelector('#dashboard .widget[data-widget="steuerung"]');
+      if (widget) {
+        const container = widget.querySelector('.widget-overlay-container');
+        container.innerHTML = `<div class="widget-overlay open" id="overlay_${detailId}"><button class="widget-overlay-detail-close" onclick="closeDetailOverlay(event)">✕</button>${detailHtml}</div>`;
+      }
     }
   }
 
@@ -1729,6 +1793,39 @@
       if (btn) { btn.textContent = '✓ Kopiert!'; setTimeout(() => { btn.textContent = '📋 Kopieren'; }, 2000); }
     }).catch(() => {});
   }
+
+  // ========== WIDGET DETAIL OVERLAY HELPERS ==========
+  function toggleDetailOverlay(event, detailId) {
+    event.stopPropagation();
+    const overlay = document.getElementById('overlay_' + detailId);
+    if (!overlay) return;
+    const btn = event.target;
+    const isOpen = overlay.classList.toggle('open');
+    btn.textContent = isOpen ? '▼ Details ausblenden' : '▶ Details anzeigen';
+  }
+
+  function closeDetailOverlay(event) {
+    if (event) event.stopPropagation();
+    const overlay = document.querySelector('.widget-overlay.open');
+    if (overlay) {
+      overlay.classList.remove('open');
+      const toggle = document.querySelector('#actionResult .arp-details-toggle');
+      if (toggle) toggle.textContent = '▶ Details anzeigen';
+    }
+  }
+
+  document.addEventListener('click', function(e) {
+    const openOverlay = document.querySelector('.widget-overlay.open');
+    if (openOverlay && !openOverlay.contains(e.target) && !e.target.closest('.arp-details-toggle')) {
+      closeDetailOverlay();
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeDetailOverlay();
+    }
+  });
 
   // ========== v8.1: CHAT HELPERS ==========
   function chatAppend(idSuffix) {
@@ -2327,6 +2424,7 @@
       </div>
       <div class="widget-body"></div>
       <div class="resize-handle" title="Größe anpassen"></div>
+      <div class="widget-overlay-container"></div>
     `;
 
     widget.addEventListener('dragstart', onWidgetDragStart);
