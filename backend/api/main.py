@@ -1403,15 +1403,55 @@ def action_christian():
         # Limit body for the prompt
         body = body[:SPOTLIGHT_MAX_CHARS]
 
+        # Extract structured sections from body
+        def _first_paragraph(text: str) -> str:
+            """First non-empty, non-heading paragraph."""
+            for para in text.split("\n\n"):
+                stripped = para.strip()
+                if stripped and not stripped.startswith("##"):
+                    return stripped[:300]
+            return ""
+
+        def _extract_section(text: str, heading: str) -> str:
+            """Extract content under a ## heading."""
+            idx = text.find(f"## {heading}")
+            if idx == -1:
+                return ""
+            section = text[idx + len(heading) + 3:].strip()
+            # Stop at next ## heading
+            next_idx = section.find("\n## ")
+            if next_idx != -1:
+                section = section[:next_idx].strip()
+            return section[:300]
+
+        kontext = _first_paragraph(body)
+
+        # Kernpunkt: first bullet from Kernaussagen or first line from Relevanz
+        kern = _extract_section(body, "Kernaussagen")
+        if kern:
+            # Take first bullet item
+            for line in kern.split("\n"):
+                line = line.strip()
+                if line.startswith("- **") or line.startswith("- "):
+                    kern = line.lstrip("- ").strip()[:250]
+                    break
+            else:
+                kern = kern[:250]
+        if not kern:
+            kern = _extract_section(body, "Relevanz für Hermes") or _extract_section(body, "Relevanz")
+
+        # Generate Frage and Ziel from topic
+        frage = f"Wie übertragbar ist dieses Konzept auf unsere Arbeit mit Hermes?"
+        ziel = "Konkrete Einschätzung zur Umsetzbarkeit und nächsten Schritten."
+
         prompt = (
-            f"SPOTLIGHT: {title}\n"
-            f"Datum: {fm.get('date', '—')}\n"
+            f"KONTEXT:\n{kontext}\n\n"
+            f"KERNPUNKT:\n{kern}\n\n"
+            f"FRAGE AN CHRISTIAN:\n{frage}\n\n"
+            f"ZIEL:\n{ziel}\n\n"
+            f"---\n"
             f"Quelle: {fm.get('source', '—')}\n"
             f"Pfad: {path}\n"
-            f"\nZUSAMMENFASSUNG / ANALYSE:\n{body}\n"
-            f"\n---\n"
-            f"Christian, hier die neueste KI-News-Analyse aus dem Hermes-Spotlight.\n"
-            f"Schau dir bitte die Quelle und Analyse an und lass uns kurz dazu austauschen.\n"
         )
 
         # Truncate if too long
