@@ -74,9 +74,9 @@ fi
 # ---- Browser ----
 echo ""
 echo "[Browser]  Oeffne http://localhost:$FRONTEND_PORT ..."
-open "http://localhost:$FRONTEND_PORT"
+# open "http://localhost:"  # deaktiviert: altes React-Frontend
 echo "[Dashboard] Oeffne v8 Dashboard ..."
-open "$PROJECT_DIR/hermes-cockpit-dashboard-v8.html"
+open "/hermes-cockpit-dashboard-v8.html"
 
 echo ""
 bold "=== Hermes Cockpit läuft ==="
