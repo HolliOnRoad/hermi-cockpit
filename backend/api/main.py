@@ -840,6 +840,28 @@ def inbox():
         return {"entries": [], "note": str(e)}
 
 
+@app.post("/api/inbox/add")
+def inbox_add(body: dict):
+    """Neuen Eintrag an inbox.md anhängen."""
+    text = (body.get("text") or body.get("title") or "").strip()
+    if not text:
+        return {"status": "error", "output": "text/title fehlt oder leer"}
+
+    inbox_path = Path.home() / ".hermes" / "shared" / "inbox.md"
+    inbox_path.parent.mkdir(parents=True, exist_ok=True)
+
+    line = f"- [ ] {text}\n"
+    try:
+        if not inbox_path.exists():
+            inbox_path.write_text(line)
+        else:
+            with open(inbox_path, "a") as f:
+                f.write(line)
+        return {"status": "ok", "output": f"Eintrag hinzugefügt: {text[:60]}"}
+    except OSError as e:
+        return {"status": "error", "output": str(e)}
+
+
 # ── Dashboard-spezifische Endpunkte ─────────────────────────────────
 
 

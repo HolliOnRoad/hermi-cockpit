@@ -644,6 +644,30 @@
     border-color: var(--border-glass-hover);
   }
 
+  .inbox-send-group { display: flex; gap: 4px; margin-bottom: 6px; }
+  .inbox-send-input {
+    flex: 1; background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary); font-family: var(--font-ui);
+    font-size: 0.95em; padding: 4px 8px;
+    transition: var(--transition);
+  }
+  .inbox-send-input:focus {
+    outline: none; border-color: var(--accent-blue);
+    box-shadow: 0 0 8px var(--accent-blue-glow);
+    background: rgba(255,255,255,0.05);
+  }
+  .inbox-send-input::placeholder { color: var(--text-dim); }
+  .inbox-send-btn {
+    background: rgba(91,156,245,0.1); border: 1px solid rgba(91,156,245,0.2);
+    color: var(--accent-blue); border-radius: var(--radius-sm);
+    font-size: 0.85em; padding: 4px 10px; cursor: pointer;
+    font-weight: 600; transition: var(--transition);
+    font-family: var(--font-ui); white-space: nowrap;
+  }
+  .inbox-send-btn:hover { background: rgba(91,156,245,0.2); }
+
   /* ================================================================
      NOTES WIDGET
      ================================================================ */
@@ -1320,7 +1344,7 @@
       name: 'Inbox', icon: '\u2709',
       render(body, fs) {
         body.style.fontSize = fs + 'px';
-        body.innerHTML = '<div class="inbox-toolbar"><button class="inbox-refresh-btn" onclick="fetchInbox()">\u21bb Aktualisieren</button></div><div id="inboxContainer"><span class="term-dim">Lade Inbox\u2026</span></div>';
+        body.innerHTML = '<div class="inbox-toolbar"><button class="inbox-refresh-btn" onclick="fetchInbox()">\u21bb Aktualisieren</button></div><div class="inbox-send-group"><input class="inbox-send-input" id="inboxSendInput" placeholder="Aufgabe an Hermes\u2026" onkeydown="if(event.key===\'Enter\')sendInboxItem()"><button class="inbox-send-btn" onclick="sendInboxItem()">Senden</button></div><div id="inboxContainer"><span class="term-dim">Lade Inbox\u2026</span></div>';
         fetchInbox();
       }
     },
@@ -1974,6 +1998,29 @@
       }
     }).catch(err => {
       console.warn('Inbox update failed:', err);
+    });
+  }
+
+  function sendInboxItem() {
+    const input = document.getElementById('inboxSendInput');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.disabled = true;
+    fetch(API_BASE + '/api/inbox/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    }).then(r => r.json()).then(res => {
+      input.value = '';
+      input.disabled = false;
+      input.focus();
+      fetchInbox();
+      if (res.status === 'ok') updateActionPanel(res, 0);
+    }).catch(err => {
+      input.disabled = false;
+      console.warn('Inbox send failed:', err);
     });
   }
 
