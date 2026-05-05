@@ -1759,30 +1759,7 @@
       html += '</div>';
     }
 
-    // Extra content for spotlight/christian — as overlay
-    let detailId = null;
-    if (data.body || data.prompt) {
-      detailId = 'arpDetail_' + Date.now();
-      html += `<button class="arp-details-toggle" data-detail-id="${detailId}" onclick="toggleDetailOverlay(event, '${detailId}')">▼ Details ausblenden</button>`;
-    }
-
     resultEl.innerHTML = html;
-
-    if (detailId) {
-      let detailHtml = '';
-      if (data.body) {
-        detailHtml += `<pre class="arp-body-scroll">${esc(data.body)}</pre>`;
-      }
-      if (data.prompt) {
-        detailHtml += `<pre class="arp-body-scroll" id="christianPrompt">${esc(data.prompt)}</pre>`;
-        detailHtml += `<button onclick="copyChristianPrompt()" style="margin-top:4px;padding:4px 10px;font-size:0.8em;background:rgba(91,156,245,0.1);border:1px solid rgba(91,156,245,0.2);border-radius:var(--radius-sm);color:var(--accent-blue);cursor:pointer;">📋 Kopieren</button>`;
-      }
-      const widget = document.querySelector('#dashboard .widget[data-widget="steuerung"]');
-      if (widget) {
-        const container = widget.querySelector('.widget-overlay-container');
-        container.innerHTML = `<div class="widget-overlay open" id="overlay_${detailId}"><button class="widget-overlay-detail-close" onclick="closeDetailOverlay(event)">✕</button>${detailHtml}</div>`;
-      }
-    }
   }
 
   function copyChristianPrompt() {
