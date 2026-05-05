@@ -1231,8 +1231,23 @@
   const STORAGE_KEY = 'hermes-cockpit-v8';
 
   // ========== STATE ==========
-  let appState = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || {
-    order: ['steuerung', 'tasks', 'agents', 'system', 'terminal', 'jobs'],
+  const DEFAULT_ORDER = ['steuerung', 'tasks', 'agents', 'system', 'terminal', 'jobs'];
+
+  function loadAppState() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if (!raw || typeof raw !== 'object') return null;
+      const order = Array.isArray(raw.order) && raw.order.length > 0 ? raw.order : DEFAULT_ORDER;
+      const configs = raw.configs && typeof raw.configs === 'object' ? raw.configs : {};
+      const locked = !!raw.locked;
+      return { order: order, configs: configs, locked: locked };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  let appState = loadAppState() || {
+    order: DEFAULT_ORDER,
     configs: {},
     locked: false
   };
@@ -3358,7 +3373,8 @@
     applyLockState();
     applyCollapseState();
 
-    const { order } = appState;
+    const order = (appState && Array.isArray(appState.order) && appState.order.length > 0)
+      ? appState.order : DEFAULT_ORDER;
     order.forEach(wid => addWidgetToDashboard(wid));
     applyAllWidgetLockStates();
     updateSidebar();
