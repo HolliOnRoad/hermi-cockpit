@@ -3,27 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hermes Cockpit v8.1 — Arbeitszentrale</title>
+<title>Hermes Cockpit v8 — Sentinel</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root {
     --bg-deep: #070a14;
     --bg-surface: #0e1222;
-    --bg-glass: rgba(10, 14, 28, 0.75);
-    --bg-glass-hover: rgba(16, 21, 38, 0.85);
-    --bg-card: rgba(12, 16, 32, 0.7);
-    --bg-card-hover: rgba(18, 23, 40, 0.8);
+    --bg-glass: rgba(14, 18, 34, 0.7);
+    --bg-glass-hover: rgba(20, 25, 44, 0.8);
+    --bg-card: rgba(16, 20, 36, 0.65);
+    --bg-card-hover: rgba(20, 25, 44, 0.75);
     --border-glass: rgba(255, 255, 255, 0.06);
-    --border-glass-hover: rgba(255, 255, 255, 0.17);
+    --border-glass-hover: rgba(255, 255, 255, 0.12);
     --accent-blue: #5b9cf5;
     --accent-blue-glow: rgba(91, 156, 245, 0.2);
     --accent-orange: #f0a050;
     --accent-yellow: #e0c44c;
     --accent-purple: #9b6cf0;
-    --text-primary: #e6e9f5;
-    --text-secondary: #9ca0b8;
-    --text-dim: #6e738a;
+    --text-primary: #e1e5f2;
+    --text-secondary: #8b90a6;
+    --text-dim: #545a6e;
     --success: #40c463;
     --warning: #f0a050;
     --danger: #e05555;
@@ -32,7 +32,7 @@
     --radius-md: 10px;
     --radius-sm: 7px;
     --shadow-glass: 0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04) inset;
-    --shadow-glass-hover: 0 8px 40px rgba(91,156,245,0.08), 0 0 0 1px rgba(255,255,255,0.12) inset;
+    --shadow-glass-hover: 0 12px 44px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.07) inset;
     --shadow-card: 0 4px 20px rgba(0,0,0,0.35);
     --font-ui: 'Inter', -apple-system, 'Helvetica Neue', sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
@@ -63,43 +63,20 @@
   }
 
   /* === LAYOUT === */
-  .app-shell {
-    display: flex; height: 100vh; position: relative; z-index: 1;
-    --sidebar-width: 240px;
-    transition: all 0.25s ease;
-  }
-
-  .app-shell.collapsed {
-    --sidebar-width: 56px;
-  }
+  .app-shell { display: flex; height: 100vh; position: relative; z-index: 1; }
 
   /* === SIDEBAR === */
+  :root { --sidebar-width: 280px; }
+
   .sidebar {
     width: var(--sidebar-width); flex-shrink: 0;
     background: linear-gradient(180deg, #0d1117 0%, #131922 100%);
     border-right: 1px solid rgba(127,179,255,0.12);
     display: flex; flex-direction: column;
-    padding: 14px 6px; gap: 2px;
-    overflow-y: auto; overflow-x: hidden;
+    padding: 14px 10px; gap: 2px;
+    overflow-y: auto;
     position: relative;
-    transition: width 0.25s ease;
   }
-
-  /* Collapsed state */
-  .app-shell.collapsed .sidebar-header { justify-content: center; }
-  .app-shell.collapsed .sidebar-title,
-  .app-shell.collapsed .sidebar-subtitle { display: none; }
-  .app-shell.collapsed .sidebar-logo { width: 32px; height: 32px; font-size: 16px; }
-  .app-shell.collapsed .widget-library-label span { display: none; }
-  .app-shell.collapsed .widget-library-label .hint { display: none; }
-  .app-shell.collapsed .lib-widget span:not(.sidebar-badge) { display: none; }
-  .app-shell.collapsed .lib-widget { justify-content: center; padding: 12px 4px; gap: 0; }
-  .app-shell.collapsed .lib-widget .lib-icon { width: 30px; height: 30px; font-size: 14px; }
-  .app-shell.collapsed .lib-widget.placed::after { display: none; }
-  .app-shell.collapsed .lib-instance span { display: none; }
-  .app-shell.collapsed .sidebar-footer { display: none; }
-  .app-shell.collapsed .sidebar-resize-handle { display: none; }
-  .app-shell.collapsed .sidebar { padding: 14px 4px; }
 
   .sidebar-resize-handle {
     position: absolute; top: 0; right: 0; bottom: 0;
@@ -126,16 +103,6 @@
   .sidebar-title { font-weight: 700; font-size: 14px; color: var(--text-primary); }
   .sidebar-subtitle { font-size: 9px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
 
-  .collapse-toggle {
-    width: 22px; height: 22px; border-radius: 4px;
-    background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass);
-    color: var(--text-dim); cursor: pointer;
-    font-size: 9px; display: flex; align-items: center; justify-content: center;
-    transition: var(--transition); flex-shrink: 0; padding: 0;
-  }
-  .collapse-toggle:hover { color: var(--text-primary); border-color: var(--border-glass-hover); background: rgba(255,255,255,0.06); }
-  .app-shell.collapsed .collapse-toggle { transform: rotate(180deg); }
-
   .widget-library-label {
     font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em;
     color: var(--text-dim); font-weight: 700; padding: 12px 6px 6px;
@@ -155,14 +122,9 @@
   }
 
   .lib-widget:hover {
-    background: rgba(127,179,255,0.12);
-    border-color: rgba(127,179,255,0.3);
-    color: #e6ecf7;
-    transform: translateY(-1px);
-    box-shadow:
-      0 0 6px rgba(240,160,80,0.25),
-      0 0 12px rgba(192,96,208,0.18),
-      0 0 20px rgba(91,156,245,0.22);
+    background: rgba(127,179,255,0.08);
+    border-color: transparent;
+    color: #d4dbe8;
   }
 
   .lib-widget span { color: inherit; }
@@ -170,26 +132,17 @@
   .lib-widget.dragging { opacity: 0.4; border: 1px dashed var(--accent-blue); }
 
   .lib-widget.placed {
-    background: rgba(91,156,245,0.04);
-    border: 1px solid rgba(91,156,245,0.1);
-    color: #b0bfd4;
-  }
-
-  .lib-widget.placed:hover {
-    background: rgba(91,156,245,0.1);
-    border-color: rgba(127,179,255,0.3);
-    color: #d4e2fd;
-    transform: translateY(-1px);
-    box-shadow:
-      0 0 6px rgba(240,160,80,0.35),
-      0 0 14px rgba(192,96,208,0.25),
-      0 0 24px rgba(91,156,245,0.28);
+    background: rgba(127,179,255,0.10);
+    border: 1px solid rgba(127,179,255,0.15);
+    border-left: 3px solid #7fb3ff;
+    color: #ffffff;
+    cursor: default; opacity: 1; pointer-events: auto;
   }
 
   .lib-widget.placed::after {
-    content: '\2713 '; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-    font-size: 11px; color: var(--accent-blue); font-weight: 700;
-    background: rgba(91,156,245,0.1);
+    content: '✓'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    font-size: 11px; color: #7fb3ff; font-weight: 700;
+    background: rgba(127,179,255,0.18);
     border-radius: 50%; width: 20px; height: 20px;
     display: flex; align-items: center; justify-content: center;
     line-height: 1;
@@ -216,8 +169,6 @@
   .lib-icon.news { background: rgba(240,160,80,0.08); color: var(--accent-orange); }
   .lib-icon.weather { background: rgba(127,179,255,0.08); color: #7fb3ff; }
   .lib-icon.skills { background: rgba(155,108,240,0.08); color: var(--accent-purple); }
-  .lib-icon.inbox { background: rgba(91,156,245,0.08); color: var(--accent-blue); }
-  .lib-icon.notes { background: rgba(240,160,80,0.08); color: var(--accent-orange); }
 
   .lib-widget.placed .lib-icon {
     color: #7fb3ff; background: rgba(127,179,255,0.12);
@@ -361,12 +312,12 @@
 
   /* === WIDGETS === */
   .widget {
-    background: rgba(10,14,28,0.75);
+    background: var(--bg-glass);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid var(--border-glass);
     border-radius: var(--radius-md);
-    box-shadow: none;
+    box-shadow: var(--shadow-card);
     transition: var(--transition);
     position: relative;
     min-width: 180px;
@@ -375,36 +326,8 @@
   }
 
   .widget:hover {
-    border-color: rgba(255,255,255,0.12);
-    box-shadow: none;
-  }
-
-  /* Top-Zone Fokus-Glow (nur Unterkante) */
-  .widget-top {
-    position: relative;
-  }
-
-  .widget-top::after {
-    content: '';
-    position: absolute;
-    left: 10%; right: 10%;
-    bottom: 0; height: 2px;
-    border-radius: 2px;
-    background: linear-gradient(90deg,
-      rgba(240,160,80,0), rgba(192,96,208,0.4), rgba(91,156,245,0.5), rgba(240,160,80,0));
-    box-shadow: 0 6px 20px rgba(91,156,245,0.18), 0 2px 8px rgba(192,96,208,0.12);
-    opacity: 0.9;
-    pointer-events: none;
-  }
-
-  /* Mid-Zone: dezente obere Lichtkante für Nicht-Top-Widgets */
-  .widget-middle::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 1px;
-    background: rgba(255,255,255,0.04);
-    pointer-events: none;
+    border-color: var(--border-glass-hover);
+    box-shadow: var(--shadow-glass-hover);
   }
 
   .widget.drag-ghost { opacity: 0.3; transform: scale(0.97); }
@@ -668,40 +591,17 @@
      SYSTEM / JOBS / NEWS / WEATHER / SKILLS (em-basiert)
      ================================================================ */
   .sys-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 1em; }
-  .sys-label { color: var(--text-dim); }
-  .sys-val { font-family: var(--font-mono); font-size: 1em; font-weight: 600; }
-
+  .sys-label { color: var(--text-secondary); }
+  .sys-val { font-family: var(--font-mono); font-size: 1em; }
   .sys-bar-track { height: 3px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; margin-top: 1px; }
   .sys-bar-fill { height: 100%; border-radius: 2px; transition: width 1s; }
   .sys-bar-fill.cpu { background: var(--accent-blue); }
   .sys-bar-fill.ram { background: var(--accent-orange); }
   .sys-bar-fill.disk { background: var(--accent-purple); }
 
-  /* v8.1 — Focus/Glow System */
-  .sys-row.warn .sys-val {
-    text-shadow: 0 0 12px currentColor;
-  }
-  .sys-row.warn-ram .sys-val { color: #ffb060; font-weight: 700; }
-  .sys-row.warn-cpu .sys-val { color: #7db8ff; font-weight: 700; }
-  .sys-bar-fill.warn { animation: barPulse 2s ease-in-out infinite; }
-  @keyframes barPulse {
-    0%, 100% { filter: brightness(1); }
-    50% { filter: brightness(1.4); }
-  }
-  .job-row.active { border-left: 2px solid var(--success); margin-left: -6px; padding-left: 4px; }
-
-  /* Sidebar Badge */
-  .sidebar-badge {
-    display: inline-block; min-width: 18px; height: 16px;
-    line-height: 16px; text-align: center; font-size: 9px;
-    font-weight: 700; border-radius: 8px; padding: 0 5px;
-    background: var(--accent-blue-glow); color: var(--accent-blue);
-    margin-left: 4px; vertical-align: middle;
-  }
-
   .job-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 1em; }
   .job-row:last-child { border-bottom: none; }
-  .job-title { color: #d0d6e5; font-weight: 600; }
+  .job-title { color: var(--text-secondary); }
   .job-sched { font-size: 0.8em; color: var(--text-dim); }
   .job-stat { font-family: var(--font-mono); font-size: 0.9em; }
   .job-stat.ok { color: var(--success); }
@@ -714,7 +614,7 @@
   .term-success { color: var(--success); }
   .term-warn { color: var(--warning); }
   .term-err { color: var(--danger); }
-  .term-dim { color: #7e8399; }
+  .term-dim { color: #6a7080; }
   .term-live { color: var(--accent-yellow); }
 
   .term-footer {
@@ -740,13 +640,9 @@
 
   .weather-main { display: flex; align-items: center; gap: 12px; }
   .weather-icon { font-size: 2.8em; }
-  .weather-temp { font-size: 2.2em; font-weight: 700; color: #eef2ff; }
-
+  .weather-temp { font-size: 2.2em; font-weight: 700; }
   .weather-detail { font-size: 0.9em; color: var(--text-dim); margin-top: 3px; }
-
   .weather-stats { display: flex; gap: 14px; margin-top: 6px; font-size: 0.9em; color: var(--text-dim); }
-  .wx-val { color: #dce1f0; font-weight: 600; }
-
   .weather-forecast { font-size: 0.9em; color: var(--text-dim); margin-top: 4px; }
   .weather-fetching { font-size: 0.9em; color: var(--text-dim); font-style: italic; }
 
@@ -756,210 +652,6 @@
     border: 1px solid rgba(155,108,240,0.1);
     font-size: 0.9em; color: var(--text-secondary);
   }
-
-  /* ================================================================
-     ACTION STATUS INDICATORS (v8.1 — Action-Bridge)
-     ================================================================ */
-  .action-status {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-size: 10px; margin-left: 6px; flex-shrink: 0;
-  }
-  .action-dot {
-    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-    background: var(--text-dim); transition: var(--transition);
-  }
-  .action-dot.idle { background: var(--text-dim); opacity: 0.5; }
-  .action-dot.running { background: var(--accent-yellow); animation: pulseDot 0.8s ease-in-out infinite; }
-  .action-dot.ok { background: var(--success); box-shadow: 0 0 6px rgba(64,196,99,0.4); }
-  .action-dot.error { background: var(--danger); box-shadow: 0 0 6px rgba(224,85,85,0.4); }
-  .action-duration { font-family: var(--font-mono); color: var(--text-dim); font-size: 9px; white-space: nowrap; }
-
-  @keyframes pulseDot {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.7); }
-  }
-
-  .steu-action-btn {
-    display: flex; align-items: center; gap: 6px;
-  }
-  .steu-action-btn .btn-label { flex: 1; }
-
-  /* ================================================================
-     INBOX WIDGET
-     ================================================================ */
-  .inbox-item {
-    display: flex; align-items: flex-start; gap: 6px;
-    padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.02);
-    transition: var(--transition);
-  }
-  .inbox-item:last-child { border-bottom: none; }
-  .inbox-item:hover { background: rgba(255,255,255,0.015); margin: 0 -6px; padding: 6px; border-radius: var(--radius-sm); }
-
-  .inbox-dot {
-    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px;
-  }
-  .inbox-dot.new { background: var(--accent-blue); box-shadow: 0 0 6px var(--accent-blue-glow); }
-  .inbox-dot.seen { background: var(--text-dim); opacity: 0.6; }
-  .inbox-dot.later { background: var(--accent-yellow); opacity: 0.8; }
-  .inbox-dot.done { background: var(--success); opacity: 0.5; }
-
-  .inbox-content { flex: 1; min-width: 0; }
-  .inbox-title { font-weight: 500; font-size: 0.95em; color: var(--text-secondary); }
-  .inbox-meta { font-size: 0.8em; color: var(--text-dim); display: flex; gap: 8px; margin-top: 1px; }
-  .inbox-actions { display: flex; gap: 3px; flex-shrink: 0; }
-  .inbox-btn {
-    font-size: 9px; padding: 2px 6px; border-radius: 4px;
-    background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass);
-    color: var(--text-dim); cursor: pointer; transition: var(--transition);
-    font-family: var(--font-ui); white-space: nowrap;
-  }
-  .inbox-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); border-color: var(--border-glass-hover); }
-  .inbox-btn.active { background: rgba(91,156,245,0.1); border-color: rgba(91,156,245,0.2); color: var(--accent-blue); }
-  .inbox-empty { text-align: center; padding: 20px; color: var(--text-dim); opacity: 0.5; font-style: italic; }
-
-  /* ================================================================
-     NOTES WIDGET
-     ================================================================ */
-  .notes-input-group {
-    display: flex; gap: 4px; margin-bottom: 6px;
-  }
-  .notes-input {
-    flex: 1; background: rgba(255,255,255,0.03);
-    border: 1px solid var(--border-glass);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary); font-family: var(--font-ui);
-    font-size: 1em; padding: 5px 8px;
-    transition: var(--transition);
-  }
-  .notes-input:focus {
-    outline: none; border-color: var(--accent-blue);
-    box-shadow: 0 0 8px var(--accent-blue-glow);
-    background: rgba(255,255,255,0.05);
-  }
-  .notes-input::placeholder { color: var(--text-dim); }
-  .notes-add-btn {
-    background: rgba(91,156,245,0.1); border: 1px solid rgba(91,156,245,0.2);
-    color: var(--accent-blue); border-radius: var(--radius-sm);
-    font-size: 1em; padding: 5px 12px; cursor: pointer;
-    font-weight: 600; transition: var(--transition);
-    font-family: var(--font-ui); white-space: nowrap;
-  }
-  .notes-add-btn:hover { background: rgba(91,156,245,0.2); }
-
-  .notes-list { display: flex; flex-direction: column; }
-  .notes-item {
-    display: flex; align-items: center; gap: 6px;
-    padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.02);
-    transition: var(--transition);
-    word-break: break-word;
-  }
-  .notes-item:last-child { border-bottom: none; }
-  .notes-check {
-    width: 16px; height: 16px; border-radius: 50%;
-    border: 2px solid var(--text-dim); flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 9px; color: transparent;
-    cursor: pointer; transition: var(--transition);
-  }
-  .notes-check:hover { border-color: var(--success); }
-  .notes-check.checked {
-    background: var(--success); border-color: var(--success); color: #fff;
-  }
-  .notes-text { flex: 1; color: var(--text-secondary); font-size: 0.95em; }
-  .notes-text.done { text-decoration: line-through; color: var(--text-dim); opacity: 0.6; }
-  .notes-del {
-    background: none; border: none; color: var(--text-dim);
-    cursor: pointer; font-size: 12px; padding: 2px 4px;
-    border-radius: 3px; transition: var(--transition);
-    flex-shrink: 0; opacity: 0;
-  }
-  .notes-item:hover .notes-del { opacity: 0.6; }
-  .notes-del:hover { opacity: 1 !important; color: var(--danger); background: rgba(224,85,85,0.1); }
-  .notes-local-tag {
-    font-size: 7px; color: var(--text-dim); opacity: 0.5;
-    text-transform: uppercase; letter-spacing: 0.1em;
-    text-align: center; padding: 4px 0 0;
-  }
-
-  /* ================================================================
-     CHAT PANEL IMPROVEMENTS
-     ================================================================ */
-  .chat-panel { display: flex; flex-direction: column; gap: 6px; height: 100%; }
-  .chat-output {
-    flex: 1; min-height: 60px; max-height: 300px;
-    overflow-y: auto; font-family: var(--font-mono);
-    font-size: 0.9em; padding: 6px; white-space: pre-wrap;
-    color: var(--text-secondary); background: rgba(0,0,0,0.2);
-    border: 1px solid var(--border-glass);
-    border-radius: var(--radius-sm);
-    user-select: text; cursor: text;
-  }
-  .chat-input-row { display: flex; gap: 4px; }
-  .chat-input {
-    flex: 1; background: rgba(255,255,255,0.03);
-    border: 1px solid var(--border-glass);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary); font-family: var(--font-mono);
-    font-size: 0.85em; padding: 5px 8px;
-    transition: var(--transition);
-  }
-  .chat-input:focus { outline: none; border-color: var(--accent-purple); }
-  .chat-btn {
-    background: rgba(155,108,240,0.1); border: 1px solid rgba(155,108,240,0.2);
-    color: var(--accent-purple); border-radius: var(--radius-sm);
-    font-size: 0.8em; padding: 4px 10px; cursor: pointer;
-    transition: var(--transition); font-family: var(--font-ui);
-    white-space: nowrap;
-  }
-  .chat-btn:hover { background: rgba(155,108,240,0.2); }
-  .chat-hint {
-    font-size: 0.75em; color: var(--text-dim); text-align: center;
-    padding: 2px; opacity: 0.5;
-  }
-
-  /* ================================================================
-     COLLAPSIBLE SECTIONS (Steuerung)
-     ================================================================ */
-  .collapsible-section {
-    border: 1px solid var(--border-glass);
-    border-radius: var(--radius-sm);
-    margin-bottom: 4px; overflow: hidden;
-  }
-  .collapsible-header {
-    display: flex; align-items: center; gap: 6px;
-    padding: 4px 8px; cursor: pointer;
-    background: rgba(255,255,255,0.015);
-    transition: var(--transition); user-select: none;
-  }
-  .collapsible-header:hover { background: rgba(255,255,255,0.04); }
-  .collapsible-arrow {
-    font-size: 8px; transition: transform 0.2s;
-    color: var(--text-dim); flex-shrink: 0;
-  }
-  .collapsible-section.open .collapsible-arrow { transform: rotate(90deg); }
-  .collapsible-body { display: none; padding: 4px 8px 8px; }
-  .collapsible-section.open .collapsible-body { display: block; }
-
-  /* Action-Result Cards */
-  .action-result-header {
-    display: flex; justify-content: space-between; align-items: center;
-    font-size: 0.85em; color: var(--text-primary); font-weight: 600;
-    margin-bottom: 4px; padding-bottom: 3px;
-    border-bottom: 1px solid var(--border-glass);
-  }
-  .action-result-header .ar-status { font-size: 0.85em; }
-  .action-result-header .ar-status.ok { color: var(--success); }
-  .action-result-header .ar-status.error { color: var(--danger); }
-  .ar-items { display: flex; flex-direction: column; gap: 2px; max-height: 200px; overflow-y: auto; }
-  .ar-item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 3px 4px; font-size: 0.82em;
-    border-bottom: 1px solid rgba(255,255,255,0.02);
-    color: var(--text-secondary);
-  }
-  .ar-item:last-child { border-bottom: none; }
-  .ar-item-name { flex: 1; color: var(--text-primary); font-weight: 500; }
-  .ar-item-meta { font-family: var(--font-mono); font-size: 0.85em; color: var(--text-dim); white-space: nowrap; }
 
   /* Placeholder */
   .placeholder-msg {
@@ -998,65 +690,46 @@
       <div class="sidebar-logo">⚡</div>
       <div>
         <div class="sidebar-title">Hermes Cockpit</div>
-        <div class="sidebar-subtitle">v8.1 · Arbeitszentrale</div>
+        <div class="sidebar-subtitle">v8.0 · Sentinel</div>
       </div>
-      <button class="collapse-toggle" id="collapseToggle" title="Sidebar einklappen" onclick="toggleCollapse()" style="margin-left:auto;">◀</button>
     </div>
 
     <div class="widget-library-label">
-      <span>MONITORING</span>
-      <span class="hint">live</span>
+      <span>Widget-Bibliothek</span>
+      <span class="hint">auf Dashboard ziehen →</span>
     </div>
 
-    <div class="lib-widget" data-widget="tasks" data-category="monitor" draggable="true">
+    <div class="lib-widget" data-widget="tasks" draggable="true">
       <div class="lib-icon tasks">☐</div><span>Task Board</span>
     </div>
-    <div class="lib-widget" data-widget="agents" data-category="monitor" draggable="true">
+    <div class="lib-widget" data-widget="agents" draggable="true">
       <div class="lib-icon agents">◈</div><span>Agenten</span>
     </div>
-    <div class="lib-widget" data-widget="system" data-category="monitor" draggable="true">
+    <div class="lib-widget" data-widget="system" draggable="true">
       <div class="lib-icon system">⊞</div><span>System Monitor</span>
     </div>
-    <div class="lib-widget" data-widget="jobs" data-category="monitor" draggable="true">
+    <div class="lib-widget" data-widget="jobs" draggable="true">
       <div class="lib-icon jobs">⚙</div><span>Cron Jobs</span>
     </div>
-
-    <div class="widget-library-label" style="margin-top:6px;">
-      <span>WERKZEUGE</span>
-      <span class="hint">interaktiv</span>
-    </div>
-
-    <div class="lib-widget" data-widget="terminal" data-category="tools" draggable="true">
+    <div class="lib-widget" data-widget="terminal" draggable="true">
       <div class="lib-icon terminal">⟩_</div><span>Terminal</span>
     </div>
-    <div class="lib-widget" data-widget="news" data-category="info" draggable="true">
+    <div class="lib-widget" data-widget="news" draggable="true">
       <div class="lib-icon news">☀</div><span>News Feed</span>
     </div>
-    <div class="lib-widget" data-widget="weather" data-category="info" draggable="true">
+    <div class="lib-widget" data-widget="weather" draggable="true">
       <div class="lib-icon weather">☁</div><span>Wetter</span>
     </div>
-
-    <div class="widget-library-label" style="margin-top:6px;">
-      <span>PERSÖNLICH</span>
-      <span class="hint">lokal</span>
-    </div>
-
-    <div class="lib-widget" data-widget="skills" data-category="local" draggable="true">
+    <div class="lib-widget" data-widget="skills" draggable="true">
       <span class="lib-icon">✦</span><span>Skills</span>
     </div>
-    <div class="lib-widget" data-widget="steuerung" data-category="local" draggable="true">
+    <div class="lib-widget" data-widget="steuerung" draggable="true">
       <span class="lib-icon">⚡</span><span>Steuerung</span>
-    </div>
-    <div class="lib-widget" data-widget="inbox" data-category="local" draggable="true">
-      <div class="lib-icon inbox">✉</div><span>Inbox <span class="sidebar-badge" id="sidebarInboxBadge" style="display:none"></span></span>
-    </div>
-    <div class="lib-widget" data-widget="notes" data-category="local" draggable="true">
-      <div class="lib-icon notes">📝</div><span>Notizen</span>
     </div>
 
     <div class="widget-library-label" style="margin-top:8px;">
       <span>INSTANZEN</span>
-      <span class="hint">mehrfach</span>
+      <span class="hint">mehrfach öffnen</span>
     </div>
     <div class="lib-widget lib-instance" data-widget="terminal" data-action="add-instance">
       <span class="lib-icon" style="color:var(--accent-blue);">+⟩_</span><span>Neues Terminal</span>
@@ -1070,7 +743,6 @@
       <div class="mini-bar"><div class="mini-bar-fill blue" id="sidebarMemoryBar" style="width:0%;"></div></div>
       <div class="stat-row"><span class="lbl">Skills</span><span class="val" id="sidebarSkillsVal">…</span></div>
       <div class="stat-row"><span class="lbl">Heute</span><span class="val" id="sidebarDate">30.04.2026</span></div>
-      <div class="stat-row" style="margin-top:4px;font-size:8px;opacity:0.3;text-align:center;display:block;">v8.1 · Schicht 2/3</div>
     </div>
     <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
   </aside>
@@ -1115,9 +787,7 @@
     weather:  { w: '240px', h: 'auto', fs: 10 },
     skills:   { w: '280px', h: 'auto', fs: 10 },
     steuerung:{ w: '420px', h: 'auto', fs: 10 },
-    chat:     { w: '360px', h: 'auto', fs: 10 },
-    inbox:    { w: '320px', h: 'auto', fs: 10 },
-    notes:    { w: '300px', h: 'auto', fs: 10 }
+    chat:     { w: '360px', h: 'auto', fs: 10 }
   };
 
   // Size presets for Auto-Size
@@ -1179,25 +849,18 @@
     },
     terminal: {
       name: 'Terminal', icon: '\u27e9_',
-      render(body, fs, instanceId) {
+      render(body, fs) {
         body.style.fontSize = fs + 'px';
-        // Only use suffix for true instances (terminal-1, terminal-2), not for base widget
-        const isInstance = instanceId && instanceId !== 'terminal';
-        const idSuffix = isInstance ? instanceId : '';
-        const containerId = idSuffix ? 'ptyContainer_' + idSuffix : 'ptyContainer';
-        const footerId = idSuffix ? 'termStatusFooter_' + idSuffix : 'termStatusFooter';
-        if (body.querySelector('#' + containerId)) {
-          // Already rendered: just update font if terminal exists
-          const session = ptySessions[idSuffix || 'terminal'];
-          if (session && session.term) {
-            session.term.options.fontSize = fs;
-            if (session.fitAddon) session.fitAddon.fit();
+        if (body.querySelector('#ptyContainer')) {
+          if (ptyTerm) {
+            ptyTerm.options.fontSize = fs;
+            if (ptyFitAddon) ptyFitAddon.fit();
           }
           return;
         }
         body.innerHTML = `
-          <div class="pty-container" id="${containerId}"></div>
-          <div class="term-footer" id="${footerId}">
+          <div class="pty-container" id="ptyContainer"></div>
+          <div class="term-footer" id="termStatusFooter">
             <span class="term-status-dot term-status-dot--connecting"></span><span>verbinde...</span>
           </div>
         `;
@@ -1232,466 +895,117 @@
       }
     },
     steuerung: {
-      name: 'Steuerung', icon: '\u26a1',
+      name: 'Steuerung', icon: '⚡',
       render(body, fs) {
         body.style.fontSize = fs + 'px';
-        body.innerHTML = '<div class="steuerung-panel" id="steuStatus"></div>';
+        body.innerHTML = `
+          <div class="steuerung-panel">
+            <div class="steu-section"><div class="steu-section-title">Systemstatus</div><div class="steu-grid" id="steuStatus"></div></div>
+            <div class="steu-section"><div class="steu-section-title">Prioritäten</div><div id="steuPrio"></div></div>
+            <div class="steu-section"><div class="steu-section-title">Aktionen</div><div id="steuActions"></div></div>
+          </div>
+        `;
         buildSteuerung();
       }
     },
     chat: {
-      name: 'Chat (Copy/Paste)', icon: '\ud83d\udcac',
+      name: 'Chat', icon: '💬',
       render(body, fs) {
         body.style.fontSize = fs + 'px';
-        const idSuffix = Date.now();
         body.innerHTML = `
           <div class="chat-panel">
-            <div class="chat-output" id="chatOutput_${idSuffix}" contenteditable="true">Copy/Paste-Panel \u2014 kein KI-Backend.\nText hier ablegen oder von KI-Tools reinkopieren.</div>
-            <div class="chat-input-row">
-              <input class="chat-input" id="chatInput_${idSuffix}" placeholder="Text hier eingeben oder pasten..." onkeydown="if(event.key==='Enter')chatAppend('${idSuffix}')">
-              <button class="chat-btn" onclick="chatAppend('${idSuffix}')">+</button>
-              <button class="chat-btn" onclick="chatClear('${idSuffix}')">\ud83d\uddd1</button>
-            </div>
-            <div class="chat-hint">Kein KI-Backend \u2014 nur manuelles Copy &amp; Paste</div>
+            <div class="chat-output" id="chatOutput_${Date.now()}" style="min-height:80px;max-height:300px;overflow-y:auto;font-family:var(--font-mono);font-size:0.9em;padding:4px;white-space:pre-wrap;color:var(--text-secondary);">Chat-Bereich — Copy &amp; Paste von/zur KI</div>
           </div>
         `;
-      }
-    },
-    inbox: {
-      name: 'Inbox', icon: '✉',
-      render(body, fs) {
-        body.style.fontSize = fs + 'px';
-        body.innerHTML = '<div id="inboxContainer"><span class="term-dim">Lade Inbox…</span></div>';
-        fetchInbox();
-      }
-    },
-    notes: {
-      name: 'Notizen', icon: '📝',
-      render(body, fs) {
-        body.style.fontSize = fs + 'px';
-        const notes = JSON.parse(localStorage.getItem('hermes_notes') || '[]');
-        renderNotes(body, fs, notes);
       }
     }
   };
 
-  // ========== v8.1: STEUERUNG ENGINE ==========
+  // ========== STEUERUNG ENGINE ==========
   function buildSteuerung() {
-    const steuEl = document.getElementById('steuStatus');
-    if (!steuEl) return;
-
-    // Tagesprioritäten (3 kurze Bullets, keine Checkboxen)
-    let html = '<div class="steu-section"><div class="steu-section-title">Heute</div>';
-    html += '<div style="display:flex;flex-direction:column;gap:3px;">';
-    html += '<div class="steu-status-row"><span class="steu-dot steu-ok"></span>Dashboard V8 finalisieren</div>';
-    html += '<div class="steu-status-row"><span class="steu-dot steu-warn"></span>Kontrast & Fokus-System</div>';
-    html += '<div class="steu-status-row"><span class="steu-dot steu-no"></span>Backend-Hooks vorbereiten</div>';
-    html += '</div></div>';
-
-    // Aktionen als grosse Icon-Buttons (immer offen)
-    html += '<div class="collapsible-section open"><div class="collapsible-header" onclick="toggleCollapsible(this.parentElement)"><span class="collapsible-arrow">\u25b6</span><span>Aktionen</span></div><div class="collapsible-body">';
-    // Quickstart + Fullcheck row
-    html += '<div style="display:flex;gap:4px;margin-bottom:6px;">';
-    html += '<button class="steu-action-btn" data-action="quick" onclick="handleWidgetAction(\'quick\')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;"><span>\u26a1</span><span class="btn-label">Schnellstart</span><span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span></button>';
-    html += '<button class="steu-action-btn" data-action="fullcheck" onclick="handleWidgetAction(\'fullcheck\')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;"><span>\ud83d\udd0d</span><span class="btn-label">Vollcheck</span><span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span></button>';
-    html += '</div>';
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:4px;">';
-    const actions = [
-      { k: 'ollama', label: 'Ollama', icon: '\ud83e\udd16' },
-      { k: 'cronjobs', label: 'Cronjobs', icon: '\u2699' },
-      { k: 'skills', label: 'Skills', icon: '\u2726' },
-      { k: 'memory', label: 'Memory', icon: '\ud83e\udde0' },
-      { k: 'update', label: 'Update', icon: '\u2b06' }
-    ];
-    html += actions.map(a => `
-      <button class="steu-action-btn" data-action="${a.k}" onclick="handleWidgetAction('${a.k}')" style="flex-direction:column;align-items:center;gap:2px;padding:8px 6px;border-radius:var(--radius-sm);">
-        <span style="font-size:3.5em;">${a.icon}</span>
-        <span class="btn-label" style="font-size:0.85em;">${a.label}</span>
-        <span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span>
-      </button>
-    `).join('');
-    html += '</div></div></div>';
-
-    // Ergebnisanzeige (erscheint nur nach Aktionen)
-    html += '<div id="actionResult" style="display:none;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,0.2);border:1px solid var(--border-glass);border-radius:var(--radius-sm);"></div>';
-
-    // Systemstatus (eingeklappt)
-    html += '<div class="collapsible-section"><div class="collapsible-header" onclick="toggleCollapsible(this.parentElement)"><span class="collapsible-arrow">\u25b6</span><span>Status</span></div><div class="collapsible-body">';
     const statusData = [
       { k: 'Architektur', v: 'stabil', s: 'ok' },
       { k: 'Routing', v: 'gut', s: 'warn' },
       { k: 'Skills', v: 'mittel', s: 'warn' },
-      { k: 'Automation', v: 'l\u00e4uft', s: 'warn' },
-      { k: 'Reife', v: 'Aufbau', s: 'no' }
+      { k: 'Automation', v: 'läuft', s: 'warn' },
+      { k: 'Produktreife', v: 'im Aufbau', s: 'no' }
     ];
-    html += statusData.map(d => `<div class="steu-status-row"><span class="steu-dot steu-${d.s}"></span>${d.k}: ${d.v}</div>`).join('');
-    html += '</div></div>';
+    const statusEl = document.getElementById('steuStatus');
+    if (statusEl) statusEl.innerHTML = statusData.map(d => `
+      <div class="steu-status-row"><span class="steu-dot steu-${d.s}"></span>${d.k}: ${d.v}</div>
+    `).join('');
 
-    // Roadmap (eingeklappt)
-    html += '<div class="collapsible-section"><div class="collapsible-header" onclick="toggleCollapsible(this.parentElement)"><span class="collapsible-arrow">\u25b6</span><span>Roadmap</span></div><div class="collapsible-body">';
     const prioData = [
       { t: 'KRITISCH', items: ['Routing validieren','Overnight stabil','Council nutzen'], cls: 'no' },
-      { t: 'WICHTIG', items: ['Skills aufr\u00e4umen','Context Engineering','Memory'], cls: 'warn' },
-      { t: 'OPTIONAL', items: ['Firecrawl testen','Nous Portal'], cls: 'ok' }
+      { t: 'WICHTIG', items: ['Skills aufräumen','Context Engineering','Memory-Qualität'], cls: 'warn' },
+      { t: 'OPTIONAL', items: ['Firecrawl testen','Nous Portal prüfen'], cls: 'ok' }
     ];
-    html += prioData.map(p => `
+    const prioEl = document.getElementById('steuPrio');
+    if (prioEl) prioEl.innerHTML = prioData.map(p => `
       <div class="steu-prio-group">
         <div class="steu-prio-head steu-${p.cls}">${p.t}</div>
-        ${p.items.map(i => `<div class="steu-check-row"><span class="steu-check" data-k="${i}" onclick="toggleSteuCheck(this)">\u2610</span>${i}</div>`).join('')}
+        ${p.items.map(i => `<div class="steu-check-row"><span class="steu-check" data-k="${i}" onclick="toggleSteuCheck(this)">☐</span>${i}</div>`).join('')}
       </div>
     `).join('');
-    html += '</div></div>';
 
-    steuEl.innerHTML = html;
+    const actions = [
+      { k: 'ollama', label: 'Ollama-Status', ready: true },
+      { k: 'cronjobs', label: 'Cronjobs prüfen', ready: true },
+      { k: 'skills', label: 'Skills prüfen', ready: true },
+      { k: 'memory', label: 'Memory-Check', ready: true },
+      { k: 'update', label: 'Update-Bericht', ready: true },
+      { k: 'council', label: 'Council starten', ready: false },
+      { k: 'routing', label: 'Routing-Test', ready: false }
+    ];
+    const actEl = document.getElementById('steuActions');
+    if (actEl) actEl.innerHTML = actions.map(a => `
+      <button class="steu-action-btn" data-action="${a.k}" ${a.ready ? '' : 'disabled'} onclick="handleWidgetAction('${a.k}')">
+        ${a.ready ? '▶' : '⏳'} ${a.label} ${a.ready ? '' : '<span class=\"steu-notready\">(später)</span>'}
+      </button>
+    `).join('');
 
+    // Restore saved checks
     const saved = JSON.parse(localStorage.getItem('steuChecks') || '{}');
-    document.querySelectorAll('#steuStatus .steu-check').forEach(el => {
-      if (saved[el.dataset.k]) { el.textContent = '\u2611'; el.classList.add('steu-done'); }
+    document.querySelectorAll('.steu-check').forEach(el => {
+      if (saved[el.dataset.k]) { el.textContent = '☑'; el.classList.add('steu-done'); }
     });
   }
 
-  function toggleCollapsible(section) {
-    section.classList.toggle('open');
-  }
-
   function toggleSteuCheck(el) {
-    const done = el.textContent === '\u2611';
-    el.textContent = done ? '\u2610' : '\u2611';
+    const done = el.textContent === '☑';
+    el.textContent = done ? '☐' : '☑';
     el.classList.toggle('steu-done', !done);
     const saved = JSON.parse(localStorage.getItem('steuChecks') || '{}');
     saved[el.dataset.k] = !done;
     localStorage.setItem('steuChecks', JSON.stringify(saved));
   }
 
-  // ========== v8.1: ACTION BRIDGE ==========
-  const ACTION_API = 'http://127.0.0.1:8000/api/action';
-  const ACTION_LOG_KEY = 'hermes-action-log';
-
-  function getActionLog() {
-    try { return JSON.parse(localStorage.getItem(ACTION_LOG_KEY) || '[]'); }
-    catch { return []; }
-  }
-
-  function logAction(actionId, status, durationMs) {
-    const log = getActionLog();
-    log.push({ actionId, status, durationMs, timestamp: Date.now() });
-    if (log.length > 500) log.splice(0, log.length - 500);
-    localStorage.setItem(ACTION_LOG_KEY, JSON.stringify(log));
-  }
-
-  function updateActionStatus(widgetEl, actionId, status, durationMs) {
-    if (!widgetEl) return;
-    const btn = widgetEl.querySelector(`button[data-action="${actionId}"]`);
-    if (!btn) return;
-    let dot = btn.querySelector('.action-dot');
-    let dur = btn.querySelector('.action-duration');
-    if (!dot) {
-      dot = document.createElement('span');
-      dot.className = 'action-dot';
-      btn.appendChild(dot);
-    }
-    if (!dur) {
-      dur = document.createElement('span');
-      dur.className = 'action-duration';
-      btn.appendChild(dur);
-    }
-    dot.className = 'action-dot ' + status;
-    if (status === 'running') {
-      dur.textContent = '';
-      btn.disabled = true;
-    } else {
-      dur.textContent = durationMs != null ? durationMs + 'ms' : '';
-      btn.disabled = false;
-    }
-    // Auto-reset dot after 6s
-    if (status === 'ok' || status === 'error') {
-      setTimeout(() => {
-        if (dot && dot.className.includes(status)) {
-          dot.className = 'action-dot idle';
-          if (dur) dur.textContent = '';
-        }
-      }, 6000);
-    }
-  }
-
-  function refreshAllActionStatuses() {
-    document.querySelectorAll('.steu-action-btn').forEach(btn => {
-      const dot = btn.querySelector('.action-dot');
-      if (dot && dot.className.includes('idle')) return;
-      if (!dot || (!dot.className.includes('ok') && !dot.className.includes('error'))) {
-        if (dot && dot.className.includes('running')) return;
-        const actionId = btn.dataset.action;
-        if (actionId) updateActionStatus(btn.closest('.widget-body'), actionId, 'idle');
-      }
-    });
-  }
-
-  async function handleWidgetAction(actionId) {
-    const widgetBody = document.querySelector('#dashboard .widget[data-widget="steuerung"] .widget-body');
-    if (!widgetBody) return;
-
-    const startTime = performance.now();
-    updateActionStatus(widgetBody, actionId, 'running');
-
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
-
-      const resp = await fetch(ACTION_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: actionId, mode: 'full' }),
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-
-      const durationMs = Math.round(performance.now() - startTime);
-      const data = await resp.json();
-
-      if (resp.ok && data.status !== 'error') {
-        updateActionStatus(widgetBody, actionId, 'ok', durationMs);
-        logAction(actionId, 'ok', durationMs);
-        showActionResult(data, durationMs);
-      } else {
-        updateActionStatus(widgetBody, actionId, 'error', durationMs);
-        logAction(actionId, 'error', durationMs);
-        showActionResult(data, durationMs);
-      }
-    } catch (err) {
-      const durationMs = Math.round(performance.now() - startTime);
-      updateActionStatus(widgetBody, actionId, 'error', durationMs);
-      logAction(actionId, 'timeout_or_error', durationMs);
-      showActionResult({ status: 'error', output: err.name === 'AbortError' ? 'Timeout (20s)' : 'Netzwerk-Fehler', action: actionId, items: [] }, durationMs);
-    }
-  }
-
-  function showActionResult(data, durationMs) {
-    const resultEl = document.getElementById('actionResult');
-    if (!resultEl) return;
-    resultEl.style.display = '';
-    const isOk = data.status === 'ok';
-    const cls = isOk ? 'ok' : 'error';
-    let html = `<div class="action-result-header"><span>${data.action} <span style="font-weight:400;font-size:0.85em;color:var(--text-dim);">${durationMs}ms</span></span><span class="ar-status ${cls}">${isOk ? '\u2713' : '\u2717'}</span></div>`;
-
-    if (data.items && data.items.length > 0) {
-      html += '<div class="ar-items">';
-      data.items.forEach(item => {
-        if (data.action === 'ollama') {
-          html += `<div class="ar-item"><span class="ar-item-name">${esc(item.name)}</span><span class="ar-item-meta">${esc(item.size)}</span></div>`;
-        } else if (data.action === 'cronjobs') {
-          html += `<div class="ar-item"><span class="ar-item-name">${esc(item.name)}</span><span class="ar-item-meta">${esc(item.schedule || '')}</span><span class="ar-item-meta" style="color:${item.status === 'aktiv' ? 'var(--success)' : 'var(--text-dim)'}">${item.status || '--'}</span></div>`;
-        } else if (data.action === 'skills') {
-          html += `<div class="ar-item"><span class="ar-item-name">${esc(item.name)}</span></div>`;
-        } else if (data.action === 'update') {
-          html += `<div class="ar-item"><span class="ar-item-name" style="font-family:var(--font-mono);font-size:0.8em;">${esc(item.name)}</span></div>`;
-        } else {
-          html += `<div class="ar-item"><span class="ar-item-name">${esc(item.name || '')}</span></div>`;
-        }
-      });
-      html += '</div>';
-    } else if (data.output) {
-      html += `<div style="font-size:0.85em;color:var(--text-secondary);padding:2px 0;">${data.output}</div>`;
-    }
-
-    resultEl.innerHTML = html;
-  }
-
-  // ========== v8.1: CHAT HELPERS ==========
-  function chatAppend(idSuffix) {
-    const input = document.getElementById('chatInput_' + idSuffix);
-    const output = document.getElementById('chatOutput_' + idSuffix);
-    if (!input || !output) return;
-    const text = input.value.trim();
-    if (!text) return;
-    if (output.textContent.startsWith('Copy/Paste-Panel')) {
-      output.textContent = '';
-    }
-    output.textContent += (output.textContent ? '\n' : '') + text;
-    input.value = '';
-    input.focus();
-  }
-
-  function chatClear(idSuffix) {
-    const output = document.getElementById('chatOutput_' + idSuffix);
-    if (output) output.textContent = '';
-  }
-
-  // ========== v8.1: INBOX ==========
-  const INBOX_STORAGE_KEY = 'hermes-inbox';
-  const INBOX_API = 'http://127.0.0.1:8000/api/inbox';
-
-  function getInboxState() {
-    try { return JSON.parse(localStorage.getItem(INBOX_STORAGE_KEY) || '{}'); }
-    catch { return {}; }
-  }
-
-  function saveInboxState(state) {
-    localStorage.setItem(INBOX_STORAGE_KEY, JSON.stringify(state));
-  }
-
-  async function fetchInbox() {
-    const container = document.getElementById('inboxContainer');
-    const state = getInboxState();
-
-    const updateBadge = (entries) => {
-      const badge = document.getElementById('sidebarInboxBadge');
-      if (!badge) return;
-      const newCount = entries.filter(e => {
-        const id = e.id || '';
-        return !state[id] || state[id] === 'new';
-      }).length;
-      if (newCount > 0) {
-        badge.textContent = newCount;
-        badge.style.display = '';
-      } else {
-        badge.style.display = 'none';
-      }
+  function handleWidgetAction(actionId) {
+    const term = window._ptyTerm;
+    const commands = {
+      ollama: 'ollama list',
+      cronjobs: 'hermes cron list',
+      skills: 'ls ~/.hermes/skills/holger/ | head -20',
+      memory: 'echo "Memory: ' + (JSON.parse(localStorage.getItem('hermes_memory') || '{}').count || '?') + ' Einträge"',
+      update: 'cd ~/.hermes/hermes-agent && git log --oneline HEAD..origin/main | wc -l && echo " neue Commits verfügbar"',
+      council: null,
+      routing: null
     };
-
-    try {
-      const resp = await fetch(INBOX_API);
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const data = await resp.json();
-      const entries = data.entries || data.inbox || [];
-      updateBadge(entries);
-      if (!container) return;
-      if (entries.length === 0) {
-        container.innerHTML = '<div class="inbox-empty">Inbox ist leer</div>';
-        return;
-      }
-      renderInboxEntries(container, entries, state);
-    } catch (err) {
-      const cached = state._cached || [];
-      updateBadge(cached);
-      if (!container) return;
-      if (cached.length > 0) {
-        renderInboxEntries(container, cached, state);
-        return;
-      }
-      container.innerHTML = '<div class="inbox-empty">Inbox-Platzhalter<br><span style="font-size:0.8em;">GET /api/inbox \u2192 ~/.hermes/shared/inbox.md</span><br><span style="font-size:0.75em;opacity:0.6;">Backend-Hook fehlt</span></div>';
-    }
-  }
-
-  function renderInboxEntries(container, entries, state) {
-    state._cached = entries;
-    saveInboxState(state);
-
-    container.innerHTML = entries.map((e, i) => {
-      const id = e.id || 'entry_' + i;
-      const entryState = state[id] || 'new';
-      const dotClass = entryState === 'new' ? 'new' : entryState === 'seen' ? 'seen' : entryState === 'later' ? 'later' : 'done';
-      const title = e.title || e.subject || 'Eintrag ' + (i + 1);
-      const source = e.source || e.from || '';
-      const time = e.time || e.date || '';
-      return `
-        <div class="inbox-item" data-inbox-id="${id}" data-state="${entryState}">
-          <div class="inbox-dot ${dotClass}"></div>
-          <div class="inbox-content">
-            <div class="inbox-title">${esc(title)}</div>
-            <div class="inbox-meta">
-              ${source ? '<span>' + esc(source) + '</span>' : ''}
-              ${time ? '<span>' + esc(time) + '</span>' : ''}
-            </div>
-          </div>
-          <div class="inbox-actions">
-            <button class="inbox-btn${entryState === 'seen' ? ' active' : ''}" onclick="updateInboxItem('${id}', 'seen')">gesehen</button>
-            <button class="inbox-btn${entryState === 'later' ? ' active' : ''}" onclick="updateInboxItem('${id}', 'later')">später</button>
-            <button class="inbox-btn${entryState === 'done' ? ' active' : ''}" onclick="updateInboxItem('${id}', 'done')">erledigt</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
-
-  function updateInboxItem(id, newState) {
-    const state = getInboxState();
-    state[id] = newState;
-    saveInboxState(state);
-
-    const item = document.querySelector(`.inbox-item[data-inbox-id="${id}"]`);
-    if (item) {
-      item.dataset.state = newState;
-      const dot = item.querySelector('.inbox-dot');
-      if (dot) dot.className = 'inbox-dot ' + newState;
-      const buttons = item.querySelectorAll('.inbox-btn');
-      buttons.forEach(b => b.classList.remove('active'));
-      const target = item.querySelector(`.inbox-btn${newState === 'seen' ? ':first-child' : newState === 'later' ? ':nth-child(2)' : ':last-child'}`);
-      if (target) target.classList.add('active');
-    }
-    termLog('Inbox: ' + id + ' \u2192 ' + newState);
-  }
-
-  // ========== v8.1: NOTES ==========
-  const NOTES_KEY = 'hermes_notes';
-
-  function getNotes() {
-    try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '[]'); }
-    catch { return []; }
-  }
-
-  function saveNotes(notes) {
-    localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
-  }
-
-  function renderNotes(body, fs, notes) {
-    body.style.fontSize = fs + 'px';
-    body.innerHTML = `
-      <div class="notes-input-group">
-        <input class="notes-input" id="notesInput" placeholder="Notiz eingeben..." onkeydown="if(event.key==='Enter')noteAdd()">
-        <button class="notes-add-btn" onclick="noteAdd()">+</button>
-      </div>
-      <div class="notes-list" id="notesList"></div>
-      <div class="notes-local-tag">lokal gespeichert (nicht im Hermes-Memory)</div>
-    `;
-    refreshNotesList();
-  }
-
-  function refreshNotesList() {
-    const list = document.getElementById('notesList');
-    if (!list) return;
-    const notes = getNotes();
-    if (notes.length === 0) {
-      list.innerHTML = '<div class="inbox-empty">Keine Notizen</div>';
+    const cmd = commands[actionId];
+    if (!cmd) {
+      if (term) term.writeln('\\x1b[33m⏳ ' + actionId + ': Backend-Hook folgt in Schicht 2\\x1b[0m');
       return;
     }
-    list.innerHTML = notes.map((n, i) => `
-      <div class="notes-item">
-        <div class="notes-check${n.done ? ' checked' : ''}" onclick="noteToggle(${i})">${n.done ? '\u2713' : ''}</div>
-        <span class="notes-text${n.done ? ' done' : ''}">${esc(n.text)}</span>
-        <button class="notes-del" title="Löschen" onclick="noteDelete(${i})">\u00d7</button>
-      </div>
-    `).join('');
-  }
-
-  function noteAdd() {
-    const input = document.getElementById('notesInput');
-    if (!input) return;
-    const text = input.value.trim();
-    if (!text) return;
-    const notes = getNotes();
-    notes.push({ text, done: false, ts: Date.now() });
-    saveNotes(notes);
-    input.value = '';
-    refreshNotesList();
-    termLog('Notiz hinzugef\u00fcgt');
-  }
-
-  function noteToggle(i) {
-    const notes = getNotes();
-    if (i >= notes.length) return;
-    notes[i].done = !notes[i].done;
-    saveNotes(notes);
-    refreshNotesList();
-    termLog('Notiz ' + (notes[i].done ? 'erledigt' : 'reaktiviert'));
-  }
-
-  function noteDelete(i) {
-    const notes = getNotes();
-    if (i >= notes.length) return;
-    notes.splice(i, 1);
-    saveNotes(notes);
-    refreshNotesList();
-    termLog('Notiz gel\u00f6scht');
+    if (term) {
+      term.writeln('\\x1b[36m\\n=== ' + actionId + ' ===\\x1b[0m');
+      fetch('http://localhost:9119/pty/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cmd })
+      }).catch(() => {
+        term.writeln('\\x1b[33m⏳ Backend nicht erreichbar — Schicht 2 folgt\\x1b[0m');
+      });
+    }
   }
 
   // ========== HELPERS ==========
@@ -1731,7 +1045,7 @@
     if (widget) {
       const body = widget.querySelector('.widget-body');
       const def = WIDGET_DEFS[widgetId];
-      if (def) def.render(body, cfg.fs, widgetId);
+      if (def) def.render(body, cfg.fs);
     }
   }
 
@@ -1830,22 +1144,7 @@
     appState.locked = !appState.locked;
     saveState();
     applyLockState();
-    termLog(appState.locked ? 'Layout gesperrt \ud83d\udd12' : 'Layout entsperrt \ud83d\udd13');
-  }
-
-  // ========== v8.1: SIDEBAR COLLAPSE ==========
-  function toggleCollapse() {
-    const shell = document.getElementById('appShell');
-    const collapsed = shell.classList.toggle('collapsed');
-    localStorage.setItem('hermes-sidebar-collapsed', collapsed);
-    termLog(collapsed ? 'Sidebar eingeklappt' : 'Sidebar ausgeklappt');
-  }
-
-  function applyCollapseState() {
-    const collapsed = localStorage.getItem('hermes-sidebar-collapsed') === 'true';
-    const shell = document.getElementById('appShell');
-    if (collapsed) shell.classList.add('collapsed');
-    else shell.classList.remove('collapsed');
+    termLog(appState.locked ? 'Layout gesperrt 🔒' : 'Layout entsperrt 🔓');
   }
 
   function applyLockState() {
@@ -2120,11 +1419,11 @@
     if (placeholder) placeholder.style.display = 'none';
 
     const body = widget.querySelector('.widget-body');
-    def.render(body, cfg.fs, actualId);
+    def.render(body, cfg.fs);
 
     applyWidgetLockState(widgetId);
 
-    if (widgetId === 'terminal') ptyInit(actualId);
+    if (widgetId === 'terminal') ptyInit();
 
     appState.order = getActiveWidgets();
     saveState();
@@ -2140,7 +1439,7 @@
   function removeWidget(event, widgetId) {
     if (appState.locked || isWidgetLocked(widgetId)) return;
     event.stopPropagation();
-    if (widgetId === 'terminal' || widgetId.startsWith('terminal-')) ptyDispose(widgetId);
+    if (widgetId === 'terminal') ptyDispose();
     const widget = document.querySelector(`#dashboard .widget[data-widget="${widgetId}"]`);
     if (widget) {
       const name = WIDGET_DEFS[widgetId]?.name || widgetId;
@@ -2323,48 +1622,20 @@
     dragSourceElement = null;
   });
 
-  // ========== v8.1: TOP-ZONE MARKER ==========
-  function markTopZone() {
-    const dash = document.getElementById('dashboard');
-    const widgets = dash.querySelectorAll('.widget');
-    if (!widgets.length) return;
-    const dashTop = dash.getBoundingClientRect().top;
-    let topRowY = null;
-    widgets.forEach(w => {
-      w.classList.remove('widget-top', 'widget-middle');
-      const rect = w.getBoundingClientRect();
-      const relTop = rect.top - dashTop;
-      if (topRowY === null || relTop < topRowY + 40) {
-        if (topRowY === null || relTop < topRowY - 40) {
-          document.querySelectorAll('.widget.widget-top').forEach(w2 => w2.classList.remove('widget-top'));
-          topRowY = relTop;
-        }
-        if (relTop < (topRowY || 0) + 60) {
-          w.classList.add('widget-top');
-          topRowY = Math.min(topRowY || relTop, relTop);
-        }
-      } else {
-        w.classList.add('widget-middle');
-      }
-    });
-  }
-
-  // ========== v8.1: PTY TERMINAL (Multi-Instance) ==========
+  // ========== PTY TERMINAL ==========
   const PTY_WS_URL = 'ws://127.0.0.1:8000/ws/pty';
   const PTY_RECONNECT_MS = 3000;
-  let ptySessions = {}; // instanceId -> { ws, term, fitAddon, observer, reconnect }
+  let ptyWs = null;
+  let ptyReconnectTimer = null;
+  let ptyTerm = null;
+  let ptyFitAddon = null;
+  let ptyResizeObserver = null;
 
-  function ptyInit(instanceId) {
-    const id = instanceId || 'terminal';
-    const containerId = id === 'terminal' ? 'ptyContainer' : 'ptyContainer_' + id;
-    const container = document.getElementById(containerId); // will be null for old single-terminal
-    const realContainer = container || document.getElementById('ptyContainer');
-    if (!realContainer) return;
+  function ptyInit() {
+    const container = document.getElementById('ptyContainer');
+    if (!container || ptyTerm) return;
 
-    // Already initialized for this instance?
-    if (ptySessions[id]) return;
-
-    const term = new Terminal({
+    ptyTerm = new Terminal({
       cursorBlink: true,
       cursorStyle: 'bar',
       fontSize: 13,
@@ -2378,87 +1649,66 @@
       allowProposedApi: true,
     });
 
-    const fitAddon = new FitAddon.FitAddon();
-    term.loadAddon(fitAddon);
-    term.loadAddon(new WebLinksAddon.WebLinksAddon());
+    ptyFitAddon = new FitAddon.FitAddon();
+    ptyTerm.loadAddon(ptyFitAddon);
+    ptyTerm.loadAddon(new WebLinksAddon.WebLinksAddon());
 
-    term.open(realContainer);
-    fitAddon.fit();
+    ptyTerm.open(container);
+    ptyFitAddon.fit();
 
-    // Set _ptyTerm for backward compat (first terminal)
-    if (!window._ptyTerm) window._ptyTerm = term;
+    window._ptyTerm = ptyTerm;
 
-    const session = { ws: null, term, fitAddon, observer: null, reconnect: null, instanceId: id };
-    ptySessions[id] = session;
-
-    const statusId = id === 'terminal' ? 'termStatusFooter' : 'termStatusFooter_' + id;
-    const footer = document.getElementById(statusId) || document.getElementById('termStatusFooter');
-
-    term.onData(function(data) {
-      const s = ptySessions[id];
-      if (s && s.ws && s.ws.readyState === WebSocket.OPEN) {
+    ptyTerm.onData(function(data) {
+      if (ptyWs && ptyWs.readyState === WebSocket.OPEN) {
         var bytes = new TextEncoder().encode(data);
         var binary = '';
         for (var i = 0; i < bytes.length; i++) {
           binary += String.fromCharCode(bytes[i]);
         }
-        s.ws.send(JSON.stringify({ type: 'input', data: btoa(binary) }));
+        ptyWs.send(JSON.stringify({ type: 'input', data: btoa(binary) }));
       }
     });
 
-    ptyWsConnect(session, footer);
+    ptyWsConnect();
 
-    const widget = realContainer.closest('.widget');
+    const widget = container.closest('.widget');
     if (widget) {
-      const observer = new ResizeObserver(function() {
-        const s = ptySessions[id];
-        if (s && s.fitAddon && s.term) {
-          s.fitAddon.fit();
-          var dims = s.fitAddon.proposeDimensions();
-          if (dims && s.ws && s.ws.readyState === WebSocket.OPEN) {
-            s.ws.send(JSON.stringify({ type: 'resize', rows: dims.rows, cols: dims.cols }));
+      ptyResizeObserver = new ResizeObserver(function() {
+        if (ptyFitAddon && ptyTerm) {
+          ptyFitAddon.fit();
+          var dims = ptyFitAddon.proposeDimensions();
+          if (dims && ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+            ptyWs.send(JSON.stringify({ type: 'resize', rows: dims.rows, cols: dims.cols }));
           }
         }
       });
-      observer.observe(widget);
-      session.observer = observer;
+      ptyResizeObserver.observe(widget);
     }
   }
 
-  function ptyDispose(instanceId) {
-    const id = instanceId || 'terminal';
-    const session = ptySessions[id];
-    if (!session) {
-      // Fallback: old-style dispose
-      if (ptySessions['terminal']) ptyDispose('terminal');
-      return;
-    }
-    if (session.observer) { session.observer.disconnect(); session.observer = null; }
-    if (session.ws) { session.ws.close(); session.ws = null; }
-    if (session.reconnect) { clearTimeout(session.reconnect); session.reconnect = null; }
-    if (session.term) { session.term.dispose(); session.term = null; session.fitAddon = null; }
-    delete ptySessions[id];
-    // If this was the first terminal, clear _ptyTerm
-    if (window._ptyTerm === session.term || !window._ptyTerm) {
-      const keys = Object.keys(ptySessions);
-      window._ptyTerm = keys.length > 0 ? ptySessions[keys[0]].term : undefined;
-    }
+  function ptyDispose() {
+    if (ptyResizeObserver) { ptyResizeObserver.disconnect(); ptyResizeObserver = null; }
+    if (ptyWs) { ptyWs.close(); ptyWs = null; }
+    if (ptyReconnectTimer) { clearTimeout(ptyReconnectTimer); ptyReconnectTimer = null; }
+    if (ptyTerm) { ptyTerm.dispose(); ptyTerm = null; ptyFitAddon = null; }
+    window._ptyTerm = undefined;
   }
 
-  function ptyWsConnect(session, footer) {
-    if (session.ws && (session.ws.readyState === WebSocket.OPEN || session.ws.readyState === WebSocket.CONNECTING)) return;
+  function ptyWsConnect() {
+    if (ptyWs && (ptyWs.readyState === WebSocket.OPEN || ptyWs.readyState === WebSocket.CONNECTING)) return;
 
-    session.ws = new WebSocket(PTY_WS_URL);
+    ptyWs = new WebSocket(PTY_WS_URL);
+    var footer = document.getElementById('termStatusFooter');
     if (footer) footer.innerHTML = '<span class="term-status-dot term-status-dot--connecting"></span><span>verbinde...</span>';
 
-    session.ws.onopen = function() {
+    ptyWs.onopen = function() {
       if (footer) footer.innerHTML = '<span class="term-status-dot term-status-dot--connected"></span><span>verbunden</span>';
       function sendResize() {
-        if (session.fitAddon && session.term && session.ws && session.ws.readyState === WebSocket.OPEN) {
-          session.fitAddon.fit();
-          var dims = session.fitAddon.proposeDimensions();
+        if (ptyFitAddon && ptyTerm && ptyWs && ptyWs.readyState === WebSocket.OPEN) {
+          ptyFitAddon.fit();
+          var dims = ptyFitAddon.proposeDimensions();
           if (dims) {
-            session.ws.send(JSON.stringify({ type: 'resize', rows: dims.rows, cols: dims.cols }));
+            ptyWs.send(JSON.stringify({ type: 'resize', rows: dims.rows, cols: dims.cols }));
           }
         }
       }
@@ -2467,30 +1717,30 @@
       setTimeout(sendResize, 400);
     };
 
-    session.ws.onmessage = function(raw) {
+    ptyWs.onmessage = function(raw) {
       try {
         var msg = JSON.parse(raw.data);
-        if (msg.type === 'output' && session.term) {
+        if (msg.type === 'output' && ptyTerm) {
           var binary = atob(msg.data);
           var out = new Uint8Array(binary.length);
           for (var i = 0; i < binary.length; i++) {
             out[i] = binary.charCodeAt(i);
           }
-          session.term.write(out);
+          ptyTerm.write(out);
         } else if (msg.type === 'exit') {
-          if (session.term) session.term.writeln('\r\n\x1b[33m[Prozess beendet, Code: ' + msg.code + ']\x1b[0m');
+          if (ptyTerm) ptyTerm.writeln('\r\n\x1b[33m[Prozess beendet, Code: ' + msg.code + ']\x1b[0m');
         }
       } catch (_) {}
     };
 
-    session.ws.onclose = function() {
-      session.ws = null;
+    ptyWs.onclose = function() {
+      ptyWs = null;
       if (footer) footer.innerHTML = '<span class="term-status-dot term-status-dot--disconnected"></span><span>getrennt</span>';
-      if (session.reconnect) clearTimeout(session.reconnect);
-      session.reconnect = setTimeout(function() { ptyWsConnect(session, footer); }, PTY_RECONNECT_MS);
+      if (ptyReconnectTimer) clearTimeout(ptyReconnectTimer);
+      ptyReconnectTimer = setTimeout(ptyWsConnect, PTY_RECONNECT_MS);
     };
 
-    session.ws.onerror = function() {};
+    ptyWs.onerror = function() {};
   }
 
   // ========== v8: LIVE DATA ==========
@@ -2519,27 +1769,13 @@
       const d = await resp.json();
       const cpuEl = document.getElementById('sysCpuVal');
       const cpuBar = document.getElementById('sysCpuBar');
-      if (cpuEl) {
-        cpuEl.textContent = d.cpu_percent + '%';
-        const cpuRow = cpuEl.closest('.sys-row');
-        if (cpuRow) cpuRow.classList.toggle('warn-cpu', d.cpu_percent > 80);
-      }
-      if (cpuBar) {
-        cpuBar.style.width = d.cpu_percent + '%';
-        cpuBar.classList.toggle('warn', d.cpu_percent > 80);
-      }
+      if (cpuEl) cpuEl.textContent = d.cpu_percent + '%';
+      if (cpuBar) cpuBar.style.width = d.cpu_percent + '%';
 
       const ramEl = document.getElementById('sysRamVal');
       const ramBar = document.getElementById('sysRamBar');
-      if (ramEl) {
-        ramEl.textContent = d.ram_used_gb + ' / ' + d.ram_total_gb + ' GB (' + d.ram_percent + '%)';
-        const ramRow = ramEl.closest('.sys-row');
-        if (ramRow) ramRow.classList.toggle('warn-ram', d.ram_percent > 75);
-      }
-      if (ramBar) {
-        ramBar.style.width = d.ram_percent + '%';
-        ramBar.classList.toggle('warn', d.ram_percent > 75);
-      }
+      if (ramEl) ramEl.textContent = d.ram_used_gb + ' / ' + d.ram_total_gb + ' GB (' + d.ram_percent + '%)';
+      if (ramBar) ramBar.style.width = d.ram_percent + '%';
 
       const diskEl = document.getElementById('sysDiskVal');
       const diskBar = document.getElementById('sysDiskBar');
@@ -2554,52 +1790,6 @@
   }
 
   // ── Weather ──
-  const WX_DE = {
-    'Sunny': 'sonnig',
-    'Clear': 'klar',
-    'Partly cloudy': 'teils bew\u00f6lkt',
-    'Partly Cloudy': 'teils bew\u00f6lkt',
-    'Cloudy': 'bew\u00f6lkt',
-    'Overcast': 'bedeckt',
-    'Mist': 'diesig',
-    'Fog': 'neblig',
-    'Freezing fog': 'gefrierender Nebel',
-    'Light drizzle': 'leichter Niesel',
-    'Patchy light drizzle': 'stellenweise Niesel',
-    'Light rain': 'leichter Regen',
-    'Patchy light rain': 'stellenweise Regen',
-    'Moderate rain': 'Regen',
-    'Heavy rain': 'starker Regen',
-    'Patchy rain nearby': 'stellenweise Regen',
-    'Patchy rain possible': 'evtl. Regen',
-    'Light rain shower': 'leichte Regenschauer',
-    'Moderate or heavy rain shower': 'kr\u00e4ftige Regenschauer',
-    'Torrential rain shower': 'Wolkenbruch',
-    'Light sleet': 'leichter Schneeregen',
-    'Moderate or heavy sleet': 'Schneeregen',
-    'Light snow': 'leichter Schnee',
-    'Patchy light snow': 'stellenweise Schnee',
-    'Moderate snow': 'Schneefall',
-    'Heavy snow': 'starker Schneefall',
-    'Patchy moderate snow': 'stellenweise Schneefall',
-    'Patchy heavy snow': 'stellenweise starker Schnee',
-    'Blizzard': 'Schneesturm',
-    'Blowing snow': 'Schneetreiben',
-    'Light snow showers': 'leichte Schneeschauer',
-    'Moderate or heavy snow showers': 'kr\u00e4ftige Schneeschauer',
-    'Ice pellets': 'Graupel',
-    'Thundery outbreaks possible': 'gewittrig',
-    'Patchy light rain with thunder': 'Gewitter mit Regen',
-    'Moderate or heavy rain with thunder': 'kr\u00e4ftiges Gewitter',
-    'Light freezing rain': 'leichter Eisregen',
-    'Moderate or heavy freezing rain': 'Eisregen',
-    'Freezing drizzle': 'gefrierender Niesel'
-  };
-
-  function translateWx(eng) {
-    return WX_DE[eng] || eng || '\u2014';
-  }
-
   async function fetchWeather() {
     try {
       const resp = await fetch(API_BASE + '/api/weather');
@@ -2614,16 +1804,16 @@
       const wxForecast = document.getElementById('wxForecast');
 
       if (wxTemp) wxTemp.textContent = current.temp_C + '\u00b0';
-      if (wxDesc) wxDesc.textContent = translateWx(current.weatherDesc[0].value);
+      if (wxDesc) wxDesc.textContent = current.weatherDesc[0].value;
       if (wxIcon) {
         const code = current.weatherCode;
         const icons = { 113: '\u2600', 116: '\u26c5', 119: '\u2601', 122: '\u2601', 143: '\ud83c\udf2b', 176: '\ud83c\udf26', 179: '\ud83c\udf28', 182: '\ud83c\udf28', 185: '\ud83c\udf28', 200: '\u26c8', 227: '\ud83c\udf2c', 230: '\ud83c\udf2c', 248: '\ud83c\udf2b', 260: '\ud83c\udf2b', 263: '\ud83c\udf27', 266: '\ud83c\udf27', 281: '\ud83c\udf27', 284: '\ud83c\udf27', 293: '\ud83c\udf27', 296: '\ud83c\udf27', 299: '\ud83c\udf27', 302: '\ud83c\udf27', 305: '\ud83c\udf27', 308: '\ud83c\udf27', 311: '\ud83c\udf27', 314: '\ud83c\udf27', 317: '\ud83c\udf27', 320: '\ud83c\udf28', 323: '\ud83c\udf28', 326: '\ud83c\udf28', 329: '\ud83c\udf28', 332: '\ud83c\udf28', 335: '\ud83c\udf28', 338: '\ud83c\udf28', 350: '\ud83c\udf28', 353: '\ud83c\udf27', 356: '\ud83c\udf27', 359: '\ud83c\udf27', 362: '\ud83c\udf28', 365: '\ud83c\udf28', 368: '\ud83c\udf28', 371: '\ud83c\udf28', 374: '\ud83c\udf28', 377: '\ud83c\udf28', 386: '\u26c8', 389: '\u26c8', 392: '\u26c8', 395: '\ud83c\udf28' };
         wxIcon.textContent = icons[code] || '\ud83c\udf24';
       }
-      if (wxStats) wxStats.innerHTML = '<span>\ud83d\udca7 <span class="wx-val">' + current.humidity + '%</span></span><span>\ud83c\udf2c <span class="wx-val">' + current.windspeedKmph + ' km/h</span></span><span>\ud83d\udc41 <span class="wx-val">' + current.visibility + ' km</span></span>';
+      if (wxStats) wxStats.innerHTML = '<span>\ud83d\udca7 ' + current.humidity + '%</span><span>\ud83c\udf2c ' + current.windspeedKmph + ' km/h</span><span>\ud83d\udc41 ' + current.visibility + ' km</span>';
       if (wxForecast && data.weather) {
         const t = data.weather;
-        wxForecast.innerHTML = 'Morgen: <span class="wx-val">' + (t[1] ? t[1].mintempC + '\u2013' + t[1].maxtempC + '\u00b0' : '?') + '</span> \u00b7 \u00dcbermorgen: <span class="wx-val">' + (t[2] ? t[2].mintempC + '\u2013' + t[2].maxtempC + '\u00b0' : '?') + '</span>';
+        wxForecast.textContent = 'Morgen: ' + (t[1] ? t[1].mintempC + '\u2013' + t[1].maxtempC + '\u00b0' : '?') + ' \u00b7 Uebermorgen: ' + (t[2] ? t[2].mintempC + '\u2013' + t[2].maxtempC + '\u00b0' : '?');
       }
     } catch (err) {
       const wxDesc = document.getElementById('wxDesc');
@@ -2649,11 +1839,9 @@
         const name = j.name || j.id || '?';
         const sched = j.schedule || '';
         const lastRun = j.last_run || '';
-        const isActive = j.status === 'active' || lastRun.includes('ok');
-        const statusClass = isActive ? 'ok' : '';
-        const rowClass = isActive ? ' active' : '';
-        const statusText = j.status || (lastRun.includes('ok') ? 'aktiv' : '--');
-        return '<div class="job-row' + rowClass + '"><div><div class="job-title">' + name + '</div><div class="job-sched">' + sched + '</div></div><span class="job-stat ' + statusClass + '">' + statusText + '</span></div>';
+        const statusClass = (lastRun.includes('ok') || j.status === 'active') ? 'ok' : '';
+        const statusText = j.status || (lastRun.includes('ok') ? 'ok' : '--');
+        return '<div class="job-row"><div><div class="job-title">' + name + '</div><div class="job-sched">' + sched + '</div></div><span class="job-stat ' + statusClass + '">' + statusText + '</span></div>';
       }).join('');
     } catch (err) {
       console.warn('Jobs fetch failed:', err);
@@ -2664,22 +1852,18 @@
   async function fetchNews() {
     try {
       const resp = await fetch(API_BASE + '/api/news');
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) return;
       const data = await resp.json();
       const container = document.getElementById('newsContainer');
       if (!container) return;
       if (!data.news || data.news.length === 0) {
-        container.innerHTML = '<span class="term-dim">Keine News geladen\u2002\u2014\u2002GET /api/news</span><br><span style="font-size:0.8em;opacity:0.5;">Backend-Hook fehlt</span>';
+        container.innerHTML = '<span class="term-dim">Keine News geladen</span>';
         return;
       }
       container.innerHTML = data.news.map(n =>
         '<div class="news-item"><div class="n-title">' + (n.title || '') + '</div><div class="n-source">' + (n.source || '') + (n.time ? ' \u00b7 ' + n.time : '') + '</div></div>'
       ).join('') + '<div class="news-more">Mehr News laden \u2192</div>';
     } catch (err) {
-      const container = document.getElementById('newsContainer');
-      if (container) {
-        container.innerHTML = '<span class="term-dim">Keine News geladen\u2002\u2014\u2002GET /api/news</span><br><span style="font-size:0.8em;opacity:0.5;">Backend-Hook fehlt</span>';
-      }
       console.warn('News fetch failed:', err);
     }
   }
@@ -2865,7 +2049,6 @@
   function init() {
     pageStartTime = performance.now();
     applyLockState();
-    applyCollapseState();
 
     const { order } = appState;
     order.forEach(wid => addWidgetToDashboard(wid));
@@ -2873,12 +2056,6 @@
     updateSidebar();
 
     initSidebarResize();
-
-    // v8.1: Top-Zone markieren (erste Widget-Reihe)
-    setTimeout(markTopZone, 200);
-
-    // Auto quick-check nach 1.5s
-    setTimeout(() => handleWidgetAction('quick'), 1500);
 
     updateLiveClock();
     setInterval(updateLiveClock, 30000);
@@ -2906,11 +2083,6 @@
 
     fetchMemory();
     setInterval(fetchMemory, 30000);
-
-    fetchInbox();
-    setInterval(fetchInbox, 60000);
-
-    refreshAllActionStatuses();
 
     ptyInit();
   }

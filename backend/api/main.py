@@ -77,6 +77,11 @@ class ChatRequest(BaseModel):
     session_id: str
 
 
+class ActionRequest(BaseModel):
+    action: str
+    mode: str = "full"  # "quick" | "full"
+
+
 _chat_lock = asyncio.Lock()
 _chat_running = False
 
@@ -612,3 +617,209 @@ def skills():
         return {"skills": names}
     except OSError:
         return {"skills": []}
+
+
+@app.post("/api/action")
+def action(body: ActionRequest):
+    start = time.time()
+
+    def ok(o="", items=None):
+        return {
+            "status": "ok",
+            "action": body.action,
+            "output": o,
+            "duration_ms": round((time.time() - start) * 1000),
+            "items": items or []
+        }
+
+    def err(msg):
+        return {
+            "status": "error",
+            "action": body.action,
+            "output": msg,
+            "duration_ms": round((time.time() - start) * 1000),
+            "items": []
+        }
+
+    try:
+        # ── QUICK CHECK ──
+        if body.action == "quick":
+            parts = []
+            # Memory
+            mem_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
+            mem_pct = 0
+            if mem_path.exists():
+                content = mem_path.read_text()
+                mem_pct = min(100, round(len(content) / 8000 * 100))
+            parts.append(f"Memory {mem_pct}%")
+            # Skills
+            skills_dir = Path.home() / ".hermes" / "skills" / "holger"
+            if skills_dir.is_dir():
+                parts.append(f"Skills {len(os.listdir(skills_dir))}")
+            # Updates (only check git fetch indicator, fast)
+            hermes_dir = Path.home() / ".hermes" / "hermes-agent"
+            if hermes_dir.is_dir():
+                r = subprocess.run(
+                    ["git", "-C", str(hermes_dir), "rev-list", "--count", "HEAD..origin/main"],
+                    capture_output=True, text=True, timeout=5
+                )
+                n = int(r.stdout.strip() or "0")
+                parts.append("Updates: " + (f"{n} neu" if n else "aktuell"))
+            return ok("Alles ruhig — " + ", ".join(parts))
+
+        # ── OLLAMA ──
+        if body.action == "ollama":
+            result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
+            if result.returncode != 0:
+                return err("Ollama nicht erreichbar — " + (result.stderr.strip() or "kein Output"))
+            raw = result.stdout.strip()
+            if not raw:
+                return ok("Keine Modelle installiert")
+            items = []
+            for line in raw.split("\n")[1:]:  # skip header
+                line = line.strip()
+                if not line:
+                    continue
+                cols = line.split()
+                if len(cols) >= 4:
+                    items.append({"name": cols[0], "id": cols[1], "size": cols[2] + " " + cols[3], "modified": " ".join(cols[4:])})
+                elif len(cols) >= 2:
+                    items.append({"name": cols[0], "id": cols[1], "size": "", "modified": ""})
+            return ok(f"{len(items)} Modelle", items)
+
+        # ── CRONJOBS ──
+        if body.action == "cronjobs":
+            result = subprocess.run(["hermes", "cron", "list"], capture_output=True, text=True, timeout=10)
+            raw = (result.stdout + result.stderr).strip()
+            if not raw:
+                return ok("Keine Cronjobs eingerichtet")
+            items = []
+            for line in raw.split("\n"):
+                line = line.strip()
+                if not line or line.startswith("===") or "NAME" in line.upper():
+                    continue
+                parts_line = [p.strip() for p in line.split("|")] if "|" in line else line.split()
+                if len(parts_line) >= 2:
+                    items.append({
+                        "name": parts_line[0],
+                        "schedule": parts_line[1] if len(parts_line) > 1 else "",
+                        "next_run": parts_line[2] if len(parts_line) > 2 else "",
+                        "last_run": parts_line[3] if len(parts_line) > 3 else "",
+                        "status": "aktiv" if "ok" in line.lower() or "active" in line.lower() else "--"
+                    })
+                else:
+                    items.append({"name": line, "schedule": "", "status": "--"})
+            return ok(f"{len(items)} Cronjobs", items) if items else ok(raw)
+
+        # ── SKILLS ──
+        if body.action == "skills":
+            skills_dir = Path.home() / ".hermes" / "skills" / "holger"
+            if not skills_dir.is_dir():
+                return err("Skills-Verzeichnis nicht gefunden")
+            names = sorted(e for e in os.listdir(skills_dir) if (skills_dir / e).is_dir())
+            items = [{"name": n} for n in names]
+            return ok(f"{len(names)} Skills geladen", items)
+
+        # ── MEMORY ──
+        if body.action == "memory":
+            mem_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
+            if not mem_path.exists():
+                return err("Memory-Datei nicht gefunden")
+            content = mem_path.read_text()
+            chars = len(content)
+            pct = min(100, round(chars / 8000 * 100))
+            return ok(f"Memory {pct}% · {chars} Zeichen", [])
+
+        # ── UPDATE ──
+        if body.action == "update":
+            hermes_dir = Path.home() / ".hermes" / "hermes-agent"
+            if not hermes_dir.is_dir():
+                return err("Hermes nicht gefunden")
+            # Fetch first for accurate count
+            subprocess.run(["git", "-C", str(hermes_dir), "fetch", "origin"], capture_output=True, text=True, timeout=15)
+            result = subprocess.run(
+                ["git", "-C", str(hermes_dir), "log", "--oneline", "HEAD..origin/main"],
+                capture_output=True, text=True, timeout=10
+            )
+            new = result.stdout.strip()
+            if new:
+                lines = new.split("\n")
+                items = [{"name": l[:100]} for l in lines[:10]]
+                return ok(f"{len(lines)} neue(r) Commit(s)", items)
+            return ok("Hermes ist aktuell")
+
+        # ── VOLLCHECK ──
+        if body.action == "fullcheck":
+            parts = []
+            items = []
+            # Memory
+            mem_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
+            mem_pct = 0
+            if mem_path.exists():
+                mem_pct = min(100, round(len(mem_path.read_text()) / 8000 * 100))
+            parts.append(f"Memory {mem_pct}%")
+            # Skills
+            skills_dir = Path.home() / ".hermes" / "skills" / "holger"
+            sk = len(os.listdir(skills_dir)) if skills_dir.is_dir() else 0
+            parts.append(f"Skills {sk}")
+            # Cronjobs
+            try:
+                cr = subprocess.run(["hermes", "cron", "list"], capture_output=True, text=True, timeout=10)
+                cron_lines = [l for l in (cr.stdout + cr.stderr).strip().split("\n") if l.strip()]
+                parts.append(f"Cronjobs {len(cron_lines)}")
+            except Exception:
+                parts.append("Cronjobs —")
+            # Updates
+            try:
+                hermes_dir = Path.home() / ".hermes" / "hermes-agent"
+                if hermes_dir.is_dir():
+                    subprocess.run(["git", "-C", str(hermes_dir), "fetch", "origin"], capture_output=True, text=True, timeout=15)
+                    r = subprocess.run(["git", "-C", str(hermes_dir), "rev-list", "--count", "HEAD..origin/main"], capture_output=True, text=True, timeout=10)
+                    n = int(r.stdout.strip() or "0")
+                    parts.append("Updates: " + (f"{n} neu" if n else "aktuell"))
+            except Exception:
+                parts.append("Updates: —")
+            # Ollama
+            try:
+                ol = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
+                ol_models = len([l for l in ol.stdout.strip().split("\n") if l.strip()]) - 1  # -1 header
+                parts.append(f"Ollama {max(0, ol_models)} Modelle")
+            except Exception:
+                parts.append("Ollama —")
+            return ok("Briefing erledigt — " + ", ".join(parts), items)
+
+        return err("Unbekannte Aktion: " + body.action)
+
+    except subprocess.TimeoutExpired:
+        return err(body.action + ": Timeout nach 10 Sekunden")
+    except FileNotFoundError as e:
+        return err(body.action + ": Befehl nicht gefunden — " + str(e))
+    except Exception as e:
+        return err(body.action + ": " + str(e))
+
+
+@app.get("/api/inbox")
+def inbox():
+    inbox_path = Path.home() / ".hermes" / "shared" / "inbox.md"
+    if not inbox_path.exists():
+        return {"entries": [], "note": "inbox.md nicht gefunden"}
+    try:
+        raw = inbox_path.read_text()
+        entries = []
+        for line in raw.strip().split("\\n"):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("- "):
+                line = line[2:]
+            if "|" in line:
+                parts = [p.strip() for p in line.split("|")]
+                title = parts[0] if len(parts) > 0 else line
+                source = parts[1] if len(parts) > 1 else ""
+                t = parts[2] if len(parts) > 2 else ""
+            else:
+                title, source, t = line, "", ""
+            entries.append({"id": title[:40], "title": title, "source": source, "time": t})
+        return {"entries": entries}
+    except OSError as e:
+        return {"entries": [], "note": str(e)}
