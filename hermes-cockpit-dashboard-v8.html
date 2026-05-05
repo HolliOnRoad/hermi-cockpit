@@ -984,6 +984,70 @@
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.04); border-radius: 2px; }
 
   .widget { animation: fadeSlideUp 0.3s ease-out backwards; }
+
+  /* ================================================================
+     ACTION RESULT PANEL (zentrales Feedback)
+     ================================================================ */
+  .action-panel {
+    position: fixed; bottom: 0; left: var(--sidebar-width);
+    right: 0; z-index: 40;
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border-glass);
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.55);
+    padding: 12px 20px 14px;
+    max-height: 40vh; overflow-y: auto;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s ease;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .action-panel.hidden {
+    transform: translateY(100%); opacity: 0; pointer-events: none;
+  }
+
+  .arp-header {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .arp-title {
+    font-weight: 700; font-size: 13px; color: var(--text-primary); flex: 1;
+  }
+  .arp-duration {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+  }
+  .arp-status {
+    font-size: 11px; font-weight: 600; padding: 2px 10px;
+    border-radius: 12px; line-height: 1.4;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .arp-status[data-status="ok"]    { background: rgba(91,156,245,0.15); color: var(--accent-blue); }
+  .arp-status[data-status="busy"]  { background: rgba(240,160,80,0.15); color: var(--accent-orange); }
+  .arp-status[data-status="error"] { background: rgba(240,160,80,0.12); color: var(--warning); }
+
+  .arp-output {
+    font-size: 12px; color: var(--text-secondary); line-height: 1.5;
+  }
+
+  .arp-items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .arp-item {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm); padding: 4px 10px;
+    font-size: 11px;
+  }
+  .arp-label { color: var(--text-dim); }
+  .arp-value { color: var(--text-primary); font-weight: 600; font-family: var(--font-mono); }
+
+  @keyframes panelGlow {
+    0%, 100% { box-shadow: 0 -8px 32px rgba(0,0,0,0.55); }
+    50%      { box-shadow: 0 -8px 32px rgba(0,0,0,0.55), 0 0 40px rgba(91,156,245,0.08); }
+  }
+  .action-panel.glow {
+    animation: panelGlow 1.5s ease-in-out 1;
+  }
+
+  .app-shell.collapsed .action-panel { left: 56px; }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
@@ -1083,6 +1147,17 @@
       Widget aus der Sidebar<br>hierher ziehen
     </div>
   </main>
+
+  <!-- ===== ACTION RESULT PANEL ===== -->
+  <div id="actionResultPanel" class="action-panel hidden">
+    <div class="arp-header">
+      <span class="arp-title" id="arpTitle">—</span>
+      <span class="arp-duration" id="arpDuration"></span>
+      <span class="arp-status" id="arpStatus" data-status="ok"></span>
+    </div>
+    <div class="arp-output" id="arpOutput"></div>
+    <div class="arp-items" id="arpItems"></div>
+  </div>
 
   <!-- ===== v8: LOCK TOGGLE ===== -->
   <button class="lock-toggle" id="lockToggle" title="Layout sperren (⌘L)" onclick="toggleLock()">🔓</button>
@@ -1431,12 +1506,66 @@
     });
   }
 
+  function updateActionPanel(res, durationMs) {
+    const panel = document.getElementById('actionResultPanel');
+    if (!panel) return;
+
+    panel.classList.remove('hidden');
+
+    // Titel: Aktion + Dauer
+    const title = document.getElementById('arpTitle');
+    if (title) title.textContent = res.action || 'Aktion';
+
+    const dur = document.getElementById('arpDuration');
+    if (dur) dur.textContent = durationMs != null ? durationMs + 'ms' : '';
+
+    // Status: ok / busy / error
+    const statusEl = document.getElementById('arpStatus');
+    if (statusEl) {
+      const st = res.status || 'ok';
+      const icon = st === 'ok' ? '✓' : st === 'busy' ? '⏳' : '⚠';
+      statusEl.setAttribute('data-status', st);
+      statusEl.textContent = icon + ' ' + st;
+    }
+
+    // Output-Text
+    const outEl = document.getElementById('arpOutput');
+    if (outEl) outEl.textContent = res.output || '';
+
+    // Items
+    const itemsEl = document.getElementById('arpItems');
+    if (itemsEl) {
+      itemsEl.innerHTML = '';
+      if (Array.isArray(res.items) && res.items.length > 0) {
+        res.items.forEach(it => {
+          const row = document.createElement('div');
+          row.className = 'arp-item';
+          const label = document.createElement('span');
+          label.className = 'arp-label';
+          label.textContent = (it.label || it.name || '') + ':';
+          const value = document.createElement('span');
+          value.className = 'arp-value';
+          value.textContent = it.value || it.size || it.status || '';
+          row.appendChild(label);
+          row.appendChild(value);
+          itemsEl.appendChild(row);
+        });
+      }
+    }
+
+    // Kurzer Glow-Impuls
+    panel.classList.remove('glow');
+    void panel.offsetWidth;
+    panel.classList.add('glow');
+  }
+
   async function handleWidgetAction(actionId) {
     const widgetBody = document.querySelector('#dashboard .widget[data-widget="steuerung"] .widget-body');
     if (!widgetBody) return;
 
     const startTime = performance.now();
     updateActionStatus(widgetBody, actionId, 'running');
+    updateActionPanel({ status: 'busy', action: actionId, output: 'Wird ausgeführt…', items: [] }, 0);
 
     // Alle Actions nutzen individuelle /api/actions/* Endpunkte
     const namedActions = ['ollama', 'cronjobs', 'skills', 'memory', 'update', 'quick', 'fullcheck', 'spotlight', 'christian'];
@@ -1467,16 +1596,20 @@
         updateActionStatus(widgetBody, actionId, 'ok', durationMs);
         logAction(actionId, 'ok', durationMs);
         showActionResult(data, durationMs);
+        updateActionPanel(data, durationMs);
       } else {
         updateActionStatus(widgetBody, actionId, 'error', durationMs);
         logAction(actionId, 'error', durationMs);
         showActionResult(data, durationMs);
+        updateActionPanel(data, durationMs);
       }
     } catch (err) {
       const durationMs = Math.round(performance.now() - startTime);
+      const errData = { status: 'error', output: err.name === 'AbortError' ? 'Timeout (20s)' : 'Netzwerk-Fehler', action: actionId, items: [] };
       updateActionStatus(widgetBody, actionId, 'error', durationMs);
       logAction(actionId, 'timeout_or_error', durationMs);
-      showActionResult({ status: 'error', output: err.name === 'AbortError' ? 'Timeout (20s)' : 'Netzwerk-Fehler', action: actionId, items: [] }, durationMs);
+      showActionResult(errData, durationMs);
+      updateActionPanel(errData, durationMs);
     }
   }
 
