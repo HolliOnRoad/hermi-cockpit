@@ -1167,7 +1167,7 @@ def action_quick():
         return busy
     try:
         start = time.time()
-        parts = []
+        items = []
         # Memory
         mem_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
         mem_pct = 0
@@ -1177,15 +1177,18 @@ def action_quick():
                 mem_pct = min(100, round(len(content) / 8000 * 100))
             except OSError:
                 pass
-        parts.append(f"Memory {mem_pct}%")
+        items.append({"label": "Memory", "value": f"{mem_pct}%"})
         # Skills
         skills_dir = Path.home() / ".hermes" / "skills" / "holger"
+        sk = 0
         if skills_dir.is_dir():
             try:
-                parts.append(f"Skills {len(os.listdir(skills_dir))}")
+                sk = len(os.listdir(skills_dir))
             except OSError:
-                parts.append("Skills —")
+                pass
+        items.append({"label": "Skills", "value": str(sk)})
         # Updates: only check git fetch indicator via rev-list (fast, no fetch)
+        updates_val = "—"
         hermes_dir = Path.home() / ".hermes" / "hermes-agent"
         if hermes_dir.is_dir():
             try:
@@ -1194,12 +1197,13 @@ def action_quick():
                     capture_output=True, text=True, timeout=5
                 )
                 n = int(r.stdout.strip() or "0")
-                parts.append("Updates: " + (f"{n} neu" if n else "aktuell"))
+                updates_val = f"{n} neu" if n else "aktuell"
             except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
-                parts.append("Updates: —")
+                pass
+        items.append({"label": "Updates", "value": updates_val})
         return {"status": "ok", "action": "quick",
-                "output": "Alles ruhig — " + ", ".join(parts),
-                "duration_ms": round((time.time() - start) * 1000), "items": []}
+                "output": "Alles ruhig",
+                "duration_ms": round((time.time() - start) * 1000), "items": items}
     finally:
         _action_lock.release()
 
@@ -1211,7 +1215,6 @@ def action_fullcheck():
         return busy
     try:
         start = time.time()
-        parts = []
         items = []
         # Memory
         mem_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
@@ -1221,7 +1224,7 @@ def action_fullcheck():
                 mem_pct = min(100, round(len(mem_path.read_text()) / 8000 * 100))
             except OSError:
                 pass
-        parts.append(f"Memory {mem_pct}%")
+        items.append({"label": "Memory", "value": f"{mem_pct}%"})
         # Skills
         skills_dir = Path.home() / ".hermes" / "skills" / "holger"
         sk = 0
@@ -1229,15 +1232,18 @@ def action_fullcheck():
             sk = len(os.listdir(skills_dir)) if skills_dir.is_dir() else 0
         except OSError:
             pass
-        parts.append(f"Skills {sk}")
+        items.append({"label": "Skills", "value": str(sk)})
         # Cronjobs
+        cron_val = "—"
         try:
             cr = subprocess.run(["hermes", "cron", "list"], capture_output=True, text=True, timeout=10)
-            cron_lines = [l for l in (cr.stdout + cr.stderr).strip().split("\n") if l.strip()]
-            parts.append(f"Cronjobs {len(cron_lines)}")
+            cron_count = len([l for l in (cr.stdout + cr.stderr).strip().split("\n") if l.strip()])
+            cron_val = str(cron_count)
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            parts.append("Cronjobs —")
+            pass
+        items.append({"label": "Cronjobs", "value": cron_val})
         # Updates (Dry-Run)
+        updates_val = "—"
         hermes_dir = Path.home() / ".hermes" / "hermes-agent"
         if hermes_dir.is_dir():
             try:
@@ -1248,21 +1254,21 @@ def action_fullcheck():
                     capture_output=True, text=True, timeout=10
                 )
                 n = int(r.stdout.strip() or "0")
-                parts.append("Updates: " + (f"{n} neu" if n else "aktuell"))
+                updates_val = f"{n} neu" if n else "aktuell"
             except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
-                parts.append("Updates: —")
-        else:
-            parts.append("Updates: —")
+                pass
+        items.append({"label": "Updates", "value": updates_val})
         # Ollama
+        ollama_val = "—"
         try:
             ol = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
-            ol_lines = [l for l in ol.stdout.strip().split("\n") if l.strip()]
-            ol_models = max(0, len(ol_lines) - 1)  # -1 header
-            parts.append(f"Ollama {ol_models} Modelle")
+            ol_count = max(0, len([l for l in ol.stdout.strip().split("\n") if l.strip()]) - 1)
+            ollama_val = str(ol_count)
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            parts.append("Ollama —")
+            pass
+        items.append({"label": "Ollama", "value": ollama_val})
         return {"status": "ok", "action": "fullcheck",
-                "output": "Briefing erledigt — " + ", ".join(parts),
+                "output": "Briefing erledigt",
                 "duration_ms": round((time.time() - start) * 1000), "items": items}
     finally:
         _action_lock.release()

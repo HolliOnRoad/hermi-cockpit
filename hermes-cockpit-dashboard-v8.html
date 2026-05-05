@@ -950,6 +950,7 @@
   .action-result-header .ar-status { font-size: 0.85em; }
   .action-result-header .ar-status.ok { color: var(--success); }
   .action-result-header .ar-status.error { color: var(--danger); }
+  .action-result-header .ar-status.busy { color: var(--accent-yellow); }
   .ar-items { display: flex; flex-direction: column; gap: 2px; max-height: 200px; overflow-y: auto; }
   .ar-item {
     display: flex; align-items: center; gap: 8px;
@@ -1482,27 +1483,48 @@
     if (!resultEl) return;
     resultEl.style.display = '';
     const isOk = data.status === 'ok';
-    const cls = isOk ? 'ok' : 'error';
-    let html = `<div class="action-result-header"><span>${data.action} <span style="font-weight:400;font-size:0.85em;color:var(--text-dim);">${durationMs}ms</span></span><span class="ar-status ${cls}">${isOk ? '\u2713' : '\u2717'}</span></div>`;
+    const isBusy = data.status === 'busy';
+    const cls = isOk ? 'ok' : isBusy ? 'busy' : 'error';
+    const icon = isOk ? '\u2713' : isBusy ? '\u23f3' : '\u2717';
+    let html = `<div class="action-result-header"><span>${data.action} <span style="font-weight:400;font-size:0.85em;color:var(--text-dim);">${durationMs}ms</span></span><span class="ar-status ${cls}">${icon}</span></div>`;
 
+    // Always show output text if present
+    if (data.output) {
+      html += `<div style="font-size:0.85em;color:var(--text-secondary);padding:4px 0;font-weight:500;">${esc(data.output)}</div>`;
+    }
+
+    // Show items for structured data (label+value) or named item lists
     if (data.items && data.items.length > 0) {
       html += '<div class="ar-items">';
-      data.items.forEach(item => {
-        if (data.action === 'ollama') {
+      const hasLabels = data.items[0] && data.items[0].label !== undefined;
+
+      if (hasLabels) {
+        // Generic label/value pairs (quick, fullcheck)
+        data.items.forEach(item => {
+          html += `<div class="ar-item"><span class="ar-item-name">${esc(item.label || '')}</span><span class="ar-item-meta">${esc(item.value || '')}</span></div>`;
+        });
+      } else if (data.action === 'ollama') {
+        data.items.forEach(item => {
           html += `<div class="ar-item"><span class="ar-item-name">${esc(item.name)}</span><span class="ar-item-meta">${esc(item.size)}</span></div>`;
-        } else if (data.action === 'cronjobs') {
+        });
+      } else if (data.action === 'cronjobs') {
+        data.items.forEach(item => {
           html += `<div class="ar-item"><span class="ar-item-name">${esc(item.name)}</span><span class="ar-item-meta">${esc(item.schedule || '')}</span><span class="ar-item-meta" style="color:${item.status === 'aktiv' ? 'var(--success)' : 'var(--text-dim)'}">${item.status || '--'}</span></div>`;
-        } else if (data.action === 'skills') {
+        });
+      } else if (data.action === 'skills') {
+        data.items.forEach(item => {
           html += `<div class="ar-item"><span class="ar-item-name">${esc(item.name)}</span></div>`;
-        } else if (data.action === 'update') {
+        });
+      } else if (data.action === 'update') {
+        data.items.forEach(item => {
           html += `<div class="ar-item"><span class="ar-item-name" style="font-family:var(--font-mono);font-size:0.8em;">${esc(item.name)}</span></div>`;
-        } else {
+        });
+      } else {
+        data.items.forEach(item => {
           html += `<div class="ar-item"><span class="ar-item-name">${esc(item.name || '')}</span></div>`;
-        }
-      });
+        });
+      }
       html += '</div>';
-    } else if (data.output) {
-      html += `<div style="font-size:0.85em;color:var(--text-secondary);padding:2px 0;">${data.output}</div>`;
     }
 
     resultEl.innerHTML = html;
