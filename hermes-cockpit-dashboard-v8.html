@@ -232,6 +232,12 @@
   .mini-bar-fill.blue { background: var(--accent-blue); }
   .mini-bar-fill.orange { background: var(--accent-orange); }
 
+  /* === MAIN AREA (Panel + Dashboard column) === */
+  .main-area {
+    flex: 1; display: flex; flex-direction: column;
+    min-height: 0; min-width: 0;
+  }
+
   /* === DASHBOARD === */
   .dashboard {
     flex: 1; display: flex; flex-wrap: wrap; align-content: flex-start;
@@ -364,9 +370,9 @@
     background: rgba(10,14,28,0.75);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.09);
     border-radius: var(--radius-md);
-    box-shadow: none;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.35);
     transition: var(--transition);
     position: relative;
     min-width: 180px;
@@ -374,9 +380,13 @@
     display: flex; flex-direction: column;
   }
 
+  @keyframes cardGlow {
+    0%, 100% { box-shadow: 0 4px 18px rgba(0,0,0,0.35); }
+    50%      { box-shadow: 0 4px 24px rgba(91,156,245,0.15), 0 4px 18px rgba(0,0,0,0.35); }
+  }
   .widget:hover {
-    border-color: rgba(255,255,255,0.12);
-    box-shadow: none;
+    border-color: rgba(255,255,255,0.16);
+    animation: cardGlow 0.6s ease-in-out 1;
   }
 
   /* Top-Zone Fokus-Glow (nur Unterkante) */
@@ -447,6 +457,24 @@
   .widget.widget-locked .w-remove { display: none; }
   .widget.widget-locked .resize-handle { display: none; }
 
+  /* Resize handle */
+  .resize-handle {
+    position: absolute;
+    bottom: 2px; right: 2px;
+    width: 16px; height: 16px;
+    cursor: nwse-resize;
+    display: flex; align-items: flex-end; justify-content: flex-end;
+    opacity: 0; transition: opacity 0.15s;
+    z-index: 5;
+  }
+  .widget:hover .resize-handle { opacity: 0.5; }
+  .resize-handle:hover { opacity: 1 !important; }
+  .resize-handle::after {
+    content: '\u2571';
+    font-size: 11px; color: var(--text-secondary);
+    line-height: 1; font-family: var(--font-mono);
+  }
+
   .w-fs-btn {
     width: 18px; height: 18px; border-radius: 4px;
     background: rgba(255,255,255,0.04); border: none; cursor: pointer;
@@ -477,240 +505,11 @@
 
   .widget[data-widget="terminal"] .widget-body {
     display: flex; flex-direction: column;
-    overflow: hidden; padding: 6px 8px 4px;
-    max-height: 300px;
+    overflow: hidden; padding: 6px 8px 8px;
+    max-height: 200px;
   }
-  .widget[data-widget="terminal"] { opacity: 0.85; }
-  .widget[data-widget="terminal"]:hover { opacity: 1; }
-
-  /* === STEUERUNG WIDGET === */
-  .steuerung-panel { display: flex; flex-direction: column; gap: 8px; }
-  .steu-section { padding: 4px 0; }
-  .steu-section-title { font-size: 0.85em; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; border-bottom: 1px solid var(--border-glass); padding-bottom: 2px; }
-  .steu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
-  .steu-status-row { display: flex; align-items: center; gap: 5px; font-size: 0.85em; padding: 1px 0; }
-  .steu-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .steu-ok { background: var(--success); } .steu-warn { background: var(--warning); } .steu-no { background: var(--danger); }
-  .steu-prio-group { margin-bottom: 5px; }
-  .steu-prio-head { font-size: 0.75em; font-weight: 700; padding: 1px 6px; border-radius: 3px; margin-bottom: 2px; display: inline-block; }
-  .steu-check-row { font-size: 0.82em; padding: 1px 0; cursor: pointer; display: flex; align-items: center; gap: 4px; }
-  .steu-check { cursor: pointer; font-size: 1.1em; user-select: none; }
-  .steu-check.steu-done { color: var(--success); }
-  .steu-action-btn { display: block; width: 100%; text-align: left; padding: 4px 8px; margin: 2px 0; background: var(--bg-glass); border: 1px solid var(--border-glass); border-radius: 4px; color: var(--text-primary); font-size: 0.82em; cursor: pointer; font-family: var(--font-ui); transition: var(--transition); }
-  .steu-action-btn:hover { background: var(--bg-glass-hover); border-color: var(--border-glass-hover); }
-  .steu-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .steu-notready { font-size: 0.8em; color: var(--text-dim); }
-
-  /* Resize handle */
-  .resize-handle {
-    position: absolute;
-    bottom: 2px; right: 2px;
-    width: 16px; height: 16px;
-    cursor: nwse-resize;
-    display: flex; align-items: flex-end; justify-content: flex-end;
-    opacity: 0; transition: opacity 0.15s;
-    z-index: 5;
-  }
-
-  .widget:hover .resize-handle { opacity: 0.5; }
-  .resize-handle:hover { opacity: 1 !important; }
-
-  .resize-handle::after {
-    content: '╱';
-    font-size: 11px; color: var(--text-secondary);
-    line-height: 1; font-family: var(--font-mono);
-  }
-
-  /* ================================================================
-     TASK ANIMATIONS (v4-Style)
-     ================================================================ */
-  @keyframes taskComplete {
-    0%   { transform: scale(1); opacity: 1; filter: brightness(1); }
-    40%  { transform: scale(1.03); filter: brightness(1.4); border-color: var(--success); background: rgba(64,196,99,0.06); }
-    80%  { transform: scale(0.96); opacity: 0.7; }
-    100% { transform: scale(0.98); opacity: 0.5; filter: brightness(0.8); }
-  }
-
-  @keyframes taskArrive {
-    from { transform: translateY(-12px); opacity: 0; }
-    to   { transform: translateY(0); opacity: 0.5; }
-  }
-
-  @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .task-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-glass);
-    border-radius: var(--radius-sm);
-    padding: 8px 10px;
-    margin-bottom: 5px;
-    cursor: pointer;
-    transition: var(--transition);
-    animation: fadeSlideUp 0.35s ease-out backwards;
-  }
-
-  .task-card:hover {
-    background: var(--bg-card-hover);
-    border-color: var(--border-glass-hover);
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-  }
-
-  .task-card.pending-card { border-left: 2px solid var(--accent-blue); }
-  .task-card.completed-card {
-    border-left: 2px solid var(--success);
-    opacity: 0.55;
-  }
-
-  .task-card.completing {
-    animation: taskComplete 0.5s ease-out forwards;
-    pointer-events: none;
-  }
-
-  .task-card.arriving {
-    animation: taskArrive 0.4s ease-out forwards;
-    pointer-events: none;
-  }
-
-  .task-card-header {
-    display: flex; align-items: center; gap: 8px;
-  }
-
-  .task-check-circle {
-    width: 18px; height: 18px; border-radius: 50%;
-    border: 2px solid var(--text-dim); flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.8em; color: transparent;
-    transition: var(--transition);
-  }
-
-  .task-card:hover .task-check-circle { border-color: var(--accent-blue); }
-
-  .task-card.completed-card .task-check-circle {
-    background: var(--success); border-color: var(--success);
-    color: #fff;
-  }
-
-  .task-title { font-weight: 500; font-size: 1.1em; color: var(--text-secondary); flex: 1; }
-  .task-card:hover .task-title { color: var(--text-primary); }
-  .task-card.completed-card .task-title { text-decoration: line-through; color: var(--text-dim); }
-
-  .task-meta {
-    display: flex; gap: 8px; align-items: center;
-    margin-top: 5px; font-size: 0.85em; color: var(--text-dim);
-  }
-
-  .priority { font-size: 0.7em; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
-  .priority.high { background: rgba(224,85,85,0.15); color: var(--danger); }
-  .priority.medium { background: rgba(240,160,80,0.12); color: var(--warning); }
-
-  .task-col { flex: 1; }
-  .task-col-label {
-    font-size: 0.9em; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.06em; margin-bottom: 6px;
-  }
-  .task-col-label.pending { color: var(--accent-blue); }
-  .task-col-label.done { color: var(--text-dim); }
-
-  .task-add {
-    font-size: 0.9em; color: var(--text-dim); cursor: pointer;
-    padding: 6px 10px; margin-top: 4px;
-    background: rgba(255,255,255,0.015);
-    border: 1px dashed var(--border-glass);
-    border-radius: var(--radius-sm);
-    text-align: center; transition: var(--transition);
-  }
-  .task-add:hover { color: var(--text-secondary); border-color: var(--border-glass-hover); background: rgba(255,255,255,0.03); }
-
-  .task-split { display: flex; gap: 12px; }
-
-  /* Empty state */
-  .empty-column {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 30px 20px; gap: 6px;
-    color: var(--text-dim); font-size: 1em;
-    flex: 1;
-  }
-  .empty-column .ec-icon { font-size: 2.2em; margin-bottom: 4px; opacity: 0.35; }
-
-  /* ================================================================
-     AGENTS (v3-Style Avatars)
-     ================================================================ */
-  .agent-card {
-    display: flex; align-items: center; gap: 10px;
-    padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.02);
-    transition: var(--transition);
-  }
-  .agent-card:last-child { border-bottom: none; }
-  .agent-card:hover { color: var(--text-primary); }
-
-  .agent-avatar {
-    width: 30px; height: 30px; border-radius: var(--radius-sm);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.3em; font-weight: 700; flex-shrink: 0;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
-  }
-  .agent-avatar.hermes    { background: linear-gradient(135deg, var(--accent-blue), #3b74c0); }
-  .agent-avatar.kai       { background: linear-gradient(135deg, var(--accent-orange), #d08030); }
-  .agent-avatar.community { background: linear-gradient(135deg, var(--accent-purple), #7040c0); }
-  .agent-avatar.finanz    { background: linear-gradient(135deg, var(--accent-yellow), #b09030); color: #1a1a1a; }
-
-  .agent-info { flex: 1; }
-  .agent-name { font-weight: 600; font-size: 1.05em; }
-  .agent-stat { font-size: 0.85em; color: var(--text-dim); margin-top: 1px; }
-
-  .agent-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-  .agent-status-dot.on   { background: var(--success); box-shadow: 0 0 6px rgba(64,196,99,0.5); }
-  .agent-status-dot.idle { background: var(--text-dim); }
-  .agent-status-dot.err  { background: var(--danger); box-shadow: 0 0 6px rgba(224,85,85,0.5); }
-
-  /* ================================================================
-     SYSTEM / JOBS / NEWS / WEATHER / SKILLS (em-basiert)
-     ================================================================ */
-  .sys-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 1em; }
-  .sys-label { color: var(--text-dim); }
-  .sys-val { font-family: var(--font-mono); font-size: 1em; font-weight: 600; }
-
-  .sys-bar-track { height: 3px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; margin-top: 1px; }
-  .sys-bar-fill { height: 100%; border-radius: 2px; transition: width 1s; }
-  .sys-bar-fill.cpu { background: var(--accent-blue); }
-  .sys-bar-fill.ram { background: var(--accent-orange); }
-  .sys-bar-fill.disk { background: var(--accent-purple); }
-
-  /* v8.1 — Focus/Glow System */
-  .sys-row.warn .sys-val {
-    text-shadow: 0 0 12px currentColor;
-  }
-  .sys-row.warn-ram .sys-val { color: #ffb060; font-weight: 700; }
-  .sys-row.warn-cpu .sys-val { color: #7db8ff; font-weight: 700; }
-  .sys-bar-fill.warn { animation: barPulse 2s ease-in-out infinite; }
-  @keyframes barPulse {
-    0%, 100% { filter: brightness(1); }
-    50% { filter: brightness(1.4); }
-  }
-  .job-row.active { border-left: 2px solid var(--success); margin-left: -6px; padding-left: 4px; }
-
-  /* Sidebar Badge */
-  .sidebar-badge {
-    display: inline-block; min-width: 18px; height: 16px;
-    line-height: 16px; text-align: center; font-size: 9px;
-    font-weight: 700; border-radius: 8px; padding: 0 5px;
-    background: var(--accent-blue-glow); color: var(--accent-blue);
-    margin-left: 4px; vertical-align: middle;
-  }
-
-  .job-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 1em; }
-  .job-row:last-child { border-bottom: none; }
-  .job-title { color: #d0d6e5; font-weight: 600; }
-  .job-sched { font-size: 0.8em; color: var(--text-dim); }
-  .job-stat { font-family: var(--font-mono); font-size: 0.9em; }
-  .job-stat.ok { color: var(--success); }
-  .job-stat.err { color: var(--danger); }
-
   .pty-container { flex: 1; min-height: 0; overflow: hidden; }
+  .pty-container .xterm { height: 100%; padding: 0 4px 4px; }
   .pty-container .xterm { height: 100%; padding: 2px 4px; }
   .pty-container .xterm-viewport { scrollbar-width: thin; scrollbar-color: rgba(127,179,255,0.12) transparent; }
 
@@ -784,7 +583,18 @@
 
   .steu-action-btn {
     display: flex; align-items: center; gap: 6px;
+    padding: 4px 8px; border-radius: var(--radius-sm);
+    background: transparent; border: 1px solid transparent;
+    color: var(--text-secondary); cursor: pointer;
+    transition: var(--transition);
+    font-family: var(--font-ui); font-size: 0.85em;
   }
+  .steu-action-btn:hover {
+    background: rgba(91,156,245,0.08);
+    border-color: rgba(91,156,245,0.2);
+    color: var(--text-primary);
+  }
+  .steu-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .steu-action-btn .btn-label { flex: 1; }
 
   /* ================================================================
@@ -807,7 +617,7 @@
   .inbox-dot.done { background: var(--success); opacity: 0.5; }
 
   .inbox-content { flex: 1; min-width: 0; }
-  .inbox-title { font-weight: 500; font-size: 0.95em; color: var(--text-secondary); }
+  .inbox-title { font-weight: 500; font-size: 0.95em; color: var(--text-secondary); opacity: 0.85; }
   .inbox-meta { font-size: 0.8em; color: var(--text-dim); display: flex; gap: 8px; margin-top: 1px; }
   .inbox-actions { display: flex; gap: 3px; flex-shrink: 0; }
   .inbox-btn {
@@ -992,7 +802,7 @@
      ACTION RESULT PANEL (zentrales Feedback — In-Flow, oben)
      ================================================================ */
   .action-panel {
-    width: 100%; flex-basis: 100%; flex-shrink: 0;
+    width: 100%; flex-shrink: 0;
     background: var(--bg-glass);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -1001,10 +811,8 @@
     box-shadow: var(--shadow-card);
     padding: 10px 16px 12px;
     display: flex; flex-direction: column; gap: 6px;
-    transition: opacity 0.25s ease, margin 0.25s ease;
-    order: -1;
     margin-bottom: 6px;
-    max-height: 160px; overflow-y: auto;
+    max-height: 520px; overflow-y: auto;
   }
   .action-panel.hidden {
     display: none;
@@ -1014,11 +822,11 @@
     display: flex; align-items: center; gap: 12px;
   }
   .arp-title {
-    font-weight: 700; font-size: 14px; color: var(--text-primary); flex: 1;
-    letter-spacing: 0.01em;
+    font-weight: 700; font-size: 18px; color: var(--text-primary); flex: 1;
+    line-height: 1.35; margin-bottom: 6px;
   }
   .arp-duration {
-    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+    font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary);
   }
   .arp-status {
     font-size: 11px; font-weight: 600; padding: 2px 10px;
@@ -1030,7 +838,7 @@
   .arp-status[data-status="error"] { background: rgba(240,160,80,0.12); color: var(--warning); }
 
   .arp-output {
-    font-size: 12px; color: var(--text-secondary); line-height: 1.5;
+    font-size: 13px; color: var(--text-primary); line-height: 1.5;
   }
 
   .arp-items { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1045,23 +853,47 @@
   .arp-value { color: var(--text-primary); font-weight: 600; font-family: var(--font-mono); }
 
   .arp-body-scroll {
-    max-height: 150px; overflow-y: auto;
-    font-size: 0.85em; color: var(--text-secondary);
+    max-height: 300px; overflow-y: auto;
+    font-size: 13px; line-height: 1.6;
+    color: #cfd8e3; opacity: 0.9;
     padding: 6px; margin-top: 4px;
     background: rgba(0,0,0,0.2);
     border-radius: var(--radius-sm);
     white-space: pre-wrap; word-break: break-word;
   }
 
+  .arp-meta {
+    font-size: 11px; opacity: 0.65;
+  }
+
   .arp-kern {
-    border-left: 2px solid var(--accent-yellow);
-    padding: 6px 10px; margin: 4px 0;
-    background: rgba(240,196,76,0.04);
+    font-size: 13px; line-height: 1.55;
+    color: #dbe7f4;
+    background: rgba(215, 180, 106, 0.06);
+    border-left: 3px solid rgba(215, 180, 106, 0.8);
+    padding: 10px 12px; margin: 4px 0;
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   }
 
+  .arp-resize-handle {
+    height: 6px; cursor: ns-resize; flex-shrink: 0;
+    margin: 4px -16px -12px;
+    background: transparent;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .arp-resize-handle::after {
+    content: '';
+    position: absolute; left: 40%; right: 40%; top: 2px; height: 2px;
+    background: var(--border-glass); border-radius: 1px;
+    transition: background 0.15s;
+  }
+  .arp-resize-handle:hover::after {
+    background: var(--accent-blue);
+  }
+
   .arp-details-wrap {
-    max-height: 280px; overflow-y: auto;
+    max-height: 400px; overflow-y: auto;
     border-top: 1px solid var(--border-glass);
     padding-top: 6px; margin-top: 4px;
   }
@@ -1098,7 +930,7 @@
   .steu-action-btn.steu-primary {
     background: rgba(91,156,245,0.08);
     border-color: rgba(91,156,245,0.2);
-    font-size: 1.1em; padding: 10px 14px;
+    padding: 6px 12px;
   }
   .steu-action-btn.steu-primary:hover {
     background: rgba(91,156,245,0.14);
@@ -1197,8 +1029,8 @@
     <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
   </aside>
 
-  <!-- ===== DASHBOARD ===== -->
-  <main class="dashboard" id="dashboard">
+  <!-- ===== MAIN AREA ===== -->
+  <div class="main-area">
     <!-- ===== ACTION RESULT PANEL ===== -->
     <div id="actionResultPanel" class="action-panel hidden">
       <div class="arp-header">
@@ -1208,12 +1040,17 @@
       </div>
       <div class="arp-output" id="arpOutput">Schnellstart klicken oder Aktion wählen</div>
       <div class="arp-items" id="arpItems"></div>
+      <div class="arp-resize-handle" id="arpResizeHandle" title="Höhe anpassen"></div>
     </div>
-    <div class="placeholder-msg" id="emptyPlaceholder">
-      <span class="ph-icon">⬌</span>
-      Widget aus der Sidebar<br>hierher ziehen
-    </div>
-  </main>
+
+    <!-- ===== DASHBOARD ===== -->
+    <main class="dashboard" id="dashboard">
+      <div class="placeholder-msg" id="emptyPlaceholder">
+        <span class="ph-icon">⬌</span>
+        Widget aus der Sidebar<br>hierher ziehen
+      </div>
+    </main>
+  </div>
 
   <!-- ===== v8: LOCK TOGGLE ===== -->
   <button class="lock-toggle" id="lockToggle" title="Layout sperren (⌘L)" onclick="toggleLock()">🔓</button>
@@ -1231,7 +1068,7 @@
   const STORAGE_KEY = 'hermes-cockpit-v8';
 
   // ========== STATE ==========
-  const DEFAULT_ORDER = ['steuerung', 'tasks', 'agents', 'system', 'terminal', 'jobs'];
+  const DEFAULT_ORDER = ['inbox', 'tasks', 'steuerung', 'terminal', 'news', 'jobs'];
 
   function loadAppState() {
     try {
@@ -1253,18 +1090,18 @@
   };
 
   const DEFAULT_CONFIGS = {
-    tasks:    { w: '360px', h: 'auto', fs: 10 },
-    agents:   { w: '260px', h: 'auto', fs: 10 },
-    system:   { w: '260px', h: 'auto', fs: 10 },
-    jobs:     { w: '260px', h: 'auto', fs: 10 },
-    terminal: { w: '400px', h: 'auto', fs: 10 },
-    news:     { w: '300px', h: 'auto', fs: 10 },
-    weather:  { w: '240px', h: 'auto', fs: 10 },
-    skills:   { w: '280px', h: 'auto', fs: 10 },
-    steuerung:{ w: '520px', h: 'auto', fs: 10 },
-    chat:     { w: '360px', h: 'auto', fs: 10 },
-    inbox:    { w: '320px', h: 'auto', fs: 10 },
-    notes:    { w: '300px', h: 'auto', fs: 10 }
+    inbox:     { w: '560px', h: 'auto', fs: 10 },
+    tasks:     { w: '340px', h: 'auto', fs: 10 },
+    steuerung: { w: 'calc(100% - 20px)', h: 'auto', fs: 10 },
+    terminal:  { w: 'calc(100% - 20px)', h: 'auto', fs: 10 },
+    news:      { w: '520px', h: 'auto', fs: 10 },
+    jobs:      { w: '380px', h: 'auto', fs: 10 },
+    agents:    { w: '260px', h: 'auto', fs: 10 },
+    system:    { w: '260px', h: 'auto', fs: 10 },
+    weather:   { w: '240px', h: 'auto', fs: 10 },
+    skills:    { w: '280px', h: 'auto', fs: 10 },
+    chat:      { w: '360px', h: 'auto', fs: 10 },
+    notes:     { w: '300px', h: 'auto', fs: 10 }
   };
 
   // Size presets for Auto-Size
@@ -1429,70 +1266,30 @@
     const steuEl = document.getElementById('steuStatus');
     if (!steuEl) return;
 
-    // Tagesprioritäten (3 kurze Bullets, keine Checkboxen)
-    let html = '<div class="steu-section"><div class="steu-section-title">Heute</div>';
-    html += '<div style="display:flex;flex-direction:column;gap:3px;">';
-    html += '<div class="steu-status-row"><span class="steu-dot steu-ok"></span>Dashboard V8 finalisieren</div>';
-    html += '<div class="steu-status-row"><span class="steu-dot steu-warn"></span>Kontrast & Fokus-System</div>';
-    html += '<div class="steu-status-row"><span class="steu-dot steu-no"></span>Backend-Hooks vorbereiten</div>';
-    html += '</div></div>';
+    // Einzeilige Toolbar: Schnellstart + Actions kompakt
+    let html = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
+    html += '<button class="steu-action-btn steu-primary" data-action="quick" onclick="handleWidgetAction(\'quick\')"><span>\u26a1</span><span class="btn-label">Schnellstart</span><span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span></button>';
+    html += '<button class="steu-action-btn" data-action="fullcheck" onclick="handleWidgetAction(\'fullcheck\')"><span>\ud83d\udd0d</span><span class="btn-label">Vollcheck</span><span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span></button>';
 
-    // Aktionen als grosse Icon-Buttons (immer offen)
-    html += '<div class="collapsible-section open"><div class="collapsible-header" onclick="toggleCollapsible(this.parentElement)"><span class="collapsible-arrow">\u25b6</span><span>Aktionen</span></div><div class="collapsible-body">';
-    // Schnellstart — prominent
-    html += '<button class="steu-action-btn steu-primary" data-action="quick" onclick="handleWidgetAction(\'quick\')" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;margin-bottom:8px;"><span>\u26a1</span><span class="btn-label">Schnellstart</span><span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span></button>';
-    // Vollcheck + sekundäre Actions
-    html += '<div style="display:flex;gap:4px;margin-bottom:6px;">';
-    html += '<button class="steu-action-btn" data-action="fullcheck" onclick="handleWidgetAction(\'fullcheck\')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;"><span>\ud83d\udd0d</span><span class="btn-label">Vollcheck</span><span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span></button>';
-    html += '</div>';
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:4px;">';
     const actions = [
       { k: 'ollama', label: 'Ollama', icon: '\ud83e\udd16' },
       { k: 'cronjobs', label: 'Cronjobs', icon: '\u2699' },
-      { k: 'skills', label: 'Skills', icon: '\u2726' },
       { k: 'memory', label: 'Memory', icon: '\ud83e\udde0' },
       { k: 'update', label: 'Update', icon: '\u2b06' },
       { k: 'spotlight', label: 'Spotlight', icon: '\ud83d\udd0d' },
-      { k: 'christian', label: 'An Christian', icon: '\u2709' }
+      { k: 'christian', label: 'Christian', icon: '\u2709' }
     ];
     html += actions.map(a => `
-      <button class="steu-action-btn" data-action="${a.k}" onclick="handleWidgetAction('${a.k}')" style="flex-direction:column;align-items:center;gap:2px;padding:8px 6px;border-radius:var(--radius-sm);">
-        <span style="font-size:3.5em;">${a.icon}</span>
-        <span class="btn-label" style="font-size:0.85em;">${a.label}</span>
+      <button class="steu-action-btn" data-action="${a.k}" onclick="handleWidgetAction('${a.k}')" style="gap:6px;">
+        <span style="font-size:1.6em;">${a.icon}</span>
+        <span class="btn-label" style="font-size:0.8em;">${a.label}</span>
         <span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span>
       </button>
     `).join('');
-    html += '</div></div></div>';
+    html += '</div>';
 
-    // Ergebnisanzeige (erscheint nur nach Aktionen)
-    html += '<div id="actionResult" style="display:none;margin:4px 0;padding:6px 8px;background:rgba(0,0,0,0.2);border:1px solid var(--border-glass);border-radius:var(--radius-sm);"></div>';
-
-    // Systemstatus (eingeklappt)
-    html += '<div class="collapsible-section"><div class="collapsible-header" onclick="toggleCollapsible(this.parentElement)"><span class="collapsible-arrow">\u25b6</span><span>Status</span></div><div class="collapsible-body">';
-    const statusData = [
-      { k: 'Architektur', v: 'stabil', s: 'ok' },
-      { k: 'Routing', v: 'gut', s: 'warn' },
-      { k: 'Skills', v: 'mittel', s: 'warn' },
-      { k: 'Automation', v: 'l\u00e4uft', s: 'warn' },
-      { k: 'Reife', v: 'Aufbau', s: 'no' }
-    ];
-    html += statusData.map(d => `<div class="steu-status-row"><span class="steu-dot steu-${d.s}"></span>${d.k}: ${d.v}</div>`).join('');
-    html += '</div></div>';
-
-    // Roadmap (eingeklappt)
-    html += '<div class="collapsible-section"><div class="collapsible-header" onclick="toggleCollapsible(this.parentElement)"><span class="collapsible-arrow">\u25b6</span><span>Roadmap</span></div><div class="collapsible-body">';
-    const prioData = [
-      { t: 'KRITISCH', items: ['Routing validieren','Overnight stabil','Council nutzen'], cls: 'no' },
-      { t: 'WICHTIG', items: ['Skills aufr\u00e4umen','Context Engineering','Memory'], cls: 'warn' },
-      { t: 'OPTIONAL', items: ['Firecrawl testen','Nous Portal'], cls: 'ok' }
-    ];
-    html += prioData.map(p => `
-      <div class="steu-prio-group">
-        <div class="steu-prio-head steu-${p.cls}">${p.t}</div>
-        ${p.items.map(i => `<div class="steu-check-row"><span class="steu-check" data-k="${i}" onclick="toggleSteuCheck(this)">\u2610</span>${i}</div>`).join('')}
-      </div>
-    `).join('');
-    html += '</div></div>';
+    // Ergebnisanzeige
+    html += '<div id="actionResult" style="display:none;margin-top:4px;padding:4px 6px;background:rgba(0,0,0,0.2);border:1px solid var(--border-glass);border-radius:var(--radius-sm);"></div>';
 
     steuEl.innerHTML = html;
 
@@ -1735,14 +1532,13 @@
 
       const toggleBtn = document.createElement('button');
       toggleBtn.className = 'arp-details-toggle';
-      toggleBtn.textContent = '▶ Details anzeigen';
+      toggleBtn.textContent = '▼ Details ausblenden';
       toggleBtn.onclick = function() {
         const open = wrap.style.display !== 'none';
         wrap.style.display = open ? 'none' : '';
         toggleBtn.textContent = open ? '▶ Details anzeigen' : '▼ Details ausblenden';
       };
       panel.appendChild(toggleBtn);
-      wrap.style.display = 'none';
       panel.appendChild(wrap);
     }
 
@@ -1753,78 +1549,50 @@
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-    // Output-Text
-    const outEl = document.getElementById('arpOutput');
-    if (outEl) outEl.textContent = res.output || '';
+  // ========== ARP RESIZE ==========
+  const ARP_HEIGHT_KEY = 'hermes_spotlight_height_v1';
+  const ARP_MIN_H = 150;
+  const ARP_MAX_H = 520;
+  const ARP_DEFAULT_H = 240;
 
-    // Items
-    const itemsEl = document.getElementById('arpItems');
-    if (itemsEl) {
-      itemsEl.innerHTML = '';
-      if (Array.isArray(res.items) && res.items.length > 0) {
-        res.items.forEach(it => {
-          const row = document.createElement('div');
-          row.className = 'arp-item';
-          const label = document.createElement('span');
-          label.className = 'arp-label';
-          label.textContent = (it.label || it.name || '') + ':';
-          const value = document.createElement('span');
-          value.className = 'arp-value';
-          value.textContent = it.value || it.size || it.status || '';
-          row.appendChild(label);
-          row.appendChild(value);
-          itemsEl.appendChild(row);
-        });
-      }
+  function initArpResize() {
+    const panel = document.getElementById('actionResultPanel');
+    const handle = document.getElementById('arpResizeHandle');
+    if (!panel || !handle) return;
+
+    // Restore saved height
+    const saved = parseInt(localStorage.getItem(ARP_HEIGHT_KEY));
+    if (saved && saved >= ARP_MIN_H && saved <= ARP_MAX_H) {
+      panel.style.height = saved + 'px';
     }
 
-    // Body/Prompt — einklappbar hinter "Details"
-    const oldDetails = panel.querySelector('.arp-details-wrap');
-    if (oldDetails) oldDetails.remove();
-    const oldBtn = panel.querySelector('.arp-details-toggle');
-    if (oldBtn) oldBtn.remove();
+    let dragging = false, startY, startH;
 
-    if (res.body || res.prompt) {
-      const wrap = document.createElement('div');
-      wrap.className = 'arp-details-wrap';
+    handle.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      dragging = true;
+      startY = e.clientY;
+      startH = panel.offsetHeight;
+      document.body.style.cursor = 'ns-resize';
+      document.body.style.userSelect = 'none';
+    });
 
-      if (res.body) {
-        const bodyEl = document.createElement('pre');
-        bodyEl.className = 'arp-body-scroll';
-        bodyEl.textContent = res.body;
-        wrap.appendChild(bodyEl);
+    window.addEventListener('pointermove', function(e) {
+      if (!dragging) return;
+      const delta = e.clientY - startY;
+      const newH = Math.min(ARP_MAX_H, Math.max(ARP_MIN_H, startH + delta));
+      panel.style.height = newH + 'px';
+    });
+
+    window.addEventListener('pointerup', function() {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      if (panel.offsetHeight >= ARP_MIN_H) {
+        localStorage.setItem(ARP_HEIGHT_KEY, String(panel.offsetHeight));
       }
-      if (res.prompt) {
-        const promptEl = document.createElement('pre');
-        promptEl.className = 'arp-body-scroll';
-        promptEl.id = 'christianPrompt';
-        promptEl.textContent = res.prompt;
-        wrap.appendChild(promptEl);
-        const copyBtn = document.createElement('button');
-        copyBtn.textContent = '📋 Kopieren';
-        copyBtn.onclick = copyChristianPrompt;
-        copyBtn.style.cssText = 'margin-top:4px;padding:4px 10px;font-size:0.8em;background:rgba(91,156,245,0.1);border:1px solid rgba(91,156,245,0.2);border-radius:var(--radius-sm);color:var(--accent-blue);cursor:pointer;';
-        wrap.appendChild(copyBtn);
-      }
-
-      const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'arp-details-toggle';
-      toggleBtn.textContent = '▶ Details anzeigen';
-      toggleBtn.onclick = function() {
-        const open = wrap.style.display !== 'none';
-        wrap.style.display = open ? 'none' : '';
-        toggleBtn.textContent = open ? '▶ Details anzeigen' : '▼ Details ausblenden';
-      };
-      panel.appendChild(toggleBtn);
-      wrap.style.display = 'none';
-      panel.appendChild(wrap);
-    }
-
-    // Kurzer Glow-Impuls + Scroll zum Panel
-    panel.classList.remove('glow');
-    void panel.offsetWidth;
-    panel.classList.add('glow');
-    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
   }
 
   async function handleWidgetAction(actionId) {
@@ -1948,8 +1716,8 @@
         var o=d.style.display!=='none';
         d.style.display=o?'none':'';
         this.textContent=o?'▶ Details anzeigen':'▼ Details ausblenden';
-      ">▶ Details anzeigen</button>`;
-      html += `<div id="${detailId}" class="arp-details-wrap" style="display:none">${detailHtml}</div>`;
+      ">▼ Details ausblenden</button>`;
+      html += `<div id="${detailId}" class="arp-details-wrap">${detailHtml}</div>`;
     }
   }
 
@@ -3380,6 +3148,7 @@
     updateSidebar();
 
     initSidebarResize();
+    initArpResize();
 
     // v8.1: Top-Zone markieren (erste Widget-Reihe)
     setTimeout(markTopZone, 200);
