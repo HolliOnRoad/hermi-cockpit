@@ -1435,8 +1435,8 @@
     const startTime = performance.now();
     updateActionStatus(widgetBody, actionId, 'running');
 
-    // Use individual /api/actions/* endpoints for named actions, fallback to /api/action for others
-    const namedActions = ['ollama', 'cronjobs', 'skills', 'memory', 'update'];
+    // Alle Actions nutzen individuelle /api/actions/* Endpunkte
+    const namedActions = ['ollama', 'cronjobs', 'skills', 'memory', 'update', 'quick', 'fullcheck'];
     const apiUrl = namedActions.includes(actionId)
       ? API_BASE + '/api/actions/' + actionId
       : ACTION_API;

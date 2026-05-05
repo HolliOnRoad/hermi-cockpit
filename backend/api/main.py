@@ -14,6 +14,7 @@ import datetime
 import json
 import os
 import subprocess
+import threading
 import time
 import urllib.request
 import urllib.error
@@ -84,6 +85,8 @@ class ActionRequest(BaseModel):
 
 _chat_lock = asyncio.Lock()
 _chat_running = False
+
+_action_lock = threading.Lock()
 
 
 def now_ts() -> str:
@@ -619,6 +622,7 @@ def skills():
         return {"skills": []}
 
 
+# DEPRECATED: use individual /api/actions/* endpoints instead
 @app.post("/api/action")
 def action(body: ActionRequest):
     start = time.time()
@@ -989,115 +993,262 @@ def dashboard_news():
 # ── Einzel-Action-Endpunkte ────────────────────────────────────────
 
 
+def _acquire_action_lock(action_name: str) -> dict | None:
+    """Try to acquire the global action lock. Returns None on success, or a 'busy' response dict."""
+    if _action_lock.acquire(blocking=False):
+        return None
+    return {"status": "busy", "action": action_name,
+            "output": "Aktion blockiert – eine andere läuft bereits",
+            "duration_ms": 0, "items": []}
+
+
 @app.post("/api/actions/ollama")
 def action_ollama():
-    start = time.time()
+    busy = _acquire_action_lock("ollama")
+    if busy:
+        return busy
     try:
-        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
-        if result.returncode != 0:
-            return {"status": "error", "action": "ollama", "output": "Ollama nicht erreichbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
-        raw = result.stdout.strip()
-        if not raw:
-            return {"status": "ok", "action": "ollama", "output": "Keine Modelle installiert", "duration_ms": round((time.time() - start) * 1000), "items": []}
-        items = []
-        for line in raw.split("\n")[1:]:
-            line = line.strip()
-            if not line:
-                continue
-            cols = line.split()
-            if len(cols) >= 4:
-                items.append({"name": cols[0], "id": cols[1], "size": cols[2] + " " + cols[3], "modified": " ".join(cols[4:])})
-            elif len(cols) >= 2:
-                items.append({"name": cols[0], "id": cols[1], "size": "", "modified": ""})
-        return {"status": "ok", "action": "ollama", "output": f"{len(items)} Modelle", "duration_ms": round((time.time() - start) * 1000), "items": items}
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        return {"status": "error", "action": "ollama", "output": f"Ollama nicht erreichbar: {e}", "duration_ms": round((time.time() - start) * 1000), "items": []}
-    except Exception as e:
-        return {"status": "error", "action": "ollama", "output": str(e), "duration_ms": round((time.time() - start) * 1000), "items": []}
+        start = time.time()
+        try:
+            result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
+            if result.returncode != 0:
+                return {"status": "error", "action": "ollama", "output": "Ollama nicht erreichbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
+            raw = result.stdout.strip()
+            if not raw:
+                return {"status": "ok", "action": "ollama", "output": "Keine Modelle installiert", "duration_ms": round((time.time() - start) * 1000), "items": []}
+            items = []
+            for line in raw.split("\n")[1:]:
+                line = line.strip()
+                if not line:
+                    continue
+                cols = line.split()
+                if len(cols) >= 4:
+                    items.append({"name": cols[0], "id": cols[1], "size": cols[2] + " " + cols[3], "modified": " ".join(cols[4:])})
+                elif len(cols) >= 2:
+                    items.append({"name": cols[0], "id": cols[1], "size": "", "modified": ""})
+            return {"status": "ok", "action": "ollama", "output": f"{len(items)} Modelle", "duration_ms": round((time.time() - start) * 1000), "items": items}
+        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+            return {"status": "error", "action": "ollama", "output": f"Ollama nicht erreichbar: {e}", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        except Exception as e:
+            return {"status": "error", "action": "ollama", "output": str(e), "duration_ms": round((time.time() - start) * 1000), "items": []}
+    finally:
+        _action_lock.release()
 
 
 @app.post("/api/actions/cronjobs")
 def action_cronjobs():
-    start = time.time()
+    busy = _acquire_action_lock("cronjobs")
+    if busy:
+        return busy
     try:
-        result = subprocess.run(["hermes", "cron", "list"], capture_output=True, text=True, timeout=10)
-        raw = (result.stdout + result.stderr).strip()
-        if not raw and result.returncode != 0:
-            return {"status": "error", "action": "cronjobs", "output": "Hermes CLI nicht verfügbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
-        if not raw:
-            return {"status": "ok", "action": "cronjobs", "output": "Keine Cronjobs eingerichtet", "duration_ms": round((time.time() - start) * 1000), "items": []}
-        items = []
-        for line in raw.split("\n"):
-            line = line.strip()
-            if not line or line.startswith("===") or "NAME" in line.upper():
-                continue
-            parts_line = [p.strip() for p in line.split("|")] if "|" in line else line.split()
-            if len(parts_line) >= 2:
-                items.append({
-                    "name": parts_line[0],
-                    "schedule": parts_line[1] if len(parts_line) > 1 else "",
-                    "next_run": parts_line[2] if len(parts_line) > 2 else "",
-                    "last_run": parts_line[3] if len(parts_line) > 3 else "",
-                    "status": "aktiv" if "ok" in line.lower() or "active" in line.lower() else "--"
-                })
-            else:
-                items.append({"name": line, "schedule": "", "status": "--"})
-        return {"status": "ok", "action": "cronjobs", "output": f"{len(items)} Cronjobs", "duration_ms": round((time.time() - start) * 1000), "items": items}
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return {"status": "error", "action": "cronjobs", "output": "Hermes CLI nicht verfügbar oder Timeout", "duration_ms": round((time.time() - start) * 1000), "items": []}
-    except Exception as e:
-        return {"status": "error", "action": "cronjobs", "output": str(e), "duration_ms": round((time.time() - start) * 1000), "items": []}
+        start = time.time()
+        try:
+            result = subprocess.run(["hermes", "cron", "list"], capture_output=True, text=True, timeout=10)
+            raw = (result.stdout + result.stderr).strip()
+            if not raw and result.returncode != 0:
+                return {"status": "error", "action": "cronjobs", "output": "Hermes CLI nicht verfügbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
+            if not raw:
+                return {"status": "ok", "action": "cronjobs", "output": "Keine Cronjobs eingerichtet", "duration_ms": round((time.time() - start) * 1000), "items": []}
+            items = []
+            for line in raw.split("\n"):
+                line = line.strip()
+                if not line or line.startswith("===") or "NAME" in line.upper():
+                    continue
+                parts_line = [p.strip() for p in line.split("|")] if "|" in line else line.split()
+                if len(parts_line) >= 2:
+                    items.append({
+                        "name": parts_line[0],
+                        "schedule": parts_line[1] if len(parts_line) > 1 else "",
+                        "next_run": parts_line[2] if len(parts_line) > 2 else "",
+                        "last_run": parts_line[3] if len(parts_line) > 3 else "",
+                        "status": "aktiv" if "ok" in line.lower() or "active" in line.lower() else "--"
+                    })
+                else:
+                    items.append({"name": line, "schedule": "", "status": "--"})
+            return {"status": "ok", "action": "cronjobs", "output": f"{len(items)} Cronjobs", "duration_ms": round((time.time() - start) * 1000), "items": items}
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return {"status": "error", "action": "cronjobs", "output": "Hermes CLI nicht verfügbar oder Timeout", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        except Exception as e:
+            return {"status": "error", "action": "cronjobs", "output": str(e), "duration_ms": round((time.time() - start) * 1000), "items": []}
+    finally:
+        _action_lock.release()
 
 
 @app.post("/api/actions/skills")
 def action_skills():
-    start = time.time()
-    skills_dir = Path.home() / ".hermes" / "skills" / "holger"
-    if not skills_dir.is_dir():
-        return {"status": "error", "action": "skills", "output": "Skills-Verzeichnis nicht gefunden", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    busy = _acquire_action_lock("skills")
+    if busy:
+        return busy
     try:
-        names = sorted(e for e in os.listdir(skills_dir) if (skills_dir / e).is_dir())
-        items = [{"name": n} for n in names]
-        return {"status": "ok", "action": "skills", "output": f"{len(names)} Skills geladen", "duration_ms": round((time.time() - start) * 1000), "items": items}
-    except OSError:
-        return {"status": "error", "action": "skills", "output": "Skills-Verzeichnis nicht lesbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        start = time.time()
+        skills_dir = Path.home() / ".hermes" / "skills" / "holger"
+        if not skills_dir.is_dir():
+            return {"status": "error", "action": "skills", "output": "Skills-Verzeichnis nicht gefunden", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        try:
+            names = sorted(e for e in os.listdir(skills_dir) if (skills_dir / e).is_dir())
+            items = [{"name": n} for n in names]
+            return {"status": "ok", "action": "skills", "output": f"{len(names)} Skills geladen", "duration_ms": round((time.time() - start) * 1000), "items": items}
+        except OSError:
+            return {"status": "error", "action": "skills", "output": "Skills-Verzeichnis nicht lesbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    finally:
+        _action_lock.release()
 
 
 @app.post("/api/actions/memory")
 def action_memory():
-    start = time.time()
-    mem_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
-    if not mem_path.exists():
-        return {"status": "error", "action": "memory", "output": "Memory-Datei nicht gefunden", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    busy = _acquire_action_lock("memory")
+    if busy:
+        return busy
     try:
-        content = mem_path.read_text()
-        chars = len(content)
-        pct = min(100, round(chars / 8000 * 100))
-        return {"status": "ok", "action": "memory", "output": f"Memory {pct}% · {chars} Zeichen", "duration_ms": round((time.time() - start) * 1000), "items": []}
-    except OSError:
-        return {"status": "error", "action": "memory", "output": "Memory-Datei nicht lesbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        start = time.time()
+        mem_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
+        if not mem_path.exists():
+            return {"status": "error", "action": "memory", "output": "Memory-Datei nicht gefunden", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        try:
+            content = mem_path.read_text()
+            chars = len(content)
+            pct = min(100, round(chars / 8000 * 100))
+            return {"status": "ok", "action": "memory", "output": f"Memory {pct}% · {chars} Zeichen", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        except OSError:
+            return {"status": "error", "action": "memory", "output": "Memory-Datei nicht lesbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    finally:
+        _action_lock.release()
 
 
 @app.post("/api/actions/update")
 def action_update():
-    start = time.time()
-    hermes_dir = Path.home() / ".hermes" / "hermes-agent"
-    if not hermes_dir.is_dir():
-        return {"status": "error", "action": "update", "output": "Hermes-Verzeichnis nicht gefunden", "duration_ms": round((time.time() - start) * 1000), "items": []}
+    busy = _acquire_action_lock("update")
+    if busy:
+        return busy
     try:
-        # Nur Dry-Run: fetch + log count, kein pull
-        subprocess.run(["git", "-C", str(hermes_dir), "fetch", "origin"], capture_output=True, text=True, timeout=15)
-        result = subprocess.run(
-            ["git", "-C", str(hermes_dir), "log", "--oneline", "HEAD..origin/main"],
-            capture_output=True, text=True, timeout=10
-        )
-        new = result.stdout.strip()
-        if new:
-            lines = new.split("\n")
-            items = [{"name": l[:100]} for l in lines[:10]]
-            return {"status": "ok", "action": "update", "output": f"{len(lines)} neue(r) Commit(s) · Nur Dry-Run, kein Update ausgeführt", "duration_ms": round((time.time() - start) * 1000), "items": items}
-        return {"status": "ok", "action": "update", "output": "Hermes ist aktuell · Kein Update nötig", "duration_ms": round((time.time() - start) * 1000), "items": []}
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return {"status": "error", "action": "update", "output": "Git nicht verfügbar oder Timeout", "duration_ms": round((time.time() - start) * 1000), "items": []}
-    except Exception as e:
-        return {"status": "error", "action": "update", "output": str(e), "duration_ms": round((time.time() - start) * 1000), "items": []}
+        start = time.time()
+        hermes_dir = Path.home() / ".hermes" / "hermes-agent"
+        if not hermes_dir.is_dir():
+            return {"status": "error", "action": "update", "output": "Hermes-Verzeichnis nicht gefunden", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        try:
+            # Nur Dry-Run: fetch + log count, kein pull
+            subprocess.run(["git", "-C", str(hermes_dir), "fetch", "origin"], capture_output=True, text=True, timeout=15)
+            result = subprocess.run(
+                ["git", "-C", str(hermes_dir), "log", "--oneline", "HEAD..origin/main"],
+                capture_output=True, text=True, timeout=10
+            )
+            new = result.stdout.strip()
+            if new:
+                lines = new.split("\n")
+                items = [{"name": l[:100]} for l in lines[:10]]
+                return {"status": "ok", "action": "update", "output": f"{len(lines)} neue(r) Commit(s) · Nur Dry-Run, kein Update ausgeführt", "duration_ms": round((time.time() - start) * 1000), "items": items}
+            return {"status": "ok", "action": "update", "output": "Hermes ist aktuell · Kein Update nötig", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return {"status": "error", "action": "update", "output": "Git nicht verfügbar oder Timeout", "duration_ms": round((time.time() - start) * 1000), "items": []}
+        except Exception as e:
+            return {"status": "error", "action": "update", "output": str(e), "duration_ms": round((time.time() - start) * 1000), "items": []}
+    finally:
+        _action_lock.release()
+
+
+@app.post("/api/actions/quick")
+def action_quick():
+    busy = _acquire_action_lock("quick")
+    if busy:
+        return busy
+    try:
+        start = time.time()
+        parts = []
+        # Memory
+        mem_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
+        mem_pct = 0
+        if mem_path.exists():
+            try:
+                content = mem_path.read_text()
+                mem_pct = min(100, round(len(content) / 8000 * 100))
+            except OSError:
+                pass
+        parts.append(f"Memory {mem_pct}%")
+        # Skills
+        skills_dir = Path.home() / ".hermes" / "skills" / "holger"
+        if skills_dir.is_dir():
+            try:
+                parts.append(f"Skills {len(os.listdir(skills_dir))}")
+            except OSError:
+                parts.append("Skills —")
+        # Updates: only check git fetch indicator via rev-list (fast, no fetch)
+        hermes_dir = Path.home() / ".hermes" / "hermes-agent"
+        if hermes_dir.is_dir():
+            try:
+                r = subprocess.run(
+                    ["git", "-C", str(hermes_dir), "rev-list", "--count", "HEAD..origin/main"],
+                    capture_output=True, text=True, timeout=5
+                )
+                n = int(r.stdout.strip() or "0")
+                parts.append("Updates: " + (f"{n} neu" if n else "aktuell"))
+            except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+                parts.append("Updates: —")
+        return {"status": "ok", "action": "quick",
+                "output": "Alles ruhig — " + ", ".join(parts),
+                "duration_ms": round((time.time() - start) * 1000), "items": []}
+    finally:
+        _action_lock.release()
+
+
+@app.post("/api/actions/fullcheck")
+def action_fullcheck():
+    busy = _acquire_action_lock("fullcheck")
+    if busy:
+        return busy
+    try:
+        start = time.time()
+        parts = []
+        items = []
+        # Memory
+        mem_path = Path.home() / ".hermes" / "memories" / "MEMORY.md"
+        mem_pct = 0
+        if mem_path.exists():
+            try:
+                mem_pct = min(100, round(len(mem_path.read_text()) / 8000 * 100))
+            except OSError:
+                pass
+        parts.append(f"Memory {mem_pct}%")
+        # Skills
+        skills_dir = Path.home() / ".hermes" / "skills" / "holger"
+        sk = 0
+        try:
+            sk = len(os.listdir(skills_dir)) if skills_dir.is_dir() else 0
+        except OSError:
+            pass
+        parts.append(f"Skills {sk}")
+        # Cronjobs
+        try:
+            cr = subprocess.run(["hermes", "cron", "list"], capture_output=True, text=True, timeout=10)
+            cron_lines = [l for l in (cr.stdout + cr.stderr).strip().split("\n") if l.strip()]
+            parts.append(f"Cronjobs {len(cron_lines)}")
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            parts.append("Cronjobs —")
+        # Updates (Dry-Run)
+        hermes_dir = Path.home() / ".hermes" / "hermes-agent"
+        if hermes_dir.is_dir():
+            try:
+                subprocess.run(["git", "-C", str(hermes_dir), "fetch", "origin"],
+                               capture_output=True, text=True, timeout=15)
+                r = subprocess.run(
+                    ["git", "-C", str(hermes_dir), "rev-list", "--count", "HEAD..origin/main"],
+                    capture_output=True, text=True, timeout=10
+                )
+                n = int(r.stdout.strip() or "0")
+                parts.append("Updates: " + (f"{n} neu" if n else "aktuell"))
+            except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+                parts.append("Updates: —")
+        else:
+            parts.append("Updates: —")
+        # Ollama
+        try:
+            ol = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
+            ol_lines = [l for l in ol.stdout.strip().split("\n") if l.strip()]
+            ol_models = max(0, len(ol_lines) - 1)  # -1 header
+            parts.append(f"Ollama {ol_models} Modelle")
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            parts.append("Ollama —")
+        return {"status": "ok", "action": "fullcheck",
+                "output": "Briefing erledigt — " + ", ".join(parts),
+                "duration_ms": round((time.time() - start) * 1000), "items": items}
+    finally:
+        _action_lock.release()
