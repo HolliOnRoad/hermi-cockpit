@@ -972,29 +972,28 @@ def dashboard_cron():
 
 @app.get("/api/dashboard/cron/{job_id}")
 def dashboard_cron_detail(job_id: str):
-    """Detail eines Cronjobs via hermes cron show."""
+    """Detail eines Cronjobs via hermes cron list + letztes Ergebnis."""
     try:
         result = subprocess.run(
             [os.path.expanduser("~/.local/bin/hermes"), "cron", "list"],
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode != 0:
-            return {"connected": False, "message": "hermes cronjob list fehlgeschlagen"}
+            return {"connected": False, "message": "hermes cron list fehlgeschlagen"}
 
-        # Parse cronjob list output for this job_id
         data = {"id": job_id, "name": "", "schedule": "", "last_run": "", "next_run": "",
-                "last_status": "", "model": "", "delivery": "", "enabled": True}
+                "model": "", "delivery": "", "enabled": True, "last_result": None}
         current = None
         for line in result.stdout.strip().split("\n"):
             stripped = line.strip()
             indent = len(line) - len(line.lstrip(" "))
-            if not stripped or stripped.startswith("\u250c") or stripped.startswith("\u2502") or stripped.startswith("\u2514"):
+            if not stripped or stripped.startswith("┌") or stripped.startswith("│") or stripped.startswith("└"):
                 continue
             if indent == 2 and job_id in stripped:
                 current = data
                 continue
             if indent == 2 and current is not None:
-                break  # next job reached, stop parsing
+                break
             if current is not None and indent >= 4 and ":" in stripped:
                 key, _, value = stripped.partition(":")
                 key = key.strip().lower().replace(" ", "_")
@@ -1003,13 +1002,43 @@ def dashboard_cron_detail(job_id: str):
                 elif key == "schedule": data["schedule"] = value
                 elif key == "next_run": data["next_run"] = value
                 elif key == "last_run": data["last_run"] = value
-                elif key == "last_status": data["last_status"] = value
                 elif key == "model": data["model"] = value
                 elif key == "deliver": data["delivery"] = value
-        data.pop("last_status", None)  # mapped to last_run status
-        if data.get("name"):
-            return {"connected": True, **data}
-        return {"connected": False, "message": f"Cronjob {job_id} nicht gefunden"}
+
+        if not data.get("name"):
+            return {"connected": False, "message": f"Cronjob {job_id} nicht gefunden"}
+
+        # ── Letztes Ergebnis anreichern ──
+        # Briefing: zeige letzte News
+        if job_id == "87b4d11846f1":
+            news_path = Path.home() / ".hermes" / "news" / "latest.json"
+            if news_path.exists():
+                try:
+                    nd = json.loads(news_path.read_text())
+                    headlines = [n.get("title","")[:100] for n in nd.get("news", [])[:5]]
+                    data["last_result"] = {
+                        "type": "briefing",
+                        "headlines": headlines,
+                        "total_news": len(nd.get("news", [])),
+                    }
+                except (json.JSONDecodeError, OSError):
+                    pass
+        # Kanban-Sync: zeige Sync-Status
+        elif job_id == "ebfa354a2168":
+            tasks_path = Path.home() / ".hermes" / "tasks.json"
+            if tasks_path.exists():
+                try:
+                    td = json.loads(tasks_path.read_text())
+                    data["last_result"] = {
+                        "type": "sync",
+                        "total_tasks": len(td),
+                        "pending": sum(1 for t in td if t.get("status") == "pending"),
+                        "done": sum(1 for t in td if t.get("status") == "done"),
+                    }
+                except (json.JSONDecodeError, OSError):
+                    pass
+
+        return {"connected": True, **data}
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return {"connected": False, "message": "hermes CLI nicht verfügbar"}
     except Exception as e:
@@ -1161,40 +1190,82 @@ def action_ollama():
 
 
 @app.post("/api/actions/cronjobs")
-def action_cronjobs():
+def action_cronjobs(body: dict = None):
     busy = _acquire_action_lock("cronjobs")
     if busy:
         return busy
     try:
         start = time.time()
+        job_id = (body or {}).get("job_id", "").strip()
+
+        # ── Einzelnen Job ausführen ──
+        if job_id:
+            try:
+                result = subprocess.run(
+                    [os.path.expanduser("~/.local/bin/hermes"), "cron", "run", job_id],
+                    capture_output=True, text=True, timeout=60,
+                )
+                output = (result.stdout + result.stderr).strip()
+                ok = result.returncode == 0
+                return {
+                    "status": "ok" if ok else "error",
+                    "action": f"cron run {job_id}",
+                    "output": output[:2000] or "(keine Ausgabe)",
+                    "duration_ms": round((time.time() - start) * 1000),
+                }
+            except subprocess.TimeoutExpired:
+                return {"status": "error", "action": f"cron run {job_id}",
+                        "output": "Timeout nach 60s", "duration_ms": 60000}
+            except FileNotFoundError:
+                return {"status": "error", "action": f"cron run {job_id}",
+                        "output": "Hermes CLI nicht gefunden", "duration_ms": round((time.time() - start) * 1000)}
+
+        # ── Alle Jobs auflisten ──
         try:
-            result = subprocess.run(["hermes", "cron", "list"], capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                [os.path.expanduser("~/.local/bin/hermes"), "cron", "list"],
+                capture_output=True, text=True, timeout=10,
+            )
             raw = (result.stdout + result.stderr).strip()
-            if not raw and result.returncode != 0:
-                return {"status": "error", "action": "cronjobs", "output": "Hermes CLI nicht verfügbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
             if not raw:
-                return {"status": "ok", "action": "cronjobs", "output": "Keine Cronjobs eingerichtet", "duration_ms": round((time.time() - start) * 1000), "items": []}
+                return {"status": "ok", "action": "cronjobs", "output": "Keine Cronjobs",
+                        "duration_ms": round((time.time() - start) * 1000), "items": []}
+
             items = []
+            current = None
             for line in raw.split("\n"):
-                line = line.strip()
-                if not line or line.startswith("===") or "NAME" in line.upper():
+                stripped = line.strip()
+                indent = len(line) - len(line.lstrip(" "))
+                if not stripped or stripped.startswith("┌") or stripped.startswith("│") or stripped.startswith("└"):
                     continue
-                parts_line = [p.strip() for p in line.split("|")] if "|" in line else line.split()
-                if len(parts_line) >= 2:
-                    items.append({
-                        "name": parts_line[0],
-                        "schedule": parts_line[1] if len(parts_line) > 1 else "",
-                        "next_run": parts_line[2] if len(parts_line) > 2 else "",
-                        "last_run": parts_line[3] if len(parts_line) > 3 else "",
-                        "status": "aktiv" if "ok" in line.lower() or "active" in line.lower() else "--"
-                    })
-                else:
-                    items.append({"name": line, "schedule": "", "status": "--"})
-            return {"status": "ok", "action": "cronjobs", "output": f"{len(items)} Cronjobs", "duration_ms": round((time.time() - start) * 1000), "items": items}
+                # Neue Job-ID bei indent==2
+                if indent == 2 and stripped:
+                    parts = stripped.split()
+                    jid = parts[0] if parts else stripped
+                    status = "aktiv" if "active" in stripped else "--"
+                    current = {"id": jid, "name": "", "schedule": "", "next_run": "", "last_run": "", "status": status}
+                    items.append(current)
+                    continue
+                # Feld bei indent>=4
+                if current is not None and indent >= 4 and ":" in stripped:
+                    key, _, value = stripped.partition(":")
+                    key = key.strip().lower().replace(" ", "_")
+                    value = value.strip()
+                    if key == "name": current["name"] = value
+                    elif key == "schedule": current["schedule"] = value
+                    elif key == "next_run": current["next_run"] = value
+                    elif key == "last_run": current["last_run"] = value
+
+            # Filtere leere Einträge
+            items = [i for i in items if i.get("name") or i.get("id")]
+            return {"status": "ok", "action": "cronjobs", "output": f"{len(items)} Cronjobs",
+                    "duration_ms": round((time.time() - start) * 1000), "items": items}
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            return {"status": "error", "action": "cronjobs", "output": "Hermes CLI nicht verfügbar oder Timeout", "duration_ms": round((time.time() - start) * 1000), "items": []}
+            return {"status": "error", "action": "cronjobs",
+                    "output": "Hermes CLI nicht verfügbar", "duration_ms": round((time.time() - start) * 1000), "items": []}
         except Exception as e:
-            return {"status": "error", "action": "cronjobs", "output": str(e), "duration_ms": round((time.time() - start) * 1000), "items": []}
+            return {"status": "error", "action": "cronjobs", "output": str(e),
+                    "duration_ms": round((time.time() - start) * 1000), "items": []}
     finally:
         _action_lock.release()
 

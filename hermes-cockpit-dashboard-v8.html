@@ -1311,6 +1311,12 @@
   .spot-cron-btn:hover:not(:disabled) { background: rgba(91,156,245,0.2); }
   .spot-cron-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+  /* Spotlight — Cron Last Result */
+  .spot-section { margin-top: 14px; border-top: 1px solid var(--border-dim); padding-top: 10px; }
+  .spot-section-title { font-size: 12px; font-weight: 600; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .spot-result-item { padding: 4px 0; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .spot-result-item:last-child { border-bottom: none; }
+
   /* Spotlight — News Detail */
   .spot-news-title {
     font-size: 18px; font-weight: 700; color: var(--text-primary);
@@ -3545,7 +3551,16 @@
         var row = document.createElement('div');
         row.className = 'job-row' + rowClass;
         row.innerHTML = '<div><div class="job-title">' + name + '</div><div class="job-sched">' + sched + '</div></div><span class="job-stat ' + statusClass + '">' + statusText + '</span>';
-        row.addEventListener('click', function() { showInSpotlight('cron', j); });
+        row.addEventListener('click', function() {
+          var jobId = j.id;
+          if (jobId) {
+            fetch(API_BASE + '/api/dashboard/cron/' + jobId)
+              .then(function(r) { return r.json(); })
+              .then(function(detail) { showInSpotlight('cron', detail); });
+          } else {
+            showInSpotlight('cron', j);
+          }
+        });
         container.appendChild(row);
       });
     } catch (err) {
@@ -4030,6 +4045,25 @@
 
     if (log) {
       html += '<div class="spot-log">' + esc(log) + '</div>';
+    }
+
+    // ── Letztes Ergebnis ──
+    var lastResult = d.last_result;
+    if (lastResult) {
+      if (lastResult.type === 'briefing' && lastResult.headlines) {
+        html += '<div class="spot-section"><div class="spot-section-title">Letztes Briefing (' + (lastResult.total_news || '?') + ' News)</div>';
+        lastResult.headlines.forEach(function(h) {
+          html += '<div class="spot-result-item">' + esc(h) + '</div>';
+        });
+        html += '</div>';
+      } else if (lastResult.type === 'sync') {
+        html += '<div class="spot-section"><div class="spot-section-title">Sync-Status</div>';
+        html += '<div class="spot-details-grid">'
+          + '<span class="spot-dl">Tasks gesamt</span><span class="spot-dv">' + (lastResult.total_tasks || 0) + '</span>'
+          + '<span class="spot-dl">Offen</span><span class="spot-dv">' + (lastResult.pending || 0) + '</span>'
+          + '<span class="spot-dl">Erledigt</span><span class="spot-dv">' + (lastResult.done || 0) + '</span>'
+          + '</div></div>';
+      }
     }
 
     html += '<button class="spot-cron-btn" onclick="runCronJob(\'' + esc(cronId) + '\')"' + (cronId ? '' : ' disabled') + '>Jetzt ausf\u00fchren</button>';
