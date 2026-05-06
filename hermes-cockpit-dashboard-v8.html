@@ -565,7 +565,7 @@
   .widget-header:active { cursor: grabbing; }
 
   .widget-header .w-icon { font-size: 13px; }
-  .widget-header .w-name { font-weight: 600; font-size: 10px; flex: 1; }
+  .widget-header .w-name { font-weight: 600; font-size: 12px; flex: 1; }
 
   /* Per-widget lock */
   .w-lock {
@@ -1256,6 +1256,25 @@
   }
   .spotlight-back-btn.visible { display: inline-flex; }
 
+  /* Spotlight — Font Size Controls (like widget font buttons) */
+  .spotlight-fs-controls {
+    display: flex; gap: 2px; flex-shrink: 0;
+  }
+  .spotlight-fs-btn {
+    width: 18px; height: 18px; border-radius: 4px;
+    background: rgba(255,255,255,0.04); border: none; cursor: pointer;
+    color: var(--text-dim); font-size: 10px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    transition: var(--transition); flex-shrink: 0;
+    font-family: var(--font-ui); line-height: 1;
+  }
+  .spotlight-fs-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+
+  /* Spotlight — Font-scoped content */
+  .spotlight-detail-content[data-spot-fs="s"] { font-size: 11px; }
+  .spotlight-detail-content[data-spot-fs="m"] { font-size: 13px; }
+  .spotlight-detail-content[data-spot-fs="l"] { font-size: 15px; }
+
   .spotlight-breadcrumb {
     font-size: 11px; font-weight: 500;
     color: var(--text-dim);
@@ -1267,41 +1286,74 @@
   .spotlight-detail-content {
     flex: 1; min-height: 0;
     overflow-y: auto;
+    width: 100%; min-width: 0;
   }
 
   /* Spotlight — Cron Detail */
   .spot-cron-header {
     display: flex; align-items: center; gap: 12px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
   .spot-cron-header .spot-cron-name {
     font-size: 18px; font-weight: 700; color: var(--text-primary);
+    flex: 1; min-width: 0;
   }
   .spot-cron-header .spot-cron-status {
     font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-    padding: 2px 8px; border-radius: 10px;
-    text-transform: uppercase;
+    padding: 3px 10px; border-radius: 10px;
+    text-transform: uppercase; flex-shrink: 0;
   }
   .spot-cron-status.ok  { background: rgba(64,196,99,0.12); color: var(--success); }
   .spot-cron-status.err { background: rgba(224,32,32,0.12); color: var(--severity-red); }
   .spot-cron-status.warn{ background: rgba(240,160,32,0.12); color: var(--severity-amber); }
 
-  .spot-details-grid {
-    display: grid; grid-template-columns: auto 1fr; gap: 3px 16px;
-    font-size: 11px; margin-bottom: 6px;
+  .spot-cron-meta {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    font-size: 10px; color: var(--text-dim);
+    padding-bottom: 8px; margin-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
   }
-  .spot-dl { color: var(--text-dim); }
-  .spot-dv { color: var(--text-secondary); font-family: var(--font-mono); font-size: 10px; }
+  .spot-cron-meta-item { display: inline-flex; gap: 3px; }
+  .spot-cron-meta-item .scm-label { opacity: 0.6; }
+  .spot-cron-meta-item .scm-value { color: var(--text-secondary); font-family: var(--font-mono); font-size: 10px; }
 
-  .spot-log {
-    margin-top: 6px; max-height: 120px; overflow-y: auto;
+  .spot-cron-body {
+    width: 100%; margin-top: 4px;
+  }
+
+  .spot-section {
+    margin-top: 14px; padding-top: 10px;
+    border-top: 1px solid var(--border-glass);
+  }
+  .spot-section-title {
+    font-size: 11px; font-weight: 600; color: var(--accent-blue);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .spot-cron-result-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px; margin-bottom: 6px;
+    font-size: 13px; color: var(--text-secondary);
+    line-height: 1.55;
+  }
+  .spot-cron-result-card:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: var(--border-glass-hover);
+  }
+
+  .spot-cron-log {
+    margin-top: 6px; max-height: 160px; overflow-y: auto;
     background: rgba(0,0,0,0.25); border-radius: var(--radius-sm);
-    padding: 8px; font-family: var(--font-mono); font-size: 10px;
-    color: var(--text-dim); white-space: pre-wrap; word-break: break-all;
+    padding: 10px 12px; font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-dim); line-height: 1.5;
+    white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all;
   }
 
   .spot-cron-btn {
-    margin-top: 8px;
+    margin-top: 10px;
     font-size: 10px; font-weight: 600; padding: 5px 14px;
     background: rgba(91,156,245,0.1); border: 1px solid rgba(91,156,245,0.25);
     border-radius: var(--radius-sm); color: var(--accent-blue);
@@ -1310,12 +1362,6 @@
   }
   .spot-cron-btn:hover:not(:disabled) { background: rgba(91,156,245,0.2); }
   .spot-cron-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
-  /* Spotlight — Cron Last Result */
-  .spot-section { margin-top: 14px; border-top: 1px solid var(--border-dim); padding-top: 10px; }
-  .spot-section-title { font-size: 12px; font-weight: 600; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .spot-result-item { padding: 4px 0; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.03); }
-  .spot-result-item:last-child { border-bottom: none; }
 
   /* Spotlight — News Detail */
   .spot-news-title {
@@ -1328,8 +1374,9 @@
   }
   .spot-news-summary {
     font-size: 13px; color: var(--text-secondary);
-    line-height: 1.55;
-    max-height: 200px; overflow-y: auto;
+    line-height: 1.6;
+    max-height: 320px; overflow-y: auto;
+    overflow-wrap: anywhere; word-break: break-word;
   }
   .spot-news-link {
     display: inline-block; margin-top: 8px;
@@ -1432,10 +1479,10 @@
   .spot-action-status.error { background: rgba(240,160,80,0.12); color: var(--warning); }
   .spot-action-output {
     font-size: 11px; color: var(--text-secondary); line-height: 1.5;
-    max-height: 200px; overflow-y: auto;
+    max-height: 280px; overflow-y: auto;
     background: rgba(0,0,0,0.2); border-radius: var(--radius-sm);
-    padding: 8px 10px; font-family: var(--font-mono);
-    white-space: pre-wrap; word-break: break-word;
+    padding: 8px 10px;
+    white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
   }
   .spot-action-items {
     display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px;
@@ -1626,6 +1673,10 @@
       <div class="arp-header">
         <button class="spotlight-back-btn" id="spotlightBackBtn" onclick="restoreDefaultSpotlight()">&#8592; Übersicht</button>
         <span class="spotlight-breadcrumb" id="spotlightBreadcrumb"></span>
+        <div class="spotlight-fs-controls">
+          <button class="spotlight-fs-btn" title="Schrift kleiner" onclick="spotFsDown()">A⁻</button>
+          <button class="spotlight-fs-btn" title="Schrift größer" onclick="spotFsUp()">A⁺</button>
+        </div>
         <span class="arp-duration" id="arpDuration"></span>
         <span class="arp-status" id="arpStatus" data-status="ok">&#10003; ok</span>
       </div>
@@ -3978,9 +4029,42 @@
     var content = document.getElementById('spotlightDetailContent');
     var backBtn = document.getElementById('spotlightBackBtn');
     var breadcrumb = document.getElementById('spotlightBreadcrumb');
-    if (content) content.innerHTML = defaultSpotlightHTML;
+    if (content) { content.innerHTML = defaultSpotlightHTML; applySpotFs(); }
     if (backBtn) backBtn.classList.remove('visible');
     if (breadcrumb) breadcrumb.textContent = '';
+  }
+
+  // ── Spotlight Font-Size Control ──
+  var SPOT_FS_KEY = 'hermes-spotlight-fs';
+  var spotFsSizes = ['s', 'm', 'l'];
+  var spotFsIndex = 1; // default 'm'
+
+  function loadSpotFs() {
+    try {
+      var saved = localStorage.getItem(SPOT_FS_KEY);
+      if (saved) { spotFsIndex = parseInt(saved); if (isNaN(spotFsIndex) || spotFsIndex < 0 || spotFsIndex > 2) spotFsIndex = 1; }
+    } catch (_) { spotFsIndex = 1; }
+  }
+
+  function saveSpotFs() { try { localStorage.setItem(SPOT_FS_KEY, String(spotFsIndex)); } catch (_) {} }
+
+  function applySpotFs() {
+    var content = document.getElementById('spotlightDetailContent');
+    if (content) {
+      content.setAttribute('data-spot-fs', spotFsSizes[spotFsIndex]);
+    }
+  }
+
+  function spotFsUp() {
+    spotFsIndex = Math.min(2, spotFsIndex + 1);
+    saveSpotFs();
+    applySpotFs();
+  }
+
+  function spotFsDown() {
+    spotFsIndex = Math.max(0, spotFsIndex - 1);
+    saveSpotFs();
+    applySpotFs();
   }
 
   function showInSpotlight(type, data) {
@@ -4021,6 +4105,7 @@
     }
 
     content.innerHTML = html;
+    applySpotFs();
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
@@ -4035,48 +4120,56 @@
     var schedule = d.schedule || '';
     var lastRun  = d.last_run  || '--';
     var nextRun  = d.next_run  || '--';
-    var model    = d.model     || '--';
-    var delivery = d.delivery  || '--';
+    var model    = d.model     || '';
+    var delivery = d.delivery  || '';
     var log      = d.log || d.output || '';
     var cronId   = d.id || '';
 
+    // ── Kopfzeile ──
     var html = '<div class="spot-cron-header">'
       + '<span class="spot-cron-name">' + esc(name) + '</span>'
       + '<span class="spot-cron-status ' + statusClass + '">' + status + '</span>'
       + '</div>';
 
-    html += '<div class="spot-details-grid">'
-      + '<span class="spot-dl">ID</span><span class="spot-dv">' + esc(cronId) + '</span>'
-      + '<span class="spot-dl">Schedule</span><span class="spot-dv">' + esc(schedule) + '</span>'
-      + '<span class="spot-dl">Letzter Lauf</span><span class="spot-dv">' + esc(lastRun) + '</span>'
-      + '<span class="spot-dl">N\u00e4chster Lauf</span><span class="spot-dv">' + esc(nextRun) + '</span>'
-      + '<span class="spot-dl">Modell</span><span class="spot-dv">' + esc(model) + '</span>'
-      + '<span class="spot-dl">Delivery</span><span class="spot-dv">' + esc(delivery) + '</span>'
-      + '</div>';
-
-    if (log) {
-      html += '<div class="spot-log">' + esc(log) + '</div>';
+    // ── Kompakte Meta-Zeile ──
+    var metaParts = [];
+    if (lastRun) metaParts.push('<span class="spot-cron-meta-item"><span class="scm-label">Letzter Lauf</span><span class="scm-value"> ' + esc(lastRun) + '</span></span>');
+    if (nextRun) metaParts.push('<span class="spot-cron-meta-item"><span class="scm-label">N\u00e4chster</span><span class="scm-value"> ' + esc(nextRun) + '</span></span>');
+    if (delivery) metaParts.push('<span class="spot-cron-meta-item"><span class="scm-label">Delivery</span><span class="scm-value"> ' + esc(delivery) + '</span></span>');
+    if (model) metaParts.push('<span class="spot-cron-meta-item"><span class="scm-label">Modell</span><span class="scm-value"> ' + esc(model) + '</span></span>');
+    if (schedule) metaParts.push('<span class="spot-cron-meta-item"><span class="scm-label">Schedule</span><span class="scm-value"> ' + esc(schedule) + '</span></span>');
+    if (metaParts.length) {
+      html += '<div class="spot-cron-meta">' + metaParts.join(' <span style="opacity:0.3;">\u00b7</span> ') + '</div>';
     }
 
-    // ── Letztes Ergebnis ──
+    // ── Hauptbereich: last_result ──
+    html += '<div class="spot-cron-body">';
+
     var lastResult = d.last_result;
     if (lastResult) {
       if (lastResult.type === 'briefing' && lastResult.headlines) {
-        html += '<div class="spot-section"><div class="spot-section-title">Letztes Briefing (' + (lastResult.total_news || '?') + ' News)</div>';
+        html += '<div class="spot-section"><div class="spot-section-title">Letztes Briefing \u00b7 ' + (lastResult.total_news || '?') + ' News</div>';
         lastResult.headlines.forEach(function(h) {
-          html += '<div class="spot-result-item">' + esc(h) + '</div>';
+          html += '<div class="spot-cron-result-card">' + esc(h) + '</div>';
         });
         html += '</div>';
       } else if (lastResult.type === 'sync') {
         html += '<div class="spot-section"><div class="spot-section-title">Sync-Status</div>';
-        html += '<div class="spot-details-grid">'
-          + '<span class="spot-dl">Tasks gesamt</span><span class="spot-dv">' + (lastResult.total_tasks || 0) + '</span>'
-          + '<span class="spot-dl">Offen</span><span class="spot-dv">' + (lastResult.pending || 0) + '</span>'
-          + '<span class="spot-dl">Erledigt</span><span class="spot-dv">' + (lastResult.done || 0) + '</span>'
-          + '</div></div>';
+        html += '<div class="spot-cron-result-card">';
+        html += 'Tasks gesamt: ' + (lastResult.total_tasks || 0) + ' \u00b7 Offen: ' + (lastResult.pending || 0) + ' \u00b7 Erledigt: ' + (lastResult.done || 0);
+        html += '</div></div>';
       }
     }
 
+    // ── Output / Log ──
+    if (log) {
+      html += '<div class="spot-section"><div class="spot-section-title">Log / Output</div>';
+      html += '<div class="spot-cron-log">' + esc(log) + '</div></div>';
+    }
+
+    html += '</div>'; // spot-cron-body
+
+    // ── Aktion ──
     html += '<button class="spot-cron-btn" onclick="runCronJob(\'' + esc(cronId) + '\')"' + (cronId ? '' : ' disabled') + '>Jetzt ausf\u00fchren</button>';
 
     return html;
@@ -4289,6 +4382,8 @@
 
     // Spotlight-Default sichern (bevor Panel sichtbar wird)
     saveDefaultSpotlight();
+    loadSpotFs();
+    applySpotFs();
 
     // v8.1: Top-Zone markieren (erste Widget-Reihe)
     setTimeout(markTopZone, 200);
