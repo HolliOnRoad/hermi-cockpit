@@ -640,7 +640,7 @@
   .widget[data-widget="terminal"] .widget-body {
     display: flex; flex-direction: column;
     overflow: hidden; padding: 6px 8px 8px;
-    max-height: 200px;
+    flex: 1; min-height: 0;
   }
   .pty-container { flex: 1; min-height: 0; overflow: hidden; }
   .pty-container .xterm { height: 100%; padding: 0 4px 4px; }
@@ -3292,11 +3292,12 @@
 
     const widget = realContainer.closest('.widget');
     if (widget) {
-      const observer = new ResizeObserver(function() {
-        const s = ptySessions[id];
-        if (s && s.fitAddon && s.term) {
-          s.fitAddon.fit();
-          var dims = s.fitAddon.proposeDimensions();
+       const observer = new ResizeObserver(function() {
+          const s = ptySessions[id];
+          if (s && s.fitAddon && s.term) {
+            s.fitAddon.fit();
+            try { s.term.scrollToBottom(); } catch (_) {}
+            var dims = s.fitAddon.proposeDimensions();
           if (dims && s.ws && s.ws.readyState === WebSocket.OPEN) {
             s.ws.send(JSON.stringify({ type: 'resize', rows: dims.rows, cols: dims.cols }));
           }
@@ -3335,10 +3336,11 @@
 
     session.ws.onopen = function() {
       if (footer) footer.innerHTML = '<span class="term-status-dot term-status-dot--connected"></span><span>verbunden</span>';
-      function sendResize() {
-        if (session.fitAddon && session.term && session.ws && session.ws.readyState === WebSocket.OPEN) {
-          session.fitAddon.fit();
-          var dims = session.fitAddon.proposeDimensions();
+       function sendResize() {
+          if (session.fitAddon && session.term && session.ws && session.ws.readyState === WebSocket.OPEN) {
+            session.fitAddon.fit();
+            try { session.term.scrollToBottom(); } catch (_) {}
+            var dims = session.fitAddon.proposeDimensions();
           if (dims) {
             session.ws.send(JSON.stringify({ type: 'resize', rows: dims.rows, cols: dims.cols }));
           }
@@ -3359,6 +3361,15 @@
             out[i] = binary.charCodeAt(i);
           }
           session.term.write(out);
+          // Auto-scroll: nur wenn Viewport bereits am unteren Ende
+          try {
+            var buf = session.term.buffer.active;
+            if (buf && typeof buf.viewportY === 'number' && typeof buf.baseY === 'number') {
+              if (buf.viewportY + session.term.rows >= buf.baseY) {
+                session.term.scrollToBottom();
+              }
+            }
+          } catch (_) {}
         } else if (msg.type === 'exit') {
           if (session.term) session.term.writeln('\r\n\x1b[33m[Prozess beendet, Code: ' + msg.code + ']\x1b[0m');
         }
