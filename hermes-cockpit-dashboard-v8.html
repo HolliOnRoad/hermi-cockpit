@@ -38,6 +38,9 @@
     --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
     --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --severity-amber:  #f0a020;
+    --severity-orange: #f06020;
+    --severity-red:    #e02020;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -60,6 +63,135 @@
       radial-gradient(ellipse at 40% 85%, rgba(224,196,76,0.02) 0%, transparent 55%);
     pointer-events: none;
     z-index: 0;
+  }
+
+  /* === ATTENTION STRIP (v8.1 — Diagnostics) === */
+  .attention-strip {
+    width: 100%; flex-shrink: 0;
+    padding: 7px 16px;
+    font-size: 12px; font-weight: 500;
+    display: flex; align-items: center; gap: 10px;
+    cursor: default; user-select: none;
+    transition: all 0.3s ease;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    position: relative;
+    font-family: var(--font-ui);
+  }
+
+  .attention-strip.stable {
+    background: rgba(10, 16, 30, 0.5);
+    color: var(--text-dim);
+    border-left: 3px solid transparent;
+  }
+
+  .attention-strip.warning {
+    background: rgba(240, 96, 32, 0.06);
+    color: var(--severity-amber);
+    border-left: 3px solid var(--severity-amber);
+    cursor: pointer;
+  }
+
+  .attention-strip.critical {
+    background: rgba(224, 32, 32, 0.08);
+    color: var(--severity-red);
+    border-left: 3px solid var(--severity-red);
+    cursor: pointer;
+    animation: stripPulse 2.8s ease-in-out infinite;
+  }
+
+  @keyframes stripPulse {
+    0%, 100% { background: rgba(224, 32, 32, 0.08); }
+    50%      { background: rgba(224, 32, 32, 0.14); }
+  }
+
+  .attention-strip.warning:hover,
+  .attention-strip.critical:hover {
+    filter: brightness(1.15);
+  }
+
+  .attention-indicator {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    transition: all 0.3s ease;
+  }
+
+  .attention-strip.stable .attention-indicator {
+    background: var(--success);
+    box-shadow: 0 0 5px rgba(64,196,99,0.25);
+  }
+
+  .attention-strip.warning .attention-indicator {
+    background: var(--severity-amber);
+    box-shadow: 0 0 7px rgba(240,160,32,0.4);
+  }
+
+  .attention-strip.critical .attention-indicator {
+    background: var(--severity-red);
+    box-shadow: 0 0 8px rgba(224,32,32,0.45);
+  }
+
+  .attention-label { flex: 1; line-height: 1.4; }
+
+  .attention-badge {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    padding: 1px 8px; border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  .attention-strip.warning .attention-badge {
+    background: rgba(240,160,32,0.12); color: var(--severity-amber);
+  }
+
+  .attention-strip.critical .attention-badge {
+    background: rgba(224,32,32,0.12); color: var(--severity-red);
+  }
+
+  /* Attention Dropdown */
+  .attention-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 55;
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-glass);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.55);
+    max-height: 320px; overflow-y: auto;
+    display: none;
+  }
+
+  .attention-dropdown.open {
+    display: block;
+    animation: dropdownIn 0.15s ease-out;
+  }
+
+  @keyframes dropdownIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .attention-dropdown-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    font-size: 11px; color: var(--text-secondary);
+    transition: background 0.15s;
+  }
+
+  .attention-dropdown-item:last-child { border-bottom: none; }
+
+  .attention-dropdown-item:hover { background: rgba(255,255,255,0.03); }
+
+  .ad-severity {
+    font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+    padding: 2px 6px; border-radius: 4px;
+    text-transform: uppercase; flex-shrink: 0;
+  }
+
+  .ad-severity.warning  { background: rgba(240,160,32,0.1); color: var(--severity-amber); }
+  .ad-severity.error    { background: rgba(240,96,32,0.1);  color: var(--severity-orange); }
+  .ad-severity.critical { background: rgba(224,32,32,0.1);  color: var(--severity-red); }
+
+  .attention-dropdown-item .ad-name {
+    color: var(--text-dim); font-size: 10px; flex-shrink: 0;
   }
 
   /* === LAYOUT === */
@@ -542,6 +674,27 @@
   .news-item .n-source { font-size: 0.8em; color: var(--text-dim); margin-top: 1px; }
   .news-more { font-size: 0.9em; color: var(--text-dim); margin-top: 4px; text-align: center; cursor: pointer; }
 
+  .job-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 0; font-size: 0.9em;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+    cursor: pointer; transition: background 0.15s;
+  }
+  .job-row:last-child { border-bottom: none; }
+  .job-row:hover { background: rgba(255,255,255,0.03); }
+  .job-row.active { color: var(--success); }
+  .job-title { font-weight: 600; color: var(--text-secondary); }
+  .job-sched { font-size: 0.8em; color: var(--text-dim); }
+  .job-stat { font-family: var(--font-mono); font-size: 0.85em; color: var(--text-dim); }
+  .job-stat.ok { color: var(--success); }
+
+  .agent-card {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0; font-size: 0.9em;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+  }
+  .agent-card:last-child { border-bottom: none; }
+
   .weather-main { display: flex; align-items: center; gap: 12px; }
   .weather-icon { font-size: 2.8em; }
   .weather-temp { font-size: 2.2em; font-weight: 700; color: #eef2ff; }
@@ -632,41 +785,166 @@
   .inbox-btn.active { background: rgba(91,156,245,0.1); border-color: rgba(91,156,245,0.2); color: var(--accent-blue); }
   .inbox-empty { text-align: center; padding: 20px; color: var(--text-dim); opacity: 0.5; font-style: italic; }
 
-  .inbox-toolbar { display: flex; align-items: center; gap: 8px; padding: 2px 0 6px; }
-  .inbox-refresh-btn {
-    font-size: 9px; padding: 2px 8px; border-radius: 4px;
-    background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass);
-    color: var(--text-dim); cursor: pointer; transition: var(--transition);
-    font-family: var(--font-ui); white-space: nowrap;
-  }
-  .inbox-refresh-btn:hover {
-    background: rgba(255,255,255,0.08); color: var(--text-primary);
-    border-color: var(--border-glass-hover);
-  }
+  /* ================================================================
+     TASK BOARD — CARDS + DIAGNOSTICS (v8.1)
+     ================================================================ */
+  .task-split { display: flex; gap: 10px; min-height: 0; }
+  .task-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .task-col-label { font-size: 0.9em; color: var(--text-dim); font-weight: 600; margin-bottom: 4px; padding: 0 2px; }
+  .task-col-label.pending { color: var(--accent-orange); }
+  .task-col-label.done { color: var(--success); }
 
-  .inbox-send-group { display: flex; gap: 4px; margin-bottom: 6px; }
-  .inbox-send-input {
-    flex: 1; background: rgba(255,255,255,0.03);
+  .task-card {
+    background: rgba(255,255,255,0.02);
     border: 1px solid var(--border-glass);
     border-radius: var(--radius-sm);
-    color: var(--text-primary); font-family: var(--font-ui);
-    font-size: 0.95em; padding: 4px 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: visible;
+  }
+  .task-card:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: var(--border-glass-hover);
+  }
+  .task-card.pending-card { border-left: 3px solid rgba(127,179,255,0.15); }
+
+  .task-card-header {
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 3px;
+  }
+  .task-check-circle {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--text-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; color: transparent;
+    flex-shrink: 0;
     transition: var(--transition);
   }
-  .inbox-send-input:focus {
-    outline: none; border-color: var(--accent-blue);
-    box-shadow: 0 0 8px var(--accent-blue-glow);
-    background: rgba(255,255,255,0.05);
+  .task-card:hover .task-check-circle { border-color: var(--success); }
+  .task-title {
+    font-weight: 500; font-size: 0.92em;
+    color: var(--text-secondary);
+    line-height: 1.3;
   }
-  .inbox-send-input::placeholder { color: var(--text-dim); }
-  .inbox-send-btn {
-    background: rgba(91,156,245,0.1); border: 1px solid rgba(91,156,245,0.2);
-    color: var(--accent-blue); border-radius: var(--radius-sm);
-    font-size: 0.85em; padding: 4px 10px; cursor: pointer;
-    font-weight: 600; transition: var(--transition);
-    font-family: var(--font-ui); white-space: nowrap;
+  .task-meta {
+    display: flex; gap: 8px; font-size: 0.8em;
+    color: var(--text-dim);
+    padding-left: 22px;
   }
-  .inbox-send-btn:hover { background: rgba(91,156,245,0.2); }
+  .priority {
+    font-family: var(--font-mono);
+    font-size: 0.78em; font-weight: 700;
+    padding: 0px 5px; border-radius: 3px;
+    text-transform: uppercase;
+  }
+  .priority.high    { background: rgba(224,32,32,0.12); color: var(--severity-red); }
+  .priority.medium  { background: rgba(240,160,32,0.1); color: var(--severity-amber); }
+  .priority.low     { background: rgba(64,196,99,0.1);  color: var(--success); }
+  .task-add {
+    font-size: 0.85em; color: var(--text-dim); cursor: pointer;
+    padding: 6px; text-align: center; border: 1px dashed var(--border-glass);
+    border-radius: var(--radius-sm); opacity: 0.5; transition: var(--transition);
+  }
+  .task-add:hover { opacity: 0.8; border-color: var(--border-glass-hover); color: var(--text-secondary); }
+
+  /* --- Diagnostic Borders --- */
+  .task-card.diag-warning {
+    border-left: 3px solid var(--severity-amber);
+  }
+  .task-card.diag-error {
+    border-left: 3px solid var(--severity-orange);
+  }
+  .task-card.diag-critical {
+    border-left: 3px solid var(--severity-red);
+    box-shadow: 0 0 14px rgba(224,32,32,0.08);
+  }
+
+  /* --- Diagnostic Badge --- */
+  .task-diag-badge {
+    position: absolute;
+    top: -2px; right: -3px;
+    font-size: 9px; font-weight: 700;
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    z-index: 3;
+    cursor: pointer;
+    line-height: 1;
+    transition: transform 0.15s;
+  }
+  .task-diag-badge:hover { transform: scale(1.15); }
+  .task-diag-badge.warning  { background: var(--severity-amber);  color: #0a0a14; }
+  .task-diag-badge.error    { background: var(--severity-orange); color: #fff; }
+  .task-diag-badge.critical { background: var(--severity-red);    color: #fff; animation: badgePulse 2.8s ease-in-out infinite; }
+
+  @keyframes badgePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(224,32,32,0.45); }
+    50%      { box-shadow: 0 0 0 8px rgba(224,32,32,0); }
+  }
+
+  /* --- Diagnostic Overlay --- */
+  .task-diag-overlay {
+    position: absolute;
+    top: 100%; left: 50%; transform: translateX(-50%);
+    z-index: 55;
+    background: var(--bg-glass);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    min-width: 220px; max-width: 310px;
+    box-shadow: 0 10px 36px rgba(0,0,0,0.6);
+    display: none;
+    margin-top: 6px;
+    font-size: 11px;
+    animation: overlayIn 0.15s ease-out;
+  }
+  @keyframes overlayIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+  .task-diag-overlay.open { display: block; }
+
+  .task-diag-overlay .td-item {
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .task-diag-overlay .td-item:last-child { border-bottom: none; }
+
+  .task-diag-overlay .td-title {
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 3px;
+    line-height: 1.4;
+  }
+
+  .task-diag-overlay .td-severity {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 8px; font-weight: 600;
+    padding: 1px 6px; border-radius: 4px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .td-severity.warning  { background: rgba(240,160,32,0.1); color: var(--severity-amber); }
+  .td-severity.error    { background: rgba(240,96,32,0.1);  color: var(--severity-orange); }
+  .td-severity.critical { background: rgba(224,32,32,0.1);  color: var(--severity-red); }
+
+  .task-diag-overlay .td-desc {
+    color: var(--text-secondary);
+    font-size: 10px;
+    line-height: 1.45;
+    margin-bottom: 4px;
+  }
+
+  .task-diag-overlay .td-action {
+    color: var(--accent-blue);
+    font-size: 10px;
+    font-weight: 500;
+  }
 
   /* ================================================================
      NOTES WIDGET
@@ -956,6 +1234,207 @@
     text-align: center; padding: 6px 0;
   }
 
+  /* Spotlight — Back Button & Breadcrumb */
+  .spotlight-back-btn {
+    display: none;
+    align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 600;
+    padding: 3px 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: var(--font-ui);
+    transition: var(--transition);
+    flex-shrink: 0;
+  }
+  .spotlight-back-btn:hover {
+    background: rgba(91,156,245,0.1);
+    border-color: rgba(91,156,245,0.25);
+    color: var(--accent-blue);
+  }
+  .spotlight-back-btn.visible { display: inline-flex; }
+
+  .spotlight-breadcrumb {
+    font-size: 11px; font-weight: 500;
+    color: var(--text-dim);
+    flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Spotlight Detail Content Area */
+  .spotlight-detail-content {
+    flex: 1; min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Spotlight — Cron Detail */
+  .spot-cron-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 8px;
+  }
+  .spot-cron-header .spot-cron-name {
+    font-size: 18px; font-weight: 700; color: var(--text-primary);
+  }
+  .spot-cron-header .spot-cron-status {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    padding: 2px 8px; border-radius: 10px;
+    text-transform: uppercase;
+  }
+  .spot-cron-status.ok  { background: rgba(64,196,99,0.12); color: var(--success); }
+  .spot-cron-status.err { background: rgba(224,32,32,0.12); color: var(--severity-red); }
+  .spot-cron-status.warn{ background: rgba(240,160,32,0.12); color: var(--severity-amber); }
+
+  .spot-details-grid {
+    display: grid; grid-template-columns: auto 1fr; gap: 3px 16px;
+    font-size: 11px; margin-bottom: 6px;
+  }
+  .spot-dl { color: var(--text-dim); }
+  .spot-dv { color: var(--text-secondary); font-family: var(--font-mono); font-size: 10px; }
+
+  .spot-log {
+    margin-top: 6px; max-height: 120px; overflow-y: auto;
+    background: rgba(0,0,0,0.25); border-radius: var(--radius-sm);
+    padding: 8px; font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-dim); white-space: pre-wrap; word-break: break-all;
+  }
+
+  .spot-cron-btn {
+    margin-top: 8px;
+    font-size: 10px; font-weight: 600; padding: 5px 14px;
+    background: rgba(91,156,245,0.1); border: 1px solid rgba(91,156,245,0.25);
+    border-radius: var(--radius-sm); color: var(--accent-blue);
+    cursor: pointer; font-family: var(--font-ui);
+    transition: var(--transition);
+  }
+  .spot-cron-btn:hover:not(:disabled) { background: rgba(91,156,245,0.2); }
+  .spot-cron-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Spotlight — News Detail */
+  .spot-news-title {
+    font-size: 18px; font-weight: 700; color: var(--text-primary);
+    line-height: 1.35; margin-bottom: 4px;
+  }
+  .spot-news-meta {
+    display: flex; gap: 10px; font-size: 10px; color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .spot-news-summary {
+    font-size: 13px; color: var(--text-secondary);
+    line-height: 1.55;
+    max-height: 200px; overflow-y: auto;
+  }
+  .spot-news-link {
+    display: inline-block; margin-top: 8px;
+    font-size: 10px; color: var(--accent-blue);
+  }
+
+  /* Spotlight — Inbox Detail */
+  .spot-inbox-title {
+    font-size: 16px; font-weight: 600; color: var(--text-primary);
+    margin-bottom: 4px; line-height: 1.35;
+  }
+  .spot-inbox-meta {
+    display: flex; gap: 10px; font-size: 10px; color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .spot-inbox-actions {
+    display: flex; gap: 6px; margin-top: 8px;
+  }
+  .spot-inbox-btn {
+    font-size: 10px; padding: 4px 12px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm); color: var(--text-dim);
+    cursor: pointer; font-family: var(--font-ui); transition: var(--transition);
+  }
+  .spot-inbox-btn:hover:not(:disabled) { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+  .spot-inbox-btn.active { background: rgba(91,156,245,0.1); border-color: rgba(91,156,245,0.2); color: var(--accent-blue); }
+  .spot-inbox-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Spotlight — Task Detail */
+  .spot-task-header {
+    margin-bottom: 8px;
+  }
+  .spot-task-title {
+    font-size: 18px; font-weight: 700; color: var(--text-primary);
+    line-height: 1.35;
+  }
+  .spot-task-meta {
+    display: flex; gap: 10px; font-size: 10px; color: var(--text-dim);
+    margin-top: 3px;
+  }
+  .spot-task-warning-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; margin: 8px 0;
+    border-radius: var(--radius-sm);
+    font-size: 11px; font-weight: 600;
+  }
+  .spot-task-warning-bar.warning  { background: rgba(240,160,32,0.08); color: var(--severity-amber); border-left: 3px solid var(--severity-amber); }
+  .spot-task-warning-bar.error    { background: rgba(240,96,32,0.08);  color: var(--severity-orange); border-left: 3px solid var(--severity-orange); }
+  .spot-task-warning-bar.critical { background: rgba(224,32,32,0.08);  color: var(--severity-red);    border-left: 3px solid var(--severity-red); }
+
+  .spot-diag-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px; margin-bottom: 6px;
+  }
+  .spot-diag-card .sdc-title {
+    font-size: 12px; font-weight: 600; color: var(--text-primary);
+    margin-bottom: 3px;
+  }
+  .spot-diag-card .sdc-severity {
+    display: inline-block; font-family: var(--font-mono);
+    font-size: 8px; font-weight: 600; padding: 1px 6px; border-radius: 4px;
+    text-transform: uppercase; margin-right: 6px;
+  }
+  .sdc-severity.warning  { background: rgba(240,160,32,0.1); color: var(--severity-amber); }
+  .sdc-severity.error    { background: rgba(240,96,32,0.1);  color: var(--severity-orange); }
+  .sdc-severity.critical { background: rgba(224,32,32,0.1);  color: var(--severity-red); }
+  .spot-diag-card .sdc-desc {
+    font-size: 10px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4;
+  }
+  .spot-diag-card .sdc-action {
+    font-size: 10px; color: var(--accent-blue); margin-top: 4px; font-weight: 500;
+  }
+
+  .spot-task-actions {
+    display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;
+  }
+  .spot-task-action-btn {
+    font-size: 10px; font-weight: 600; padding: 4px 12px;
+    background: rgba(91,156,245,0.08); border: 1px solid rgba(91,156,245,0.2);
+    border-radius: var(--radius-sm); color: var(--accent-blue);
+    cursor: pointer; font-family: var(--font-ui); transition: var(--transition);
+  }
+  .spot-task-action-btn:hover:not(:disabled) { background: rgba(91,156,245,0.15); }
+  .spot-task-action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Spotlight — Action Detail */
+  .spot-action-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 6px;
+  }
+  .spot-action-name {
+    font-size: 18px; font-weight: 700; color: var(--text-primary);
+  }
+  .spot-action-status {
+    font-size: 10px; font-weight: 600; padding: 2px 10px; border-radius: 10px;
+  }
+  .spot-action-status.ok    { background: rgba(91,156,245,0.15); color: var(--accent-blue); }
+  .spot-action-status.busy  { background: rgba(240,160,80,0.15); color: var(--accent-orange); }
+  .spot-action-status.error { background: rgba(240,160,80,0.12); color: var(--warning); }
+  .spot-action-output {
+    font-size: 11px; color: var(--text-secondary); line-height: 1.5;
+    max-height: 200px; overflow-y: auto;
+    background: rgba(0,0,0,0.2); border-radius: var(--radius-sm);
+    padding: 8px 10px; font-family: var(--font-mono);
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .spot-action-items {
+    display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px;
+  }
+
   @keyframes panelGlow {
     0%, 100% { border-color: var(--border-glass); }
     50%      { border-color: rgba(91,156,245,0.5); box-shadow: 0 0 24px rgba(91,156,245,0.1); }
@@ -1128,15 +1607,29 @@
 
   <!-- ===== MAIN AREA ===== -->
   <div class="main-area">
+    <!-- ===== ATTENTION STRIP ===== -->
+    <div class="attention-strip stable" id="attentionStrip" onclick="if(!this.classList.contains('stable'))toggleAttentionDropdown(event)">
+      <span class="attention-indicator"></span>
+      <span class="attention-label">System wird geprüft…</span>
+      <span class="attention-badge"></span>
+      <div class="attention-dropdown" id="attentionDropdown"></div>
+    </div>
+
     <!-- ===== ACTION RESULT PANEL ===== -->
     <div id="actionResultPanel" class="action-panel hidden">
       <div class="arp-header">
-        <span class="arp-title" id="arpTitle">Bereit</span>
+        <button class="spotlight-back-btn" id="spotlightBackBtn" onclick="restoreDefaultSpotlight()">&#8592; Übersicht</button>
+        <span class="spotlight-breadcrumb" id="spotlightBreadcrumb"></span>
         <span class="arp-duration" id="arpDuration"></span>
-        <span class="arp-status" id="arpStatus" data-status="ok">✓ ok</span>
+        <span class="arp-status" id="arpStatus" data-status="ok">&#10003; ok</span>
       </div>
-      <div class="arp-output" id="arpOutput">Schnellstart klicken oder Aktion wählen</div>
-      <div class="arp-items" id="arpItems"></div>
+      <div class="spotlight-detail-content" id="spotlightDetailContent">
+        <div class="arp-row">
+          <span class="arp-title" id="arpTitle">Bereit</span>
+        </div>
+        <div class="arp-output" id="arpOutput">Schnellstart klicken oder Aktion wählen</div>
+        <div class="arp-items" id="arpItems"></div>
+      </div>
       <div class="arp-resize-handle" id="arpResizeHandle" title="Höhe anpassen"></div>
     </div>
 
@@ -1341,10 +1834,10 @@
       }
     },
     inbox: {
-      name: 'Inbox', icon: '\u2709',
+      name: 'Inbox', icon: '✉',
       render(body, fs) {
         body.style.fontSize = fs + 'px';
-        body.innerHTML = '<div class="inbox-toolbar"><button class="inbox-refresh-btn" onclick="fetchInbox()">\u21bb Aktualisieren</button></div><div class="inbox-send-group"><input class="inbox-send-input" id="inboxSendInput" placeholder="Aufgabe an Hermes\u2026" onkeydown="if(event.key===\'Enter\')sendInboxItem()"><button class="inbox-send-btn" onclick="sendInboxItem()">Senden</button></div><div id="inboxContainer"><span class="term-dim">Lade Inbox\u2026</span></div>';
+        body.innerHTML = '<div id="inboxContainer"><span class="term-dim">Lade Inbox…</span></div>';
         fetchInbox();
       }
     },
@@ -1698,7 +2191,7 @@
 
     const startTime = performance.now();
     updateActionStatus(widgetBody, actionId, 'running');
-    updateActionPanel({ status: 'busy', action: actionId, output: 'Wird ausgeführt…', items: [] }, 0);
+    showInSpotlight('action', { status: 'busy', action: actionId, output: 'Wird ausgeführt…', items: [] });
 
     // Alle Actions nutzen individuelle /api/actions/* Endpunkte
     const namedActions = ['ollama', 'cronjobs', 'skills', 'memory', 'update', 'quick', 'fullcheck', 'spotlight', 'christian', 'inbox'];
@@ -1729,12 +2222,12 @@
         updateActionStatus(widgetBody, actionId, 'ok', durationMs);
         logAction(actionId, 'ok', durationMs);
         showActionResult(data, durationMs);
-        updateActionPanel(data, durationMs);
+        showInSpotlight('action', data);
       } else {
         updateActionStatus(widgetBody, actionId, 'error', durationMs);
         logAction(actionId, 'error', durationMs);
         showActionResult(data, durationMs);
-        updateActionPanel(data, durationMs);
+        showInSpotlight('action', data);
       }
     } catch (err) {
       const durationMs = Math.round(performance.now() - startTime);
@@ -1742,7 +2235,7 @@
       updateActionStatus(widgetBody, actionId, 'error', durationMs);
       logAction(actionId, 'timeout_or_error', durationMs);
       showActionResult(errData, durationMs);
-      updateActionPanel(errData, durationMs);
+      showInSpotlight('action', errData);
     }
   }
 
@@ -1873,20 +2366,17 @@
     localStorage.setItem(INBOX_STORAGE_KEY, JSON.stringify(state));
   }
 
-  function getEntryStatus(e, state) {
-    const id = e.id || '';
-    return e.status || state[id] || 'new';
-  }
-
   async function fetchInbox() {
     const container = document.getElementById('inboxContainer');
     const state = getInboxState();
 
-    const updateBadge = (entries, effectiveState) => {
+    const updateBadge = (entries) => {
       const badge = document.getElementById('sidebarInboxBadge');
       if (!badge) return;
-      const s = effectiveState || state;
-      const newCount = entries.filter(e => getEntryStatus(e, s) === 'new').length;
+      const newCount = entries.filter(e => {
+        const id = e.id || '';
+        return !state[id] || state[id] === 'new';
+      }).length;
       if (newCount > 0) {
         badge.textContent = newCount;
         badge.style.display = '';
@@ -1905,22 +2395,16 @@
         return;
       }
       const entries = data.entries || data.inbox || [];
-
-      const syncedState = {};
-      entries.forEach(e => { syncedState[e.id || ''] = e.status || 'new'; });
-      syncedState._cached = entries;
-      saveInboxState(syncedState);
-
-      updateBadge(entries, syncedState);
+      updateBadge(entries);
       if (!container) return;
       if (entries.length === 0) {
         container.innerHTML = '<div class="inbox-empty">Inbox ist leer</div>';
         return;
       }
-      renderInboxEntries(container, entries, syncedState);
+      renderInboxEntries(container, entries, state);
     } catch (err) {
       const cached = state._cached || [];
-      updateBadge(cached, state);
+      updateBadge(cached);
       if (!container) return;
       if (cached.length > 0) {
         renderInboxEntries(container, cached, state);
@@ -1931,61 +2415,59 @@
   }
 
   function renderInboxEntries(container, entries, state) {
-    const visible = entries
-      .filter(e => {
-        const s = getEntryStatus(e, state);
-        return s !== 'done' && s !== 'later';
-      })
-      .sort((a, b) => {
-        const sa = getEntryStatus(a, state);
-        const sb = getEntryStatus(b, state);
-        if (sa === 'new' && sb !== 'new') return -1;
-        if (sa !== 'new' && sb === 'new') return 1;
-        return 0;
-      });
-
-    if (visible.length === 0) {
-      container.innerHTML = '<div class="inbox-empty">Keine offenen Einträge</div>';
-      return;
-    }
-
-    container.innerHTML = visible.map((e, i) => {
+    container.innerHTML = '';
+    entries.forEach(function(e, i) {
       const id = e.id || 'entry_' + i;
-      const entryState = getEntryStatus(e, state);
+      const entryState = e.status || state[id] || 'new';
       const lineIndex = e.line_index;
       const dotClass = entryState === 'new' ? 'new' : entryState === 'seen' ? 'seen' : entryState === 'later' ? 'later' : 'done';
       const title = e.title || e.subject || 'Eintrag ' + (i + 1);
       const source = e.source || e.from || '';
       const time = e.time || e.date || '';
-      return `
-        <div class="inbox-item" data-inbox-id="${id}" data-state="${entryState}" data-line-index="${lineIndex}">
-          <div class="inbox-dot ${dotClass}"></div>
-          <div class="inbox-content">
-            <div class="inbox-title">${esc(title)}</div>
-            <div class="inbox-meta">
-              ${source ? '<span>' + esc(source) + '</span>' : ''}
-              ${time ? '<span>' + esc(time) + '</span>' : ''}
-            </div>
-          </div>
-          <div class="inbox-actions">
-            <button class="inbox-btn${entryState === 'seen' ? ' active' : ''}" onclick="updateInboxItem('${id}', 'seen')">gesehen</button>
-            <button class="inbox-btn${entryState === 'later' ? ' active' : ''}" onclick="updateInboxItem('${id}', 'later')">später</button>
-            <button class="inbox-btn${entryState === 'done' ? ' active' : ''}" onclick="updateInboxItem('${id}', 'done')">erledigt</button>
-          </div>
-        </div>
-      `;
-    }).join('');
+
+      var item = document.createElement('div');
+      item.className = 'inbox-item';
+      item.dataset.inboxId = id;
+      item.dataset.state = entryState;
+      if (lineIndex != null) item.dataset.lineIndex = lineIndex;
+
+      item.innerHTML = '' +
+        '<div class="inbox-dot ' + dotClass + '"></div>' +
+        '<div class="inbox-content">' +
+          '<div class="inbox-title">' + esc(title) + '</div>' +
+          '<div class="inbox-meta">' +
+            (source ? '<span>' + esc(source) + '</span>' : '') +
+            (time ? '<span>' + esc(time) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="inbox-actions">' +
+          '<button class="inbox-btn' + (entryState === 'seen' ? ' active' : '') + '">gesehen</button>' +
+          '<button class="inbox-btn' + (entryState === 'later' ? ' active' : '') + '">sp\u00e4ter</button>' +
+          '<button class="inbox-btn' + (entryState === 'done' ? ' active' : '') + '">erledigt</button>' +
+        '</div>';
+
+      // Click on content area → spotlight
+      item.querySelector('.inbox-content').addEventListener('click', function() {
+        showInSpotlight('inbox', e);
+      });
+      item.querySelector('.inbox-content').style.cursor = 'pointer';
+
+      // Status buttons
+      var buttons = item.querySelectorAll('.inbox-btn');
+      buttons[0].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'seen'); });
+      buttons[1].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'later'); });
+      buttons[2].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'done'); });
+
+      container.appendChild(item);
+    });
   }
 
   function updateInboxItem(id, newState) {
+    // Persist via backend using title match
     const item = document.querySelector(`.inbox-item[data-inbox-id="${id}"]`);
     const titleEl = item ? item.querySelector('.inbox-title') : null;
     const title = titleEl ? titleEl.textContent.trim() : id;
     if (!title) return;
-
-    const localState = getInboxState();
-    localState[id] = newState;
-    saveInboxState(localState);
 
     fetch(API_BASE + '/api/actions/inbox', {
       method: 'POST',
@@ -1994,33 +2476,10 @@
     }).then(r => r.json()).then(res => {
       if (res.status === 'ok') {
         fetchInbox();
-        updateActionPanel(res, res.duration_ms || 0);
+        showInSpotlight('action', res);
       }
     }).catch(err => {
       console.warn('Inbox update failed:', err);
-    });
-  }
-
-  function sendInboxItem() {
-    const input = document.getElementById('inboxSendInput');
-    if (!input) return;
-    const text = input.value.trim();
-    if (!text) return;
-
-    input.disabled = true;
-    fetch(API_BASE + '/api/inbox/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text })
-    }).then(r => r.json()).then(res => {
-      input.value = '';
-      input.disabled = false;
-      input.focus();
-      fetchInbox();
-      if (res.status === 'ok') updateActionPanel(res, 0);
-    }).catch(err => {
-      input.disabled = false;
-      console.warn('Inbox send failed:', err);
     });
   }
 
@@ -2139,11 +2598,24 @@
   }
 
   // ========== TASK ANIMATIONS ==========
+  function stripDiagnostics(card) {
+    card.classList.remove('diag-warning', 'diag-error', 'diag-critical');
+    var badge = card.querySelector('.task-diag-badge');
+    if (badge) badge.remove();
+    var overlay = card.querySelector('.task-diag-overlay');
+    if (overlay) overlay.remove();
+  }
+
+  function closeAllDiagOverlays() {
+    document.querySelectorAll('.task-diag-overlay.open').forEach(function(o) { o.classList.remove('open'); });
+  }
+
   function completeTask(card) {
     if (card.classList.contains('completing')) return;
     card.classList.add('completing');
     card.onclick = null;
     setTimeout(() => {
+      stripDiagnostics(card);
       card.classList.remove('completing', 'pending-card');
       card.classList.add('completed-card', 'arriving');
       card.onclick = function() { uncompleteTask(this); };
@@ -3061,7 +3533,8 @@
         container.innerHTML = '<span class="term-dim">Keine Cron-Jobs</span>';
         return;
       }
-      container.innerHTML = data.jobs.map(j => {
+      container.innerHTML = '';
+      data.jobs.forEach(function(j) {
         const name = j.name || j.id || '?';
         const sched = j.schedule || '';
         const lastRun = j.last_run || '';
@@ -3069,8 +3542,12 @@
         const statusClass = isActive ? 'ok' : '';
         const rowClass = isActive ? ' active' : '';
         const statusText = j.status || (lastRun.includes('ok') ? 'aktiv' : '--');
-        return '<div class="job-row' + rowClass + '"><div><div class="job-title">' + name + '</div><div class="job-sched">' + sched + '</div></div><span class="job-stat ' + statusClass + '">' + statusText + '</span></div>';
-      }).join('');
+        var row = document.createElement('div');
+        row.className = 'job-row' + rowClass;
+        row.innerHTML = '<div><div class="job-title">' + name + '</div><div class="job-sched">' + sched + '</div></div><span class="job-stat ' + statusClass + '">' + statusText + '</span>';
+        row.addEventListener('click', function() { showInSpotlight('cron', j); });
+        container.appendChild(row);
+      });
     } catch (err) {
       const container = document.getElementById('jobsContainer');
       if (container) container.innerHTML = '<span class="term-dim">Nicht verbunden</span><br><span style="font-size:0.8em;opacity:0.5;">Backend nicht erreichbar</span>';
@@ -3094,9 +3571,19 @@
         container.innerHTML = '<span class="term-dim">Keine News \u2013 Backend pr\u00fcfen</span><br><span style="font-size:0.8em;opacity:0.5;">News-Liste ist leer</span>';
         return;
       }
-      container.innerHTML = data.news.map(n =>
-        '<div class="news-item"><div class="n-title">' + (n.title || '') + '</div><div class="n-source">' + (n.source || '') + (n.time ? ' \u00b7 ' + n.time : '') + '</div></div>'
-      ).join('') + '<div class="news-more">Mehr News laden \u2192</div>';
+      container.innerHTML = '';
+      data.news.forEach(function(n) {
+        var item = document.createElement('div');
+        item.className = 'news-item';
+        item.style.cursor = 'pointer';
+        item.innerHTML = '<div class="n-title">' + (n.title || '') + '</div><div class="n-source">' + (n.source || '') + (n.time ? ' \u00b7 ' + n.time : '') + '</div>';
+        item.addEventListener('click', function() { showInSpotlight('news', n); });
+        container.appendChild(item);
+      });
+      var more = document.createElement('div');
+      more.className = 'news-more';
+      more.textContent = 'Mehr News laden \u2192';
+      container.appendChild(more);
     } catch (err) {
       const container = document.getElementById('newsContainer');
       if (container) {
@@ -3173,9 +3660,48 @@
         pending.forEach(t => {
           const card = document.createElement('div');
           card.className = 'task-card pending-card';
+
+          // Diagnostics — severity from backend
+          var sev = (t.warnings && t.warnings.highest_severity) ? t.warnings.highest_severity.toLowerCase() : null;
+          if (sev === 'warning' || sev === 'error' || sev === 'critical') {
+            card.classList.add('diag-' + sev);
+          }
+
           card.innerHTML = '<div class="task-card-header"><div class="task-check-circle">\u2713</div><div class="task-title">' + (t.title || '') + '</div></div>'
             + '<div class="task-meta">' + (t.priority ? '<span class="priority ' + t.priority.toLowerCase() + '">' + t.priority.toUpperCase() + '</span>' : '') + (t.agent ? '<span>' + t.agent + '</span>' : '') + (t.due ? '<span>' + t.due + '</span>' : '') + '</div>';
-          card.addEventListener('click', () => completeTask(card));
+
+          // Diagnostic badge + overlay
+          if (sev && Array.isArray(t.diagnostics) && t.diagnostics.length) {
+            var icon = sev === 'critical' ? '!!!' : sev === 'error' ? '!!' : '\u26a0';
+            card.innerHTML += '<div class="task-diag-badge ' + sev + '">' + icon + '</div>';
+
+            var overlay = document.createElement('div');
+            overlay.className = 'task-diag-overlay';
+            overlay.innerHTML = t.diagnostics.map(function(d) {
+              return '<div class="td-item">'
+                + '<div class="td-title">' + esc(d.title || '') + '</div>'
+                + '<span class="td-severity ' + (d.severity || 'warning').toLowerCase() + '">' + (d.severity || '') + '</span>'
+                + (d.description ? '<div class="td-desc">' + esc(d.description) + '</div>' : '')
+                + (d.action ? '<div class="td-action">\u2192 ' + esc(d.action) + '</div>' : '')
+                + '</div>';
+            }).join('');
+            card.appendChild(overlay);
+
+            card.querySelector('.task-diag-badge').addEventListener('click', function(e) {
+              e.stopPropagation();
+              closeAllDiagOverlays();
+              overlay.classList.toggle('open');
+            });
+          }
+
+          card.addEventListener('click', function(e) {
+            // If clicked on check-circle → complete; otherwise → spotlight
+            if (e.target.closest('.task-check-circle')) {
+              completeTask(card);
+            } else if (!e.target.closest('.task-diag-badge') && !e.target.closest('.task-diag-overlay')) {
+              showInSpotlight('task', t);
+            }
+          });
           if (addEl) pendingCol.insertBefore(card, addEl);
         });
         if (!pendingCol.querySelector('.task-add')) {
@@ -3300,6 +3826,408 @@
     location.reload();
   }
 
+  // ========== v8.1: ATTENTION STRIP (Diagnostics) ==========
+  const DIAG_API = API_BASE + '/diagnostics';
+  let attentionItems = [];
+
+  function attentionSeverityRank(sev) {
+    const map = { 'critical': 3, 'error': 2, 'warning': 1 };
+    return map[(sev || '').toLowerCase()] || 0;
+  }
+
+  function attentionHighest(items) {
+    if (!items || !items.length) return 'none';
+    let best = 'none';
+    items.forEach(function(item) {
+      if (attentionSeverityRank(item.severity) > attentionSeverityRank(best)) {
+        best = (item.severity || '').toLowerCase();
+      }
+    });
+    return best;
+  }
+
+  async function fetchDiagnostics() {
+    try {
+      var resp = await fetch(DIAG_API);
+      if (!resp.ok) return;
+      var data = await resp.json();
+      attentionItems = data.items || [];
+
+      var highest = (data.highest_severity || attentionHighest(attentionItems)).toLowerCase();
+      var strip = document.getElementById('attentionStrip');
+      if (!strip) return;
+
+      var label = strip.querySelector('.attention-label');
+      var badge = strip.querySelector('.attention-badge');
+      var dropdown = document.getElementById('attentionDropdown');
+
+      // Reset state classes
+      strip.classList.remove('stable', 'warning', 'error', 'critical');
+
+      if (!highest || highest === 'none' || !attentionItems.length) {
+        // STABLE
+        strip.classList.add('stable');
+        if (label) label.textContent = 'System stabil \u00b7 0 Warnungen';
+        if (badge) badge.textContent = '';
+      } else if (highest === 'warning' || highest === 'error') {
+        // WARNING / ERROR
+        strip.classList.add('warning');
+        var relevant = attentionItems.filter(function(i) {
+          var s = (i.severity || '').toLowerCase();
+          return s === 'warning' || s === 'error';
+        });
+        var cnt = relevant.length;
+        if (label) label.textContent = cnt + ' ' + (cnt === 1 ? 'Task braucht' : 'Tasks brauchen') + ' Aufmerksamkeit';
+        if (badge) badge.textContent = cnt;
+      } else if (highest === 'critical') {
+        // CRITICAL
+        strip.classList.add('critical');
+        var criticals = attentionItems.filter(function(i) {
+          return (i.severity || '').toLowerCase() === 'critical';
+        });
+        var cnt = criticals.length;
+        if (label) label.textContent = cnt + ' ' + (cnt === 1 ? 'Worker' : 'Workers') + ' kritisch';
+        if (badge) badge.textContent = cnt;
+      }
+
+      // Build dropdown items
+      if (dropdown && attentionItems.length) {
+        dropdown.innerHTML = attentionItems.map(function(i) {
+          var sev = (i.severity || 'info').toLowerCase();
+          var name = i.name || i.id || '';
+          var title = i.title || i.message || '';
+          return '<div class="attention-dropdown-item">'
+            + '<span class="ad-severity ' + sev + '">' + sev + '</span>'
+            + '<span style="flex:1;">' + esc(title) + '</span>'
+            + '<span class="ad-name">' + esc(name) + '</span>'
+            + '</div>';
+        }).join('');
+      }
+    } catch (_) {
+      // Defensive: no spam on fetch errors
+    }
+  }
+
+  function toggleAttentionDropdown(event) {
+    if (event) event.stopPropagation();
+    var dd = document.getElementById('attentionDropdown');
+    if (dd) dd.classList.toggle('open');
+  }
+
+  // Close attention dropdown on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.attention-strip')) {
+      var dd = document.getElementById('attentionDropdown');
+      if (dd) dd.classList.remove('open');
+    }
+  });
+
+  // Close attention dropdown on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      var dd = document.getElementById('attentionDropdown');
+      if (dd) dd.classList.remove('open');
+      closeAllDiagOverlays();
+    }
+  });
+
+  // Close diagnostic overlays on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.task-diag-badge') && !e.target.closest('.task-diag-overlay')) {
+      closeAllDiagOverlays();
+    }
+  });
+
+  // ========== v8.1: ATTENTION STRIP (Diagnostics) END ==========
+
+  // ========== v8.1: UNIVERSAL SPOTLIGHT ==========
+  var defaultSpotlightHTML = '';
+
+  function saveDefaultSpotlight() {
+    var content = document.getElementById('spotlightDetailContent');
+    if (content) defaultSpotlightHTML = content.innerHTML;
+  }
+
+  function restoreDefaultSpotlight() {
+    var content = document.getElementById('spotlightDetailContent');
+    var backBtn = document.getElementById('spotlightBackBtn');
+    var breadcrumb = document.getElementById('spotlightBreadcrumb');
+    if (content) content.innerHTML = defaultSpotlightHTML;
+    if (backBtn) backBtn.classList.remove('visible');
+    if (breadcrumb) breadcrumb.textContent = '';
+  }
+
+  function showInSpotlight(type, data) {
+    var panel = document.getElementById('actionResultPanel');
+    var content = document.getElementById('spotlightDetailContent');
+    var backBtn = document.getElementById('spotlightBackBtn');
+    var breadcrumb = document.getElementById('spotlightBreadcrumb');
+    if (!panel || !content) return;
+
+    panel.classList.remove('hidden');
+    if (backBtn) backBtn.classList.add('visible');
+
+    var html = '';
+    switch (type) {
+      case 'cron':
+        html = _renderCronSpotlight(data);
+        if (breadcrumb) breadcrumb.textContent = 'Cronjob: ' + (data.name || data.id || '');
+        break;
+      case 'news':
+        html = _renderNewsSpotlight(data);
+        if (breadcrumb) breadcrumb.textContent = 'News';
+        break;
+      case 'inbox':
+        html = _renderInboxSpotlight(data);
+        if (breadcrumb) breadcrumb.textContent = 'Inbox';
+        break;
+      case 'task':
+        html = _renderTaskSpotlight(data);
+        if (breadcrumb) breadcrumb.textContent = 'Task: ' + (data.title || '');
+        break;
+      case 'action':
+        html = _renderActionSpotlight(data);
+        if (breadcrumb) breadcrumb.textContent = 'Aktion: ' + (data.action || '');
+        break;
+      default:
+        html = '<div class="arp-idle">Keine Daten verf\u00fcgbar</div>';
+        if (breadcrumb) breadcrumb.textContent = '';
+    }
+
+    content.innerHTML = html;
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── Cron Template ──
+  function _renderCronSpotlight(d) {
+    if (!d || (!d.name && !d.id)) {
+      return '<div class="arp-idle">Backend-Daten noch nicht verf\u00fcgbar</div>';
+    }
+    var name = d.name || d.id || '?';
+    var status = d.status || '--';
+    var statusClass = (status === 'active' || status === 'aktiv') ? 'ok' : (status === 'error' ? 'err' : 'warn');
+    var schedule = d.schedule || '';
+    var lastRun  = d.last_run  || '--';
+    var nextRun  = d.next_run  || '--';
+    var model    = d.model     || '--';
+    var delivery = d.delivery  || '--';
+    var log      = d.log || d.output || '';
+    var cronId   = d.id || '';
+
+    var html = '<div class="spot-cron-header">'
+      + '<span class="spot-cron-name">' + esc(name) + '</span>'
+      + '<span class="spot-cron-status ' + statusClass + '">' + status + '</span>'
+      + '</div>';
+
+    html += '<div class="spot-details-grid">'
+      + '<span class="spot-dl">ID</span><span class="spot-dv">' + esc(cronId) + '</span>'
+      + '<span class="spot-dl">Schedule</span><span class="spot-dv">' + esc(schedule) + '</span>'
+      + '<span class="spot-dl">Letzter Lauf</span><span class="spot-dv">' + esc(lastRun) + '</span>'
+      + '<span class="spot-dl">N\u00e4chster Lauf</span><span class="spot-dv">' + esc(nextRun) + '</span>'
+      + '<span class="spot-dl">Modell</span><span class="spot-dv">' + esc(model) + '</span>'
+      + '<span class="spot-dl">Delivery</span><span class="spot-dv">' + esc(delivery) + '</span>'
+      + '</div>';
+
+    if (log) {
+      html += '<div class="spot-log">' + esc(log) + '</div>';
+    }
+
+    html += '<button class="spot-cron-btn" onclick="runCronJob(\'' + esc(cronId) + '\')"' + (cronId ? '' : ' disabled') + '>Jetzt ausf\u00fchren</button>';
+
+    return html;
+  }
+
+  function runCronJob(id) {
+    if (!id) return;
+    fetch(API_BASE + '/api/actions/cronjobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: id })
+    }).then(function(r) { return r.json(); })
+      .then(function(res) {
+        showInSpotlight('action', res);
+        fetchJobs();
+      })
+      .catch(function() {
+        showInSpotlight('action', { action: 'cron', status: 'error', output: 'Ausf\u00fchrung fehlgeschlagen' });
+      });
+  }
+
+  // ── News Template ──
+  function _renderNewsSpotlight(d) {
+    if (!d || !d.title) {
+      return '<div class="arp-idle">Backend-Daten noch nicht verf\u00fcgbar</div>';
+    }
+    var title = d.title || '';
+    var source = d.source || '';
+    var date = d.time || d.date || '';
+    var category = d.category || '';
+    var relevance = d.relevance || '';
+    var summary = d.summary || d.body || d.content || d.output || 'Keine Zusammenfassung';
+    var link = d.link || d.url || '';
+
+    var html = '<div class="spot-news-title">' + esc(title) + '</div>';
+    html += '<div class="spot-news-meta">';
+    if (source) html += '<span>' + esc(source) + '</span>';
+    if (date) html += '<span>' + esc(date) + '</span>';
+    if (category) html += '<span>' + esc(category) + '</span>';
+    if (relevance) html += '<span style="color:var(--accent-blue);">' + esc(relevance) + '</span>';
+    html += '</div>';
+    html += '<div class="spot-news-summary">' + esc(summary) + '</div>';
+    if (link) {
+      html += '<a class="spot-news-link" href="' + esc(link) + '" target="_blank" rel="noopener">Link \u2197</a>';
+    }
+    return html;
+  }
+
+  // ── Inbox Template ──
+  function _renderInboxSpotlight(d) {
+    if (!d || (!d.title && !d.subject)) {
+      return '<div class="arp-idle">Backend-Daten noch nicht verf\u00fcgbar</div>';
+    }
+    var title = d.title || d.subject || 'Eintrag';
+    var source = d.source || d.from || '';
+    var time = d.time || d.date || '';
+    var state = d.state || d.status || 'new';
+    var lineIndex = d.line_index;
+    var entryId = d.id || '';
+
+    var html = '<div class="spot-inbox-title">' + esc(title) + '</div>';
+    html += '<div class="spot-inbox-meta">';
+    if (source) html += '<span>' + esc(source) + '</span>';
+    if (time) html += '<span>' + esc(time) + '</span>';
+    html += '</div>';
+
+    html += '<div class="spot-inbox-actions">';
+    html += '<button class="spot-inbox-btn' + (state === 'seen' ? ' active' : '') + '" onclick="spotInboxUpdate(\'' + esc(entryId) + '\',\'' + esc(title) + '\',\'seen\')">gesehen</button>';
+    html += '<button class="spot-inbox-btn' + (state === 'later' ? ' active' : '') + '" onclick="spotInboxUpdate(\'' + esc(entryId) + '\',\'' + esc(title) + '\',\'later\')">sp\u00e4ter</button>';
+    html += '<button class="spot-inbox-btn' + (state === 'done' ? ' active' : '') + '" onclick="spotInboxUpdate(\'' + esc(entryId) + '\',\'' + esc(title) + '\',\'done\')">erledigt</button>';
+    html += '</div>';
+
+    return html;
+  }
+
+  function spotInboxUpdate(id, title, newState) {
+    fetch(API_BASE + '/api/actions/inbox', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: newState, title: title })
+    }).then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.status === 'ok') {
+          fetchInbox();
+          showInSpotlight('action', res);
+        }
+      })
+      .catch(function() {
+        showInSpotlight('action', { action: 'inbox', status: 'error', output: 'Update fehlgeschlagen — Backend nicht erreichbar' });
+      });
+  }
+
+  // ── Task Template ──
+  function _renderTaskSpotlight(d) {
+    if (!d || !d.title) {
+      return '<div class="arp-idle">Backend-Daten noch nicht verf\u00fcgbar</div>';
+    }
+    var title = d.title || '';
+    var status = d.status || '';
+    var priority = d.priority || '';
+    var agent = d.agent || '';
+    var due = d.due || '';
+    var sev = (d.warnings && d.warnings.highest_severity) ? d.warnings.highest_severity.toLowerCase() : null;
+    var diagnostics = d.diagnostics || [];
+    var taskId = d.id || '';
+
+    var html = '<div class="spot-task-header">';
+    html += '<div class="spot-task-title">' + esc(title) + '</div>';
+    html += '<div class="spot-task-meta">';
+    if (status) html += '<span>' + esc(status) + '</span>';
+    if (priority) html += '<span class="priority ' + priority.toLowerCase() + '">' + esc(priority.toUpperCase()) + '</span>';
+    if (agent) html += '<span>' + esc(agent) + '</span>';
+    if (due) html += '<span>' + esc(due) + '</span>';
+    html += '</div></div>';
+
+    // Warning bar
+    if (sev === 'warning' || sev === 'error' || sev === 'critical') {
+      var sevLabels = { warning: '\u26a0 Warnung', error: '!! Fehler', critical: '!!! Kritisch' };
+      html += '<div class="spot-task-warning-bar ' + sev + '">' + (sevLabels[sev] || sev) + '</div>';
+    }
+
+    // Diagnostics cards
+    if (diagnostics.length) {
+      diagnostics.forEach(function(diag) {
+        var dSev = (diag.severity || 'warning').toLowerCase();
+        html += '<div class="spot-diag-card">';
+        html += '<div class="sdc-title">' + esc(diag.title || '') + '</div>';
+        html += '<span class="sdc-severity ' + dSev + '">' + dSev + '</span>';
+        if (diag.description) html += '<div class="sdc-desc">' + esc(diag.description) + '</div>';
+        if (diag.action) html += '<div class="sdc-action">\u2192 ' + esc(diag.action) + '</div>';
+        html += '</div>';
+      });
+    }
+
+    // Task action buttons
+    html += '<div class="spot-task-actions">';
+    html += '<button class="spot-task-action-btn" onclick="spotTaskAction(\'' + esc(taskId) + '\',\'reclaim\')">reclaim</button>';
+    html += '<button class="spot-task-action-btn" onclick="spotTaskAction(\'' + esc(taskId) + '\',\'reassign\')">reassign</button>';
+    html += '<button class="spot-task-action-btn" onclick="spotTaskAction(\'' + esc(taskId) + '\',\'unblock\')">unblock</button>';
+    html += '<button class="spot-task-action-btn" onclick="spotTaskAction(\'' + esc(taskId) + '\',\'retry\')">retry</button>';
+    html += '</div>';
+
+    return html;
+  }
+
+  function spotTaskAction(taskId, action) {
+    if (!taskId) return;
+    fetch(API_BASE + '/api/actions/task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: taskId, action: action })
+    }).then(function(r) { return r.json(); })
+      .then(function(res) {
+        showInSpotlight('action', res);
+        fetchTasks();
+      })
+      .catch(function() {
+        showInSpotlight('action', { action: 'task:' + action, status: 'error', output: 'Aktion fehlgeschlagen — Backend nicht erreichbar' });
+      });
+  }
+
+  // ── Action Template ──
+  function _renderActionSpotlight(d) {
+    var name = d.action || 'Unbekannt';
+    var status = d.status || 'ok';
+    var statusIcon = status === 'ok' ? '\u2713' : status === 'busy' ? '\u23f3' : '\u2717';
+    var output = d.output || '';
+    var duration = d.duration_ms != null ? d.duration_ms + 'ms' : (d.durationMs != null ? d.durationMs + 'ms' : '');
+    var items = d.items || [];
+
+    var html = '<div class="spot-action-header">';
+    html += '<span class="spot-action-name">' + esc(name) + '</span>';
+    if (duration) html += '<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">' + esc(duration) + '</span>';
+    html += '<span class="spot-action-status ' + status + '">' + statusIcon + ' ' + status + '</span>';
+    html += '</div>';
+
+    if (output) {
+      html += '<div class="spot-action-output">' + esc(output) + '</div>';
+    }
+
+    if (items.length) {
+      html += '<div class="spot-action-items">';
+      items.forEach(function(it) {
+        html += '<div class="arp-item"><span class="arp-label">' + esc(it.label || it.name || '') + ':</span><span class="arp-value">' + esc(it.value || it.size || it.status || '') + '</span></div>';
+      });
+      html += '</div>';
+    }
+
+    // Also handle spotlight/christian body content
+    if (d.body) {
+      html += '<div class="arp-body-scroll" style="margin-top:6px;">' + esc(d.body) + '</div>';
+    }
+
+    return html;
+  }
+
   // ========== INIT ==========
   function init() {
     applyLockState();
@@ -3314,6 +4242,9 @@
     initSidebarResize();
     initArpResize();
 
+    // Spotlight-Default sichern (bevor Panel sichtbar wird)
+    saveDefaultSpotlight();
+
     // v8.1: Top-Zone markieren (erste Widget-Reihe)
     setTimeout(markTopZone, 200);
 
@@ -3323,7 +4254,7 @@
     // Panel nach kurzer Verzögerung als "Bereit" sichtbar machen
     setTimeout(function() {
       const p = document.getElementById('actionResultPanel');
-      if (p && p.classList.contains('hidden')) p.classList.remove('hidden');
+      if (p && p.classList.contains('hidden')) { p.classList.remove('hidden'); saveDefaultSpotlight(); }
     }, 800);
 
     updateLiveClock();
@@ -3355,6 +4286,9 @@
 
     fetchInbox();
     setInterval(fetchInbox, 60000);
+
+    fetchDiagnostics();
+    setInterval(fetchDiagnostics, 30000);
 
     // deaktiviert: kein automatischer Action-Status-Refresh beim Start
 

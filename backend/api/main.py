@@ -970,6 +970,52 @@ def dashboard_cron():
         return {"connected": False, "message": str(e), "jobs": []}
 
 
+@app.get("/api/dashboard/cron/{job_id}")
+def dashboard_cron_detail(job_id: str):
+    """Detail eines Cronjobs via hermes cron show."""
+    try:
+        result = subprocess.run(
+            [os.path.expanduser("~/.local/bin/hermes"), "cron", "list"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return {"connected": False, "message": "hermes cronjob list fehlgeschlagen"}
+
+        # Parse cronjob list output for this job_id
+        data = {"id": job_id, "name": "", "schedule": "", "last_run": "", "next_run": "",
+                "last_status": "", "model": "", "delivery": "", "enabled": True}
+        current = None
+        for line in result.stdout.strip().split("\n"):
+            stripped = line.strip()
+            indent = len(line) - len(line.lstrip(" "))
+            if not stripped or stripped.startswith("\u250c") or stripped.startswith("\u2502") or stripped.startswith("\u2514"):
+                continue
+            if indent == 2 and job_id in stripped:
+                current = data
+                continue
+            if indent == 2 and current is not None:
+                break  # next job reached, stop parsing
+            if current is not None and indent >= 4 and ":" in stripped:
+                key, _, value = stripped.partition(":")
+                key = key.strip().lower().replace(" ", "_")
+                value = value.strip()
+                if key == "name": data["name"] = value
+                elif key == "schedule": data["schedule"] = value
+                elif key == "next_run": data["next_run"] = value
+                elif key == "last_run": data["last_run"] = value
+                elif key == "last_status": data["last_status"] = value
+                elif key == "model": data["model"] = value
+                elif key == "deliver": data["delivery"] = value
+        data.pop("last_status", None)  # mapped to last_run status
+        if data.get("name"):
+            return {"connected": True, **data}
+        return {"connected": False, "message": f"Cronjob {job_id} nicht gefunden"}
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return {"connected": False, "message": "hermes CLI nicht verfügbar"}
+    except Exception as e:
+        return {"connected": False, "message": str(e)}
+
+
 @app.get("/api/dashboard/tasks")
 def dashboard_tasks():
     MAX_TASKS = 50
@@ -1017,6 +1063,42 @@ def dashboard_inbox():
         return {"connected": True, "entries": entries[:MAX_ITEMS]}
     except OSError as e:
         return {"connected": False, "message": str(e), "entries": []}
+
+
+@app.post("/api/inbox/update")
+def inbox_update(body: dict):
+    """Status eines Inbox-Eintrags aktualisieren (gesehen/später/erledigt)."""
+    line_index = body.get("line_index")
+    new_status = body.get("status")
+    if line_index is None or new_status not in ("done", "seen", "later"):
+        raise HTTPException(status_code=422, detail="line_index und status (done/seen/later) erforderlich")
+
+    inbox_path = Path.home() / ".hermes" / "shared" / "inbox.md"
+    if not inbox_path.exists():
+        return {"ok": False, "error": "inbox.md nicht gefunden"}
+
+    try:
+        lines = inbox_path.read_text().split("\n")
+        if line_index >= len(lines):
+            return {"ok": False, "error": f"line_index {line_index} außerhalb (max {len(lines)-1})"}
+
+        marker_map = {"done": "[x]", "seen": "[o]", "later": "[>]"}
+        new_marker = marker_map[new_status]
+
+        line = lines[line_index]
+        # Replace existing marker or prepend
+        for old_marker in ["[x]", "[o]", "[>]"]:
+            if line.strip().startswith(old_marker):
+                line = new_marker + line[len(old_marker):]
+                break
+        else:
+            line = new_marker + " " + line.lstrip()
+
+        lines[line_index] = line
+        inbox_path.write_text("\n".join(lines))
+        return {"ok": True, "line_index": line_index, "status": new_status}
+    except OSError as e:
+        return {"ok": False, "error": str(e)}
 
 
 @app.get("/api/dashboard/news")
