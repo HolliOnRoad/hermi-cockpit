@@ -670,6 +670,7 @@
 
   .news-item, .weather-stat { font-size: 1em; color: var(--text-secondary); padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.02); }
   .news-item:last-child { border-bottom: none; }
+  .news-item:hover { background: rgba(255,255,255,0.03); }
   .news-item .n-title { font-weight: 600; }
   .news-item .n-source { font-size: 0.8em; color: var(--text-dim); margin-top: 1px; }
   .news-more { font-size: 0.9em; color: var(--text-dim); margin-top: 4px; text-align: center; cursor: pointer; }
@@ -2627,7 +2628,7 @@
     return Array.from(document.querySelectorAll('#dashboard .widget')).map(w => w.dataset.instance || w.dataset.widget);
   }
 
-  function esc(s) { return s.replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function esc(s) { return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   // ========== TERM LOG ==========
   function termLog(msg) {
@@ -3654,7 +3655,7 @@
         item.className = 'news-item';
         item.style.cursor = 'pointer';
         item.innerHTML = '<div class="n-title">' + (n.title || '') + '</div><div class="n-source">' + (n.source || '') + (n.time ? ' \u00b7 ' + n.time : '') + '</div>';
-        item.addEventListener('click', function() { showInSpotlight('news', n); });
+        item.addEventListener('click', function() { console.log('NEWS CLICK', n.title); showInSpotlight('news', n); });
         container.appendChild(item);
       });
       var more = document.createElement('div');
@@ -4084,7 +4085,11 @@
         if (breadcrumb) breadcrumb.textContent = 'Cronjob: ' + (data.name || data.id || '');
         break;
       case 'news':
-        html = _renderNewsSpotlight(data);
+        try {
+          html = _renderNewsSpotlight(data);
+        } catch(e) {
+          html = '<div class="spot-news-title">Template-Fehler</div><div class="spot-news-summary">' + esc(e.message) + '</div>';
+        }
         if (breadcrumb) breadcrumb.textContent = 'News';
         break;
       case 'inbox':

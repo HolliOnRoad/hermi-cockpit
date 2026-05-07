@@ -1132,16 +1132,64 @@ def inbox_update(body: dict):
 
 @app.get("/api/dashboard/news")
 def dashboard_news():
-    MAX_ITEMS = 20
+    MAX_ITEMS = 30
+    items = []
+
+    # ── Briefing-News ──
     news_path = Path.home() / ".hermes" / "news" / "latest.json"
-    if not news_path.exists():
-        return {"connected": False, "message": "Backend-Hook fehlt", "news": []}
-    try:
-        data = json.loads(news_path.read_text())
-        news = data if isinstance(data, list) else data.get("news", data.get("items", []))
-        return {"connected": True, "news": news[:MAX_ITEMS]}
-    except (json.JSONDecodeError, OSError):
-        return {"connected": False, "message": "latest.json nicht lesbar", "news": []}
+    if news_path.exists():
+        try:
+            data = json.loads(news_path.read_text())
+            raw = data if isinstance(data, list) else data.get("news", data.get("items", []))
+            for n in raw:
+                items.append({
+                    "title": n.get("title", ""),
+                    "source": n.get("source", "Briefing"),
+                    "date": n.get("date", ""),
+                    "summary": (n.get("summary", "") + " | " + n.get("hermes_relevance", "")).strip(" |"),
+                    "relevance": n.get("relevance", 50),
+                    "category": "news",
+                })
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # ── Cronjob-Ergebnisse aus Knowledge DB ──
+    kb_path = Path.home() / ".hermes" / "knowledge.db"
+    if kb_path.exists():
+        try:
+            import sqlite3
+            conn = sqlite3.connect(str(kb_path))
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT type, source, title, content, created_at FROM knowledge "
+                "WHERE type IN ('news','cron_result','council') "
+                "ORDER BY created_at DESC LIMIT 15"
+            ).fetchall()
+            conn.close()
+            for r in rows:
+                items.append({
+                    "title": r["title"],
+                    "source": r["source"] or r["type"],
+                    "date": r["created_at"][:10] if r["created_at"] else "",
+                    "summary": (r["content"] or "")[:200],
+                    "relevance": 60,
+                    "category": r["type"],
+                })
+        except Exception:
+            pass
+
+    # Deduplizieren (nach Titel)
+    seen = set()
+    unique = []
+    for item in items:
+        key = item["title"][:60]
+        if key not in seen:
+            seen.add(key)
+            unique.append(item)
+
+    if not unique:
+        return {"connected": False, "message": "Keine Einträge", "news": []}
+    return {"connected": True, "news": unique[:MAX_ITEMS]}
 
 
 # ── Einzel-Action-Endpunkte ────────────────────────────────────────
