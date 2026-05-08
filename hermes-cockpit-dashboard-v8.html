@@ -1648,6 +1648,144 @@
     opacity: 0.4;
     cursor: not-allowed;
   }
+
+  /* ===== Vision Result UX v1 ===== */
+  .vr-section { margin-bottom: 14px; }
+
+  .vr-header {
+    display: flex; align-items: flex-start; gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .vr-thumb {
+    flex-shrink: 0;
+    width: 160px; height: 120px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-glass);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .vr-thumb img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .vr-thumb-fallback {
+    font-size: 10px; color: var(--text-dim);
+    text-align: center; padding: 8px;
+    line-height: 1.4;
+  }
+
+  .vr-meta {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: 3px;
+    font-size: 11px; font-family: var(--font-mono);
+    color: var(--text-dim);
+  }
+
+  .vr-meta-row {
+    display: flex; justify-content: space-between; gap: 10px;
+  }
+
+  .vr-meta-label { color: var(--text-dim); opacity: 0.6; flex-shrink: 0; }
+  .vr-meta-value { color: var(--text-secondary); font-weight: 500; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .vr-timestamp {
+    font-size: 10px; color: var(--text-dim); opacity: 0.5;
+    font-style: italic;
+  }
+
+  .vr-response {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    font-size: 13px; line-height: 1.65;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    max-height: 360px; overflow-y: auto;
+  }
+
+  .vr-actions {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .vr-btn {
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 11px; font-weight: 600;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    border: 1px solid var(--border-glass);
+    background: var(--bg-glass);
+    color: var(--text-dim);
+    transition: all 0.15s;
+  }
+
+  .vr-btn:hover {
+    color: var(--text-primary);
+    border-color: rgba(255,255,255,0.18);
+    background: var(--bg-glass-hover);
+  }
+
+  .vr-btn:disabled {
+    opacity: 0.3; cursor: default;
+  }
+
+  .vr-btn-copy {
+    background: rgba(59,130,246,0.12);
+    border-color: rgba(59,130,246,0.25);
+    color: #93c5fd;
+  }
+
+  .vr-btn-copy:hover {
+    background: rgba(59,130,246,0.22);
+    color: #bfdbfe;
+  }
+
+  .vr-btn-copy.copied {
+    background: rgba(64,196,99,0.15);
+    border-color: rgba(64,196,99,0.3);
+    color: var(--success);
+  }
+
+  .vr-btn-delete {
+    background: rgba(224,85,85,0.08);
+    border-color: rgba(224,85,85,0.18);
+    color: var(--danger);
+  }
+
+  .vr-btn-delete:hover {
+    background: rgba(224,85,85,0.16);
+    border-color: rgba(224,85,85,0.3);
+  }
+
+  .vr-nav {
+    display: flex; align-items: center; gap: 8px;
+    margin-left: auto;
+  }
+
+  .vr-nav-info {
+    font-size: 10px; color: var(--text-dim);
+    font-family: var(--font-mono);
+    min-width: 80px; text-align: center;
+  }
+
+  .vr-hint {
+    font-size: 10px; color: var(--text-dim);
+    opacity: 0.4; margin-top: 12px;
+    font-style: italic;
+  }
+
+  .vr-empty {
+    text-align: center; padding: 40px 20px;
+    color: var(--text-dim); font-size: 13px;
+  }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
@@ -2478,6 +2616,10 @@
   var VISION_ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'];
   window._pendingVisionFile = null;
 
+  // ===== Vision Analysis History (Phase 1: session-only) =====
+  if (!window._visionAnalysisHistory) window._visionAnalysisHistory = [];
+  if (typeof window._visionAnalysisIndex === 'undefined') window._visionAnalysisIndex = -1;
+
   function isFileDrag(e) {
     var dt = e.dataTransfer;
     if (!dt || !dt.types) return false;
@@ -2620,57 +2762,232 @@
       })
       .then(function(data) {
         console.info('[Vision] analysis complete');
+
+        var thumbUrl = null;
+        try { thumbUrl = URL.createObjectURL(file); } catch (_) {}
+
+        var entry = {
+          filename: file.name,
+          mimeType: file._normalizedType || file.type || 'unknown',
+          sizeBytes: file.size,
+          model: data.model || '?',
+          response: data.response || '(keine Antwort)',
+          timestamp: new Date().toISOString(),
+          thumbnailUrl: thumbUrl,
+          note: data.note || null
+        };
+
+        window._visionAnalysisHistory.push(entry);
+        while (window._visionAnalysisHistory.length > 10) {
+          var removed = window._visionAnalysisHistory.shift();
+          if (removed.thumbnailUrl) { try { URL.revokeObjectURL(removed.thumbnailUrl); } catch (_) {} }
+        }
+        window._visionAnalysisIndex = window._visionAnalysisHistory.length - 1;
+
         dismissVisionCard();
-        showInSpotlight('vision', data);
+        renderVisionResult();
       })
       .catch(function(err) {
         console.error('[Vision] fetch failed:', err.message);
-        showInSpotlight('vision', {
-          status: 'error',
+        var entry = {
           filename: file.name,
-          type: file._normalizedType || file.type,
-          error: err.message || 'Unbekannter Fehler'
-        });
+          mimeType: file._normalizedType || file.type || 'unknown',
+          sizeBytes: file.size,
+          model: '?',
+          response: 'Fehler: ' + (err.message || 'Unbekannter Fehler'),
+          timestamp: new Date().toISOString(),
+          thumbnailUrl: null,
+          note: null,
+          error: true
+        };
+        try { entry.thumbnailUrl = URL.createObjectURL(file); } catch (_) {}
+
+        window._visionAnalysisHistory.push(entry);
+        while (window._visionAnalysisHistory.length > 10) {
+          var removed2 = window._visionAnalysisHistory.shift();
+          if (removed2.thumbnailUrl) { try { URL.revokeObjectURL(removed2.thumbnailUrl); } catch (_) {} }
+        }
+        window._visionAnalysisIndex = window._visionAnalysisHistory.length - 1;
+
         dismissVisionCard();
+        renderVisionResult();
       });
   }
 
   window.submitVisionAnalyze = submitVisionAnalyze;
 
-  function _renderVisionSpotlight(data) {
-    if (!data) return '<div class="arp-idle">Keine Analyse-Daten</div>';
+  // ===== Vision Result UX v1: History-based renderer =====
 
-    if (data.status === 'error') {
-      return '<div class="spot-section">' +
-        '<div class="spot-section-title" style="color:#f97316">Analyse fehlgeschlagen</div>' +
-        '<div style="padding:12px;font-size:12px;color:var(--text-dim)">' +
-        '<p><strong>Datei:</strong> ' + esc(data.filename || '?') + '</p>' +
-        '<p style="color:#fca5a5;margin-top:6px">' + esc(data.error || 'Unbekannter Fehler') + '</p>' +
-        '</div></div>';
+  function _formatTimestamp(isoStr) {
+    var d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    var day = String(d.getDate()).padStart(2, '0');
+    var month = String(d.getMonth() + 1).padStart(2, '0');
+    var year = d.getFullYear();
+    var hours = String(d.getHours()).padStart(2, '0');
+    var mins = String(d.getMinutes()).padStart(2, '0');
+    return day + '.' + month + '.' + year + ', ' + hours + ':' + mins;
+  }
+
+  function _formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function renderVisionResult() {
+    var panel = document.getElementById('actionResultPanel');
+    var content = document.getElementById('spotlightDetailContent');
+    var backBtn = document.getElementById('spotlightBackBtn');
+    var breadcrumb = document.getElementById('spotlightBreadcrumb');
+
+    if (!panel || !content) return;
+    panel.classList.remove('hidden');
+    if (backBtn) backBtn.classList.add('visible');
+    if (breadcrumb) breadcrumb.textContent = 'Bildanalyse';
+
+    var history = window._visionAnalysisHistory || [];
+    var idx = window._visionAnalysisIndex;
+
+    if (idx < 0 || idx >= history.length) {
+      content.innerHTML = '<div class="vr-empty">Keine Analysen im Verlauf</div>';
+      applySpotFs();
+      return;
     }
 
-    var html = '<div class="spot-section">' +
-      '<div class="spot-section-title">Lokale Bildanalyse</div>';
+    var e = history[idx];
+    var total = history.length;
+    var html = '';
 
-    html += '<div style="padding:4px 0 12px;font-size:11px;font-family:monospace;color:var(--text-ghost);display:flex;gap:16px;flex-wrap:wrap">' +
-      '<span>' + esc(data.filename || '') + '</span>' +
-      '<span>' + esc(data.type || '') + '</span>' +
-      '<span>' + (data.size_bytes ? (data.size_bytes < 1024 * 1024 ? (data.size_bytes / 1024).toFixed(1) + ' KB' : (data.size_bytes / 1024 / 1024).toFixed(1) + ' MB') : '') + '</span>' +
-      '<span>Modell: ' + esc(data.model || '?') + '</span>' +
-      '</div>';
+    html += '<div class="vr-section">';
+    html += '<div class="spot-section-title">Lokale Bildanalyse</div>';
 
-    html += '<div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:10px;padding:16px;font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap">' +
-      esc(data.response || '(keine Antwort)') + '</div>';
+    html += '<div class="vr-header">';
+
+    if (e.thumbnailUrl) {
+      html += '<div class="vr-thumb"><img src="' + esc(e.thumbnailUrl) + '" alt="Vorschaubild"></div>';
+    } else {
+      html += '<div class="vr-thumb"><div class="vr-thumb-fallback">Kein Vorschaubild verf&#252;gbar</div></div>';
+    }
+
+    html += '<div class="vr-meta">';
+    html += '<div class="vr-meta-row"><span class="vr-meta-label">Datei</span><span class="vr-meta-value">' + esc(e.filename || '?') + '</span></div>';
+    html += '<div class="vr-meta-row"><span class="vr-meta-label">Typ</span><span class="vr-meta-value">' + esc(e.mimeType || '?') + '</span></div>';
+    html += '<div class="vr-meta-row"><span class="vr-meta-label">Gr&#246;&#223;e</span><span class="vr-meta-value">' + _formatFileSize(e.sizeBytes || 0) + '</span></div>';
+    html += '<div class="vr-meta-row"><span class="vr-meta-label">Modell</span><span class="vr-meta-value">' + esc(e.model || '?') + '</span></div>';
+    html += '<div class="vr-meta-row"><span class="vr-timestamp">Analysiert am ' + _formatTimestamp(e.timestamp) + '</span></div>';
+    html += '</div>';
+    html += '</div>';
+
+    if (e.note) {
+      html += '<div style="margin-top:10px;padding:8px 14px;background:rgba(250,204,21,0.06);border:1px solid rgba(250,204,21,0.2);border-radius:8px;font-size:11px;color:#fde047;line-height:1.5">' +
+        esc(e.note) + '</div>';
+    }
+
+    html += '<div class="vr-response">' + esc(e.response || '(keine Antwort)') + '</div>';
+
+    html += '<div class="vr-actions">';
+    html += '<button id="vrCopyBtn" class="vr-btn vr-btn-copy" onclick="visionCopyResponse()">Kopieren</button>';
+
+    html += '<div class="vr-nav">';
+    html += '<button class="vr-btn" onclick="visionPrev()"' + (idx <= 0 ? ' disabled' : '') + '>&#8592; Vorherige</button>';
+    html += '<span class="vr-nav-info">Analyse ' + (idx + 1) + ' von ' + total + '</span>';
+    html += '<button class="vr-btn" onclick="visionNext()"' + (idx >= total - 1 ? ' disabled' : '') + '>N&#228;chste &#8594;</button>';
+    html += '</div>';
+
+    html += '<button class="vr-btn vr-btn-delete" onclick="visionDeleteCurrent()">&#10005; L&#246;schen</button>';
+    html += '</div>';
+
+    html += '<div class="vr-hint">Lokaler Verlauf &#8211; wird beim Neuladen ggf. gel&#246;scht</div>';
 
     html += '</div>';
 
-    if (data.note) {
-      html += '<div style="margin-top:12px;padding:10px 14px;background:rgba(250,204,21,0.06);border:1px solid rgba(250,204,21,0.2);border-radius:8px;font-size:11px;color:#fde047;line-height:1.5">' +
-        esc(data.note) + '</div>';
+    content.innerHTML = html;
+    applySpotFs();
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function visionPrev() {
+    if (window._visionAnalysisIndex > 0) {
+      window._visionAnalysisIndex--;
+      renderVisionResult();
+    }
+  }
+
+  function visionNext() {
+    var history = window._visionAnalysisHistory || [];
+    if (window._visionAnalysisIndex < history.length - 1) {
+      window._visionAnalysisIndex++;
+      renderVisionResult();
+    }
+  }
+
+  function visionCopyResponse() {
+    var history = window._visionAnalysisHistory || [];
+    var idx = window._visionAnalysisIndex;
+    if (idx < 0 || idx >= history.length) return;
+    var text = history[idx].response || '';
+
+    var copyFn = function(t) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(t);
+      }
+      return new Promise(function(resolve, reject) {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = t;
+          ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          var ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          ok ? resolve() : reject(new Error('execCommand failed'));
+        } catch (ex) { reject(ex); }
+      });
+    };
+
+    copyFn(text).then(function() {
+      var btn = document.getElementById('vrCopyBtn');
+      if (btn) {
+        btn.textContent = 'Kopiert';
+        btn.classList.add('copied');
+        setTimeout(function() {
+          btn.textContent = 'Kopieren';
+          btn.classList.remove('copied');
+        }, 1800);
+      }
+    }).catch(function() {
+      var btn = document.getElementById('vrCopyBtn');
+      if (btn) {
+        btn.textContent = 'Fehler';
+        setTimeout(function() { btn.textContent = 'Kopieren'; }, 1800);
+      }
+    });
+  }
+
+  function visionDeleteCurrent() {
+    var history = window._visionAnalysisHistory || [];
+    var idx = window._visionAnalysisIndex;
+    if (idx < 0 || idx >= history.length) return;
+
+    var removed = history[idx];
+    if (removed.thumbnailUrl) { try { URL.revokeObjectURL(removed.thumbnailUrl); } catch (_) {} }
+
+    history.splice(idx, 1);
+
+    if (history.length === 0) {
+      window._visionAnalysisIndex = -1;
+    } else if (idx >= history.length) {
+      window._visionAnalysisIndex = history.length - 1;
     }
 
-    return html;
+    renderVisionResult();
   }
+
+  function _renderVisionSpotlight(data) {
+    return '';
+  }
+
 
 
 
@@ -4388,9 +4705,8 @@
         if (breadcrumb) breadcrumb.textContent = 'Aktion: ' + (data.action || '');
         break;
       case 'vision':
-        html = _renderVisionSpotlight(data);
-        if (breadcrumb) breadcrumb.textContent = 'Bildanalyse: ' + (data.filename || '');
-        break;
+        renderVisionResult();
+        return;
       default:
         html = '<div class="arp-idle">Keine Daten verf\u00fcgbar</div>';
         if (breadcrumb) breadcrumb.textContent = '';
