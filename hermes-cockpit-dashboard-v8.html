@@ -2527,10 +2527,11 @@
     if (_isImageFile(file)) {
       window._pendingVisionFile = file;
       file._normalizedType = _normalizeImageType(file);
+      console.info('[Vision] drop: pendingVisionFile set —', file.name, file._normalizedType);
       try {
         showVisionDropCard(file);
       } catch (err) {
-        console.error('[DnD Guard] Card creation failed:', err);
+        console.error('[Vision] Card creation failed:', err);
       }
       return;
     }
@@ -2573,7 +2574,7 @@
         '<span><span class="vm-label">Gr&ouml;sse</span><span class="vm-value">' + fmtSize(file.size) + '</span></span>' +
       '</div>' +
       '<div class="vision-card-actions">' +
-        '<button class="vc-analyze" onclick="submitVisionAnalyze()">Lokal analysieren</button>' +
+        '<button class="vc-analyze" onclick="console.info(\'[Vision] button clicked via onclick\');window.submitVisionAnalyze()">Lokal analysieren</button>' +
         '<button onclick="dismissVisionCard()">Verwerfen</button>' +
       '</div>';
     document.body.appendChild(card);
@@ -2586,27 +2587,41 @@
   }
 
   function submitVisionAnalyze() {
+    console.info('[Vision] analyze button clicked');
     var file = window._pendingVisionFile;
-    if (!file) return;
+    if (!file) {
+      console.warn('[Vision] no pending file — ignoring click');
+      var card = document.getElementById('visionDropCard');
+      if (card) {
+        card.querySelector('.vision-card-title').textContent = 'Kein Bild gefunden — bitte erneut droppen';
+      }
+      return;
+    }
 
+    console.info('[Vision] posting', file.name, 'to /api/vision/analyze');
     var btn = document.querySelector('.vc-analyze');
     if (btn) { btn.disabled = true; btn.textContent = 'Analysiere...'; }
 
     var form = new FormData();
     form.append('file', file, file.name);
 
-    fetch(API_BASE + '/api/vision/analyze', { method: 'POST', body: form })
+    var apiBase = typeof API_BASE !== 'undefined' ? API_BASE : 'http://127.0.0.1:8000';
+
+    fetch(apiBase + '/api/vision/analyze', { method: 'POST', body: form })
       .then(function(r) {
+        console.info('[Vision] response status:', r.status);
         if (!r.ok) {
           return r.json().then(function(err) { throw new Error(err.detail || 'Server-Fehler ' + r.status); });
         }
         return r.json();
       })
       .then(function(data) {
+        console.info('[Vision] analysis complete');
         dismissVisionCard();
         showInSpotlight('vision', data);
       })
       .catch(function(err) {
+        console.error('[Vision] fetch failed:', err.message);
         showInSpotlight('vision', {
           status: 'error',
           filename: file.name,
@@ -2616,6 +2631,8 @@
         dismissVisionCard();
       });
   }
+
+  window.submitVisionAnalyze = submitVisionAnalyze;
 
   function _renderVisionSpotlight(data) {
     if (!data) return '<div class="arp-idle">Keine Analyse-Daten</div>';
