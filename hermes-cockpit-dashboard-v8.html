@@ -2391,6 +2391,49 @@
     }
   });
 
+  // ===== Global Drag & Drop Guard: Prevent browser default file navigation =====
+  // Only blocks OS file drags — internal widget drag-and-drop passes through.
+  function isFileDrag(e) {
+    return e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.indexOf('Files') >= 0;
+  }
+
+  document.addEventListener('dragover', function(e) {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'none';
+  });
+
+  document.addEventListener('drop', function(e) {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    var files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    var dropped = [];
+    for (var i = 0; i < files.length; i++) {
+      dropped.push({
+        name: files[i].name,
+        type: files[i].type || 'unknown',
+        size: files[i].size
+      });
+    }
+
+    function fmtSize(b) {
+      if (b < 1024) return b + ' B';
+      if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+      return (b / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    console.info('%c[DnD Guard] %c' + dropped.length + ' file(s) dropped — not uploaded',
+      'color: #93c5fd; font-weight: bold', 'color: #9ca3af');
+    console.table(dropped.map(function(f) {
+      return { Name: f.name, Type: f.type, Size: fmtSize(f.size) };
+    }));
+  });
+
   // ========== v8.1: CHAT HELPERS ==========
   function chatAppend(idSuffix) {
     const input = document.getElementById('chatInput_' + idSuffix);
