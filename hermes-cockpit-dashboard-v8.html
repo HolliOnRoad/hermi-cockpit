@@ -2485,12 +2485,38 @@
   }
 
   function onDragEnter(e) { if (isFileDrag(e)) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); } }
-  function onDragOver(e)  { if (isFileDrag(e)) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); e.dataTransfer.dropEffect = 'none'; } }
+  function onDragOver(e) {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    var files = e.dataTransfer.files;
+    if (files && files.length > 0 && _isImageFile(files[0])) {
+      e.dataTransfer.dropEffect = 'copy';
+    } else {
+      e.dataTransfer.dropEffect = 'none';
+    }
+  }
+
+  var IMG_EXT = { 'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','webp':'image/webp','heic':'image/heic','heif':'image/heif','gif':'image/gif','bmp':'image/bmp','svg':'image/svg+xml','tiff':'image/tiff' };
+  function _isImageFile(file) {
+    if (!file) return false;
+    if (file.type && VISION_ALLOWED.indexOf(file.type) >= 0) return true;
+    var ext = file.name.split('.').pop().toLowerCase();
+    return !!IMG_EXT[ext];
+  }
+  function _normalizeImageType(file) {
+    if (file.type && VISION_ALLOWED.indexOf(file.type) >= 0) return file.type;
+    var ext = file.name.split('.').pop().toLowerCase();
+    return IMG_EXT[ext] || file.type || 'unknown';
+  }
+
   function onDrop(e) {
     if (!isFileDrag(e)) return;
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
+
     var files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
     var file = files[0];
@@ -2501,9 +2527,14 @@
       return (b / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
-    if (VISION_ALLOWED.indexOf(file.type) >= 0) {
+    if (_isImageFile(file)) {
       window._pendingVisionFile = file;
-      showVisionDropCard(file);
+      file._normalizedType = _normalizeImageType(file);
+      try {
+        showVisionDropCard(file);
+      } catch (err) {
+        console.error('[DnD Guard] Card creation failed:', err);
+      }
       return;
     }
 
@@ -2541,7 +2572,7 @@
       '<div class="vision-card-title">Bild erkannt</div>' +
       '<div class="vision-card-meta">' +
         '<span><span class="vm-label">Name</span><span class="vm-value">' + esc(file.name) + '</span></span>' +
-        '<span><span class="vm-label">Typ</span><span class="vm-value">' + esc(file.type || 'unknown') + '</span></span>' +
+        '<span><span class="vm-label">Typ</span><span class="vm-value">' + esc(file._normalizedType || file.type || 'unknown') + '</span></span>' +
         '<span><span class="vm-label">Gr&ouml;sse</span><span class="vm-value">' + fmtSize(file.size) + '</span></span>' +
       '</div>' +
       '<div class="vision-card-actions">' +
@@ -2582,7 +2613,7 @@
         showInSpotlight('vision', {
           status: 'error',
           filename: file.name,
-          type: file.type,
+          type: file._normalizedType || file.type,
           error: err.message || 'Unbekannter Fehler'
         });
         dismissVisionCard();
