@@ -2490,12 +2490,9 @@
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
-    var files = e.dataTransfer.files;
-    if (files && files.length > 0 && _isImageFile(files[0])) {
-      e.dataTransfer.dropEffect = 'copy';
-    } else {
-      e.dataTransfer.dropEffect = 'none';
-    }
+    // dataTransfer.files is empty during dragover (browser security).
+    // Drop handler decides using files[0] once available.
+    e.dataTransfer.dropEffect = 'copy';
   }
 
   var IMG_EXT = { 'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','webp':'image/webp','heic':'image/heic','heif':'image/heif','gif':'image/gif','bmp':'image/bmp','svg':'image/svg+xml','tiff':'image/tiff' };
@@ -2550,7 +2547,7 @@
     targets[t].addEventListener('drop',      onDrop,      { capture: true });
   }
 
-  console.info('%c[DnD Guard v3] %cactive (capture-phase, window+document)',
+  console.info('%c[DnD Guard v5] %cactive — image card pipeline loaded',
     'color: #93c5fd; font-weight: bold', 'color: #9ca3af');
 
 
