@@ -18,6 +18,7 @@ import threading
 import time
 import urllib.request
 import urllib.error
+import uuid
 
 from services.hermes_log_stream import get_log_stream
 from services.hermes_api_bridge import run_query as hermes_run_query
@@ -1857,3 +1858,145 @@ async def vision_analyze(file: UploadFile = File(...)):
         ),
     }
     return JSONResponse(result)
+
+
+# ── Review Inbox ──────────────────────────────────────────────────
+
+REVIEW_INBOX_PATH = Path.home() / ".hermes" / "shared" / "review_inbox.jsonl"
+REVIEW_KEEP_DAYS = 30
+REVIEW_SNOOZE_DAYS = 7
+
+
+def _read_review_inbox() -> list[dict]:
+    if not REVIEW_INBOX_PATH.exists():
+        return []
+    entries = []
+    with open(REVIEW_INBOX_PATH, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return entries
+
+
+def _write_review_inbox(entries: list[dict]):
+    REVIEW_INBOX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(REVIEW_INBOX_PATH, "w") as f:
+        for entry in entries:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+@app.post("/api/review-inbox/add")
+def review_inbox_add(body: dict):
+    title = (body.get("title") or "").strip()
+    text = (body.get("text") or "").strip()
+    if not title:
+        return JSONResponse({"ok": False, "error": "title fehlt"}, status_code=422)
+
+    now = dt.now(timezone.utc).isoformat()
+    entry = {
+        "id": uuid.uuid4().hex[:12],
+        "created_at": now,
+        "updated_at": now,
+        "source": body.get("source", "cockpit"),
+        "source_type": body.get("source_type", ""),
+        "title": title,
+        "text": text,
+        "status": "open",
+        "snooze_until": None,
+        "snooze_count": 0,
+        "discarded_at": None,
+        "keep_until": None,
+        "tags": body.get("tags", []),
+        "privacy": "local_only",
+    }
+    entries = _read_review_inbox()
+    entries.append(entry)
+    _write_review_inbox(entries)
+    return {"ok": True, "entry": entry}
+
+
+@app.get("/api/review-inbox")
+def review_inbox_list(status: Optional[str] = None):
+    entries = _read_review_inbox()
+    now = dt.now(timezone.utc)
+
+    result = []
+    for e in entries:
+        st = e.get("status", "open")
+        snooze_until_str = e.get("snooze_until")
+        snooze_until = dt.fromisoformat(snooze_until_str) if snooze_until_str else None
+
+        # Auto-reopen expired snoozed entries
+        if st == "snoozed" and snooze_until and snooze_until <= now:
+            st = "open"
+            e["status"] = "open"
+            e["updated_at"] = now.isoformat()
+
+        if status:
+            if st != status:
+                continue
+        else:
+            if st in ("discarded", "accepted"):
+                continue
+            if st == "snoozed":
+                continue
+
+        result.append(e)
+
+    # Save auto-reopens
+    if any(e.get("status") == "open" for e in entries if e.get("status") == "open"):
+        _write_review_inbox(entries)
+
+    result.sort(key=lambda e: e.get("created_at", ""), reverse=True)
+    return {"ok": True, "entries": result[:50]}
+
+
+@app.post("/api/review-inbox/update")
+def review_inbox_update(body: dict):
+    entry_id = body.get("id")
+    action = body.get("action") or body.get("status")
+    if not entry_id:
+        return JSONResponse({"ok": False, "error": "id fehlt"}, status_code=422)
+    if action not in ("accept", "discard", "snooze", "reopen"):
+        return JSONResponse({"ok": False, "error": f"Ungültige Aktion: {action}"}, status_code=422)
+
+    entries = _read_review_inbox()
+    now = dt.now(timezone.utc).isoformat()
+
+    updated = None
+    for e in entries:
+        if e.get("id") == entry_id:
+            if action == "accept":
+                e["status"] = "accepted"
+                e["updated_at"] = now
+            elif action == "discard":
+                e["status"] = "discarded"
+                e["discarded_at"] = now
+                keep_until = dt.now(timezone.utc) + datetime.timedelta(days=REVIEW_KEEP_DAYS)
+                e["keep_until"] = keep_until.isoformat()
+                e["updated_at"] = now
+            elif action == "snooze":
+                e["status"] = "snoozed"
+                e["snooze_count"] = e.get("snooze_count", 0) + 1
+                snooze_until = dt.now(timezone.utc) + datetime.timedelta(days=REVIEW_SNOOZE_DAYS)
+                e["snooze_until"] = snooze_until.isoformat()
+                e["updated_at"] = now
+            elif action == "reopen":
+                e["status"] = "open"
+                e["snooze_until"] = None
+                e["discarded_at"] = None
+                e["keep_until"] = None
+                e["updated_at"] = now
+            updated = e
+            break
+
+    if not updated:
+        return JSONResponse({"ok": False, "error": "Eintrag nicht gefunden"}, status_code=404)
+
+    _write_review_inbox(entries)
+    return {"ok": True, "entry": updated}

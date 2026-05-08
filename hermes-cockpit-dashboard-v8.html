@@ -786,6 +786,38 @@
   .inbox-btn.active { background: rgba(91,156,245,0.1); border-color: rgba(91,156,245,0.2); color: var(--accent-blue); }
   .inbox-empty { text-align: center; padding: 20px; color: var(--text-dim); opacity: 0.5; font-style: italic; }
 
+  /* ── Review Inbox Items ── */
+  .review-item { border-left: 2px solid var(--accent-orange); padding-left: 8px; }
+
+  .review-dot.new { background: var(--accent-orange); opacity: 1; }
+
+  .review-tag {
+    font-size: 9px; font-weight: 700; color: var(--accent-orange);
+    background: rgba(240,160,80,0.12); padding: 1px 5px; border-radius: 3px;
+    margin-right: 2px; vertical-align: middle;
+  }
+
+  .review-status-tag {
+    font-size: 9px; font-weight: 600; color: var(--text-dim);
+    background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px;
+    text-transform: uppercase;
+  }
+
+  .review-undo-btn {
+    font-size: 10px; color: var(--accent-yellow) !important;
+    background: rgba(224,196,76,0.08) !important;
+    border-color: rgba(224,196,76,0.2) !important;
+  }
+
+  .review-undo-btn:hover {
+    background: rgba(224,196,76,0.15) !important;
+    color: #f0d060 !important;
+  }
+
+  .inbox-btn.review-accept.active { background: rgba(64,196,99,0.12); border-color: rgba(64,196,99,0.3); color: var(--success); }
+  .inbox-btn.review-discard.active { background: rgba(224,85,85,0.12); border-color: rgba(224,85,85,0.3); color: var(--danger); }
+  .inbox-btn.review-snooze.active { background: rgba(240,160,80,0.12); border-color: rgba(240,160,80,0.3); color: var(--accent-orange); }
+
   /* ================================================================
      TASK BOARD — CARDS + DIAGNOSTICS (v8.1)
      ================================================================ */
@@ -1763,6 +1795,17 @@
   .vr-btn-delete:hover {
     background: rgba(224,85,85,0.16);
     border-color: rgba(224,85,85,0.3);
+  }
+
+  .vr-btn-review {
+    background: rgba(240,160,80,0.1);
+    border-color: rgba(240,160,80,0.22);
+    color: var(--accent-orange);
+  }
+
+  .vr-btn-review:hover {
+    background: rgba(240,160,80,0.2);
+    color: #ffc080;
   }
 
   .vr-nav {
@@ -2888,6 +2931,7 @@
 
     html += '<div class="vr-actions">';
     html += '<button id="vrCopyBtn" class="vr-btn vr-btn-copy" onclick="visionCopyResponse()">Kopieren</button>';
+    html += '<button id="vrReviewBtn" class="vr-btn vr-btn-review" onclick="visionToReview()">Zur Abarbeitung</button>';
 
     html += '<div class="vr-nav">';
     html += '<button class="vr-btn" onclick="visionPrev()"' + (idx <= 0 ? ' disabled' : '') + '>&#8592; Vorherige</button>';
@@ -2984,6 +3028,42 @@
     renderVisionResult();
   }
 
+  function visionToReview() {
+    var history = window._visionAnalysisHistory || [];
+    var idx = window._visionAnalysisIndex;
+    if (idx < 0 || idx >= history.length) return;
+    var e = history[idx];
+    var btn = document.getElementById('vrReviewBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Speichere...'; }
+
+    fetch(API_BASE + '/api/review-inbox/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: e.filename || 'Bildanalyse',
+        text: e.response || '',
+        source: 'spotlight',
+        source_type: 'vision_analysis',
+        tags: ['vision', 'cockpit']
+      })
+    }).then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.ok) {
+          if (btn) { btn.textContent = 'Gespeichert'; btn.classList.add('copied'); }
+          setTimeout(function() {
+            if (btn) { btn.textContent = 'Zur Abarbeitung'; btn.classList.remove('copied'); btn.disabled = false; }
+          }, 2000);
+          fetchInbox();
+        } else {
+          if (btn) { btn.textContent = 'Fehler'; btn.disabled = false; }
+          setTimeout(function() { if (btn) btn.textContent = 'Zur Abarbeitung'; }, 2000);
+        }
+      }).catch(function() {
+        if (btn) { btn.textContent = 'Fehler'; btn.disabled = false; }
+        setTimeout(function() { if (btn) btn.textContent = 'Zur Abarbeitung'; }, 2000);
+      });
+  }
+
   function _renderVisionSpotlight(data) {
     return '';
   }
@@ -3014,6 +3094,10 @@
   // ========== v8.1: INBOX ==========
   const INBOX_STORAGE_KEY = 'hermes-inbox';
   const INBOX_API = 'http://127.0.0.1:8000/api/dashboard/inbox';
+  const REVIEW_INBOX_API = '/api/review-inbox';
+
+  // ── Undo-Stack (Session-only, max 5) ──
+  window._reviewUndoStack = [];
 
   function getInboxState() {
     try { return JSON.parse(localStorage.getItem(INBOX_STORAGE_KEY) || '{}'); }
@@ -3031,10 +3115,16 @@
     const updateBadge = (entries) => {
       const badge = document.getElementById('sidebarInboxBadge');
       if (!badge) return;
-      const newCount = entries.filter(e => {
-        const id = e.id || '';
-        return !state[id] || state[id] === 'new';
-      }).length;
+      var newCount = 0;
+      entries.forEach(function(e) {
+        if (e._type === 'review') {
+          var st = e.status || 'open';
+          if (st === 'open') newCount++;
+        } else {
+          var id = e.id || '';
+          if (!state[id] || state[id] === 'new') newCount++;
+        }
+      });
       if (newCount > 0) {
         badge.textContent = newCount;
         badge.style.display = '';
@@ -3043,101 +3133,215 @@
       }
     };
 
+    var inboxEntries = [];
+    var reviewEntries = [];
+    var inboxConnected = false;
+
     try {
-      const resp = await fetch(INBOX_API);
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const data = await resp.json();
-      if (!data.connected) {
-        if (!container) return;
-        container.innerHTML = '<div class="inbox-empty">Nicht verbunden<br><span style="font-size:0.8em;">' + (data.message || 'Backend-Hook fehlt') + '</span></div>';
-        return;
+      var resp = await fetch(INBOX_API);
+      if (resp.ok) {
+        var data = await resp.json();
+        inboxConnected = data.connected === true;
+        inboxEntries = (data.entries || data.inbox || []).map(function(e) { e._type = 'inbox'; return e; });
       }
-      const entries = data.entries || data.inbox || [];
-      updateBadge(entries);
-      if (!container) return;
-      if (entries.length === 0) {
-        container.innerHTML = '<div class="inbox-empty">Inbox ist leer</div>';
-        return;
+    } catch (_) {}
+
+    try {
+      var reviewResp = await fetch(API_BASE + REVIEW_INBOX_API);
+      if (reviewResp.ok) {
+        var reviewData = await reviewResp.json();
+        if (reviewData.ok) {
+          reviewEntries = (reviewData.entries || []).map(function(e) {
+            e._type = 'review';
+            e._reviewId = e.id;
+            e.source = e.source || '';
+            return e;
+          });
+        }
       }
-      renderInboxEntries(container, entries, state);
-    } catch (err) {
-      const cached = state._cached || [];
-      updateBadge(cached);
-      if (!container) return;
-      if (cached.length > 0) {
-        renderInboxEntries(container, cached, state);
-        return;
-      }
+    } catch (_) {}
+
+    if (!container) return;
+
+    if (!inboxConnected && inboxEntries.length === 0 && reviewEntries.length === 0) {
       container.innerHTML = '<div class="inbox-empty">Nicht verbunden<br><span style="font-size:0.8em;">Backend nicht erreichbar</span></div>';
+      return;
     }
+
+    var allEntries = reviewEntries.concat(inboxEntries);
+    updateBadge(allEntries);
+
+    if (allEntries.length === 0) {
+      container.innerHTML = '<div class="inbox-empty">Inbox ist leer</div>';
+      return;
+    }
+    renderInboxEntries(container, allEntries, state);
   }
 
   function renderInboxEntries(container, entries, state) {
     container.innerHTML = '';
+    var isReview = false;
     entries.forEach(function(e, i) {
-      const id = e.id || 'entry_' + i;
-      const entryState = e.status || state[id] || 'new';
-      const lineIndex = e.line_index;
-      const dotClass = entryState === 'new' ? 'new' : entryState === 'seen' ? 'seen' : entryState === 'later' ? 'later' : 'done';
-      const title = e.title || e.subject || 'Eintrag ' + (i + 1);
-      const source = e.source || e.from || '';
-      const time = e.time || e.date || '';
+      if (e._type === 'review' && !isReview) {
+        isReview = true;
+        var sep = document.createElement('div');
+        sep.style.cssText = 'margin:12px 0 6px;font-size:10px;color:var(--accent-orange);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(240,160,80,0.15);padding-bottom:4px';
+        sep.textContent = 'Zur Abarbeitung' + (window._reviewUndoStack.length > 0 ? ' · Rückgängig möglich' : '');
+        container.appendChild(sep);
+      }
+
+      var isReviewEntry = e._type === 'review';
+      var id = isReviewEntry ? (e._reviewId || e.id) : (e.id || 'entry_' + i);
+      var entryStatus = e.status || 'open';
+      var lineIndex = e.line_index;
+
+      var dotClass;
+      if (isReviewEntry) {
+        dotClass = entryStatus === 'open' ? 'new' : entryStatus === 'accepted' ? 'done' : entryStatus === 'discarded' ? 'done' : 'later';
+      } else {
+        var entryState = e.status || state[id] || 'new';
+        dotClass = entryState === 'new' ? 'new' : entryState === 'seen' ? 'seen' : entryState === 'later' ? 'later' : 'done';
+      }
+
+      var title = e.title || e.subject || 'Eintrag ' + (i + 1);
+      var source = e.source || e.from || '';
+      var time = e.time || e.date || e.created_at || '';
+      if (!time && isReviewEntry && e.created_at) {
+        var d = new Date(e.created_at);
+        if (!isNaN(d.getTime())) time = _formatTimestamp(e.created_at);
+      }
 
       var item = document.createElement('div');
-      item.className = 'inbox-item';
+      item.className = 'inbox-item' + (isReviewEntry ? ' review-item' : '');
       item.dataset.inboxId = id;
-      item.dataset.state = entryState;
+      item.dataset.state = entryStatus;
+      item.dataset.entryType = isReviewEntry ? 'review' : 'inbox';
       if (lineIndex != null) item.dataset.lineIndex = lineIndex;
 
+      var actionsHtml = '';
+      if (isReviewEntry) {
+        actionsHtml =
+          '<button class="inbox-btn' + (entryStatus === 'accepted' ? ' active' : '') + ' review-accept">Behalten</button>' +
+          '<button class="inbox-btn' + (entryStatus === 'discarded' ? ' active' : '') + ' review-discard">Verwerfen</button>' +
+          '<button class="inbox-btn' + (entryStatus === 'snoozed' ? ' active' : '') + ' review-snooze">Sp\u00e4ter</button>';
+      } else {
+        var eState = entryStatus || state[id] || 'new';
+        actionsHtml =
+          '<button class="inbox-btn' + (eState === 'seen' ? ' active' : '') + '">gesehen</button>' +
+          '<button class="inbox-btn' + (eState === 'later' ? ' active' : '') + '">sp\u00e4ter</button>' +
+          '<button class="inbox-btn' + (eState === 'done' ? ' active' : '') + '">erledigt</button>';
+      }
+
       item.innerHTML = '' +
-        '<div class="inbox-dot ' + dotClass + '"></div>' +
+        '<div class="inbox-dot ' + dotClass + (isReviewEntry ? ' review-dot' : '') + '"></div>' +
         '<div class="inbox-content">' +
-          '<div class="inbox-title">' + esc(title) + '</div>' +
+          '<div class="inbox-title">' + (isReviewEntry ? '<span class="review-tag">R</span> ' : '') + esc(title) + '</div>' +
           '<div class="inbox-meta">' +
             (source ? '<span>' + esc(source) + '</span>' : '') +
             (time ? '<span>' + esc(time) + '</span>' : '') +
+            (isReviewEntry ? '<span class="review-status-tag">' + entryStatus + '</span>' : '') +
           '</div>' +
         '</div>' +
-        '<div class="inbox-actions">' +
-          '<button class="inbox-btn' + (entryState === 'seen' ? ' active' : '') + '">gesehen</button>' +
-          '<button class="inbox-btn' + (entryState === 'later' ? ' active' : '') + '">sp\u00e4ter</button>' +
-          '<button class="inbox-btn' + (entryState === 'done' ? ' active' : '') + '">erledigt</button>' +
-        '</div>';
+        '<div class="inbox-actions">' + actionsHtml + '</div>';
 
-      // Click on content area → spotlight
-      item.querySelector('.inbox-content').addEventListener('click', function() {
-        showInSpotlight('inbox', e);
-      });
-      item.querySelector('.inbox-content').style.cursor = 'pointer';
+      if (!isReviewEntry) {
+        item.querySelector('.inbox-content').addEventListener('click', function() {
+          showInSpotlight('inbox', e);
+        });
+        item.querySelector('.inbox-content').style.cursor = 'pointer';
+      }
 
-      // Status buttons
       var buttons = item.querySelectorAll('.inbox-btn');
-      buttons[0].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'seen'); });
-      buttons[1].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'later'); });
-      buttons[2].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'done'); });
+      if (!isReviewEntry) {
+        buttons[0].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'seen'); });
+        buttons[1].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'later'); });
+        buttons[2].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'done'); });
+      } else {
+        buttons[0].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'accept', e); });
+        buttons[1].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'discard', e); });
+        buttons[2].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'snooze', e); });
+      }
 
       container.appendChild(item);
     });
+
+    // ── Undo button at bottom of review section ──
+    if (isReview && window._reviewUndoStack.length > 0) {
+      var undoRow = document.createElement('div');
+      undoRow.style.cssText = 'text-align:center;margin-top:10px';
+      undoRow.innerHTML = '<button class="inbox-btn review-undo-btn" onclick="undoReviewAction()">R\u00fcckg\u00e4ngig (' + window._reviewUndoStack.length + ')</button>';
+      container.appendChild(undoRow);
+    }
   }
 
   function updateInboxItem(id, newState) {
-    // Persist via backend using title match
-    const item = document.querySelector(`.inbox-item[data-inbox-id="${id}"]`);
-    const titleEl = item ? item.querySelector('.inbox-title') : null;
-    const title = titleEl ? titleEl.textContent.trim() : id;
+    var item = document.querySelector('.inbox-item[data-inbox-id="' + id + '"][data-entry-type="inbox"],.inbox-item[data-inbox-id="' + id + '"]:not([data-entry-type="review"])');
+    var titleEl = item ? item.querySelector('.inbox-title') : null;
+    var title = titleEl ? titleEl.textContent.trim() : id;
     if (!title) return;
 
     fetch(API_BASE + '/api/actions/inbox', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: newState, title: title })
-    }).then(r => r.json()).then(res => {
+    }).then(function(r) { return r.json(); }).then(function(res) {
       if (res.status === 'ok') {
         fetchInbox();
         showInSpotlight('action', res);
       }
-    }).catch(err => {
+    }).catch(function(err) {
       console.warn('Inbox update failed:', err);
+    });
+  }
+
+  function updateReviewItem(id, action, entryObj) {
+    if (!id) return;
+
+    // Save previous state for undo
+    var prev = {
+      id: id,
+      status: entryObj.status || 'open',
+      snooze_until: entryObj.snooze_until || null,
+      discarded_at: entryObj.discarded_at || null,
+      keep_until: entryObj.keep_until || null
+    };
+    window._reviewUndoStack.push(prev);
+    while (window._reviewUndoStack.length > 5) {
+      window._reviewUndoStack.shift();
+    }
+
+    fetch(API_BASE + '/api/review-inbox/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, action: action })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.ok) {
+        fetchInbox();
+      } else {
+        window._reviewUndoStack.pop();
+      }
+    }).catch(function() {
+      window._reviewUndoStack.pop();
+    });
+  }
+
+  function undoReviewAction() {
+    if (window._reviewUndoStack.length === 0) return;
+    var prev = window._reviewUndoStack.pop();
+    var action;
+    if (prev.status === 'open') action = 'reopen';
+    else if (prev.status === 'accepted') action = 'accept';
+    else if (prev.status === 'discarded') action = 'discard';
+    else if (prev.status === 'snoozed') action = 'snooze';
+    else action = 'reopen';
+    fetch(API_BASE + '/api/review-inbox/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: prev.id, action: action })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.ok) fetchInbox();
+    }).catch(function() {
+      window._reviewUndoStack.push(prev);
     });
   }
 
