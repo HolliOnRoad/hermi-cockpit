@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useWebSocket } from './hooks/useWebSocket'
+import { useDragDropGuard } from './hooks/useDragDropGuard'
 import { TopBar } from './components/TopBar'
 import { Terminal } from './components/Terminal'
 import { Sidebar } from './components/Sidebar'
@@ -14,6 +15,8 @@ import { OutcomeCard } from './components/OutcomeCard'
 function App() {
   const { status, logs, sendTestEvent } = useWebSocket()
   const [view, setView] = useState('overview')
+
+  useDragDropGuard()
 
   return (
     <div className="cockpit-container">
