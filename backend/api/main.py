@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime as dt, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -1776,3 +1776,84 @@ def action_christian():
                 "prompt": prompt}
     finally:
         _action_lock.release()
+
+
+ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"}
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
+VISION_TMP_DIR = Path("/tmp/hermes-vision")
+OLLAMA_API = "http://127.0.0.1:11434/api/generate"
+VISION_MODEL = "qwen2.5vl:7b"
+
+VISION_PROMPT = (
+    "Beschreibe dieses Bild detailliert auf Deutsch. "
+    "Was ist zu sehen? Welche Elemente, Farben, Texte, Personen, Objekte erkennst du? "
+    "Gib eine strukturierte Beschreibung."
+)
+
+
+@app.post("/api/vision/analyze")
+async def vision_analyze(file: UploadFile = File(...)):
+    if not file.content_type:
+        raise HTTPException(400, "Kein Content-Type angegeben")
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(400, f"Nicht unterstützter Bildtyp: {file.content_type}. Erlaubt: {', '.join(sorted(ALLOWED_IMAGE_TYPES))}")
+
+    body = await file.read()
+    if len(body) > MAX_IMAGE_BYTES:
+        raise HTTPException(400, f"Datei zu groß ({len(body)} Bytes). Maximum: {MAX_IMAGE_BYTES // 1024 // 1024} MB")
+
+    VISION_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    safe_name = file.filename or "upload"
+    safe_name = "".join(c for c in safe_name if c.isalnum() or c in "._-")
+    tmp_path = VISION_TMP_DIR / f"{int(time.time())}_{safe_name}"
+
+    try:
+        tmp_path.write_bytes(body)
+    except OSError as e:
+        raise HTTPException(500, f"Konnte temporäre Datei nicht schreiben: {e}")
+
+    try:
+        img_b64 = base64.b64encode(body).decode()
+    except Exception as e:
+        tmp_path.unlink(missing_ok=True)
+        raise HTTPException(500, f"Base64-Kodierung fehlgeschlagen: {e}")
+
+    payload = json.dumps({
+        "model": VISION_MODEL,
+        "prompt": VISION_PROMPT,
+        "images": [img_b64],
+        "stream": False,
+        "options": {"num_predict": 4096}
+    }).encode()
+
+    try:
+        req = urllib.request.Request(OLLAMA_API, data=payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            ollama = json.loads(resp.read())
+    except urllib.error.URLError as e:
+        tmp_path.unlink(missing_ok=True)
+        raise HTTPException(503, f"Lokale Bildanalyse nicht erreichbar. Prüfe Ollama/{VISION_MODEL}. ({e})")
+    except Exception as e:
+        tmp_path.unlink(missing_ok=True)
+        raise HTTPException(500, f"Fehler bei Ollama-Anfrage: {e}")
+
+    tmp_path.unlink(missing_ok=True)
+
+    response_text = ollama.get("response", "")
+    if not response_text:
+        response_text = "(keine Antwort vom Modell)"
+
+    result = {
+        "status": "ok",
+        "model": VISION_MODEL,
+        "filename": file.filename,
+        "type": file.content_type,
+        "size_bytes": len(body),
+        "response": response_text,
+        "note": (
+            "Lokale Bildanalyse. Für Layout/Kontrast/visuelles Urteil (Klasse 3) "
+            "kann dieser lokale Modus keine verlässliche Beurteilung liefern — "
+            "dafür ist eine Weitergabe an Kai/Christian nötig (anonymisiert, nur nach Freigabe)."
+        ),
+    }
+    return JSONResponse(result)

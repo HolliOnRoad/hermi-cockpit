@@ -1567,6 +1567,87 @@
     border-color: rgba(224,85,85,0.3);
     color: var(--danger);
   }
+
+  /* ===== Vision Drop Card ===== */
+  .vision-card {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 10000;
+    width: 340px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+    padding: 20px;
+    animation: visionSlideIn 0.25s ease-out;
+    font-family: var(--font);
+  }
+  @keyframes visionSlideIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .vision-card-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+  }
+  .vision-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .vision-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 16px;
+    font-size: 11px;
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+  }
+  .vision-card-meta span {
+    display: flex;
+    justify-content: space-between;
+  }
+  .vision-card-meta .vm-label { color: var(--text-ghost); }
+  .vision-card-meta .vm-value { color: var(--text-dim); font-weight: 600; }
+  .vision-card-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .vision-card-actions button {
+    flex: 1;
+    padding: 8px 0;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    color: var(--text-dim);
+    transition: all 0.15s;
+  }
+  .vision-card-actions button:hover {
+    color: var(--text);
+    border-color: rgba(255,255,255,0.18);
+  }
+  .vision-card-actions .vc-analyze {
+    background: rgba(59,130,246,0.18);
+    border-color: rgba(59,130,246,0.35);
+    color: #93c5fd;
+  }
+  .vision-card-actions .vc-analyze:hover {
+    background: rgba(59,130,246,0.28);
+    color: #bfdbfe;
+  }
+  .vision-card-actions .vc-analyze:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
@@ -2392,7 +2473,11 @@
   });
 
   // ===== Global Drag & Drop Guard v3: Capture-phase, window+document =====
-  // Only blocks OS file drags — internal widget drag-and-drop passes through.
+  // Blocks OS file drags. Image drops show a confirmation card. Internal widget DnD passes through.
+
+  var VISION_ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'];
+  window._pendingVisionFile = null;
+
   function isFileDrag(e) {
     var dt = e.dataTransfer;
     if (!dt || !dt.types) return false;
@@ -2408,20 +2493,23 @@
     e.stopImmediatePropagation();
     var files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
-    var dropped = [];
-    for (var i = 0; i < files.length; i++) {
-      dropped.push({ name: files[i].name, type: files[i].type || 'unknown', size: files[i].size });
-    }
+    var file = files[0];
+
     function fmtSize(b) {
       if (b < 1024) return b + ' B';
       if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
       return (b / (1024 * 1024)).toFixed(1) + ' MB';
     }
-    console.info('%c[DnD Guard v3] %c' + dropped.length + ' file(s) dropped — not uploaded',
+
+    if (VISION_ALLOWED.indexOf(file.type) >= 0) {
+      window._pendingVisionFile = file;
+      showVisionDropCard(file);
+      return;
+    }
+
+    console.info('%c[DnD Guard] %c1 file dropped — type not supported for analysis',
       'color: #93c5fd; font-weight: bold', 'color: #9ca3af');
-    console.table(dropped.map(function(f) {
-      return { Name: f.name, Type: f.type, Size: fmtSize(f.size) };
-    }));
+    console.log({ name: file.name, type: file.type || 'unknown', size: fmtSize(file.size) });
   }
 
   var targets = [window, document];
@@ -2433,6 +2521,109 @@
 
   console.info('%c[DnD Guard v3] %cactive (capture-phase, window+document)',
     'color: #93c5fd; font-weight: bold', 'color: #9ca3af');
+
+
+  // ===== Vision Drop Card =====
+  function showVisionDropCard(file) {
+    dismissVisionCard();
+
+    function fmtSize(b) {
+      if (b < 1024) return b + ' B';
+      if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+      return (b / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    var card = document.createElement('div');
+    card.id = 'visionDropCard';
+    card.className = 'vision-card';
+    card.innerHTML =
+      '<div class="vision-card-icon">&#128247;</div>' +
+      '<div class="vision-card-title">Bild erkannt</div>' +
+      '<div class="vision-card-meta">' +
+        '<span><span class="vm-label">Name</span><span class="vm-value">' + esc(file.name) + '</span></span>' +
+        '<span><span class="vm-label">Typ</span><span class="vm-value">' + esc(file.type || 'unknown') + '</span></span>' +
+        '<span><span class="vm-label">Gr&ouml;sse</span><span class="vm-value">' + fmtSize(file.size) + '</span></span>' +
+      '</div>' +
+      '<div class="vision-card-actions">' +
+        '<button class="vc-analyze" onclick="submitVisionAnalyze()">Lokal analysieren</button>' +
+        '<button onclick="dismissVisionCard()">Verwerfen</button>' +
+      '</div>';
+    document.body.appendChild(card);
+  }
+
+  function dismissVisionCard() {
+    var card = document.getElementById('visionDropCard');
+    if (card) card.remove();
+    window._pendingVisionFile = null;
+  }
+
+  function submitVisionAnalyze() {
+    var file = window._pendingVisionFile;
+    if (!file) return;
+
+    var btn = document.querySelector('.vc-analyze');
+    if (btn) { btn.disabled = true; btn.textContent = 'Analysiere...'; }
+
+    var form = new FormData();
+    form.append('file', file, file.name);
+
+    fetch(API_BASE + '/api/vision/analyze', { method: 'POST', body: form })
+      .then(function(r) {
+        if (!r.ok) {
+          return r.json().then(function(err) { throw new Error(err.detail || 'Server-Fehler ' + r.status); });
+        }
+        return r.json();
+      })
+      .then(function(data) {
+        dismissVisionCard();
+        showInSpotlight('vision', data);
+      })
+      .catch(function(err) {
+        showInSpotlight('vision', {
+          status: 'error',
+          filename: file.name,
+          type: file.type,
+          error: err.message || 'Unbekannter Fehler'
+        });
+        dismissVisionCard();
+      });
+  }
+
+  function _renderVisionSpotlight(data) {
+    if (!data) return '<div class="arp-idle">Keine Analyse-Daten</div>';
+
+    if (data.status === 'error') {
+      return '<div class="spot-section">' +
+        '<div class="spot-section-title" style="color:#f97316">Analyse fehlgeschlagen</div>' +
+        '<div style="padding:12px;font-size:12px;color:var(--text-dim)">' +
+        '<p><strong>Datei:</strong> ' + esc(data.filename || '?') + '</p>' +
+        '<p style="color:#fca5a5;margin-top:6px">' + esc(data.error || 'Unbekannter Fehler') + '</p>' +
+        '</div></div>';
+    }
+
+    var html = '<div class="spot-section">' +
+      '<div class="spot-section-title">Lokale Bildanalyse</div>';
+
+    html += '<div style="padding:4px 0 12px;font-size:11px;font-family:monospace;color:var(--text-ghost);display:flex;gap:16px;flex-wrap:wrap">' +
+      '<span>' + esc(data.filename || '') + '</span>' +
+      '<span>' + esc(data.type || '') + '</span>' +
+      '<span>' + (data.size_bytes ? (data.size_bytes < 1024 * 1024 ? (data.size_bytes / 1024).toFixed(1) + ' KB' : (data.size_bytes / 1024 / 1024).toFixed(1) + ' MB') : '') + '</span>' +
+      '<span>Modell: ' + esc(data.model || '?') + '</span>' +
+      '</div>';
+
+    html += '<div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:10px;padding:16px;font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap">' +
+      esc(data.response || '(keine Antwort)') + '</div>';
+
+    html += '</div>';
+
+    if (data.note) {
+      html += '<div style="margin-top:12px;padding:10px 14px;background:rgba(250,204,21,0.06);border:1px solid rgba(250,204,21,0.2);border-radius:8px;font-size:11px;color:#fde047;line-height:1.5">' +
+        esc(data.note) + '</div>';
+    }
+
+    return html;
+  }
+
 
 
   // ========== v8.1: CHAT HELPERS ==========
@@ -4147,6 +4338,10 @@
       case 'action':
         html = _renderActionSpotlight(data);
         if (breadcrumb) breadcrumb.textContent = 'Aktion: ' + (data.action || '');
+        break;
+      case 'vision':
+        html = _renderVisionSpotlight(data);
+        if (breadcrumb) breadcrumb.textContent = 'Bildanalyse: ' + (data.filename || '');
         break;
       default:
         html = '<div class="arp-idle">Keine Daten verf\u00fcgbar</div>';
