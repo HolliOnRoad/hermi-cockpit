@@ -2578,12 +2578,15 @@
         '<button onclick="dismissVisionCard()">Verwerfen</button>' +
       '</div>';
     document.body.appendChild(card);
+    window._pendingVisionFile = file;
+    console.info('[Vision] pending file stored:', file.name, file._normalizedType, file.size);
   }
 
   function dismissVisionCard() {
     var card = document.getElementById('visionDropCard');
     if (card) card.remove();
     window._pendingVisionFile = null;
+    console.info('[Vision] pending file cleared');
   }
 
   function submitVisionAnalyze() {
