@@ -1152,7 +1152,7 @@ def dashboard_news():
                     "date": n.get("date", ""),
                     "summary": (n.get("summary", "") + " | " + n.get("hermes_relevance", "")).strip(" |"),
                     "relevance": n.get("relevance", 50),
-                    "category": "news",
+                    "category": n.get("category", "news"),
                 })
         except (json.JSONDecodeError, OSError):
             pass
@@ -1194,6 +1194,34 @@ def dashboard_news():
     if not unique:
         return {"connected": False, "message": "Keine Einträge", "news": []}
     return {"connected": True, "news": unique[:MAX_ITEMS]}
+
+
+@app.get("/api/dashboard/briefing/latest")
+def dashboard_briefing_latest():
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    archive_path = Path.home() / ".hermes" / "news" / "archive" / f"briefing-{today}.html"
+    fallback_path = Path.home() / "Desktop" / "hermes-output" / "briefing.html"
+
+    briefing_path = None
+    if archive_path.exists():
+        briefing_path = archive_path
+    elif fallback_path.exists():
+        briefing_path = fallback_path
+
+    if briefing_path:
+        return {
+            "path": str(briefing_path),
+            "file_url": f"file://{briefing_path}",
+            "date": today,
+            "exists": True,
+        }
+
+    return {
+        "path": None,
+        "file_url": None,
+        "date": today,
+        "exists": False,
+    }
 
 
 # ── Einzel-Action-Endpunkte ────────────────────────────────────────

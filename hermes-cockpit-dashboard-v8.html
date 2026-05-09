@@ -673,7 +673,42 @@
   .news-item:hover { background: rgba(255,255,255,0.03); }
   .news-item .n-title { font-weight: 600; }
   .news-item .n-source { font-size: 0.8em; color: var(--text-dim); margin-top: 1px; }
+  .news-item .n-summary { font-size: 0.82em; color: var(--text-dim); margin-top: 2px; opacity: 0.75; line-height: 1.35; }
+  .news-item .n-relevance { font-size: 0.75em; color: var(--accent-blue); margin-top: 1px; }
   .news-more { font-size: 0.9em; color: var(--text-dim); margin-top: 4px; text-align: center; cursor: pointer; }
+
+  /* ── News Category Borders ── */
+  .news-item.news-youtube  { border-left: 2px solid rgba(224, 85, 85, 0.55); padding-left: 6px; }
+  .news-item.news-warning  { border-left: 2px solid rgba(240, 160, 32, 0.55); padding-left: 6px; }
+  .news-item.news-fazit    { border-left: 2px solid rgba(224, 196, 76, 0.5); padding-left: 6px; }
+  .news-item.news-spotlight{ border-left: 2px solid rgba(155, 108, 240, 0.5); padding-left: 6px; }
+  .news-item.news-briefing { border-left: 2px solid rgba(91, 156, 245, 0.5); padding-left: 6px; }
+  .news-item.news-ki       { border-left: 2px solid rgba(255,255,255,0.08); padding-left: 6px; }
+
+  .news-cat-icon { font-size: 0.9em; margin-right: 3px; }
+
+  /* ── Briefing Button ── */
+  .news-briefing-btn-wrap {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px; margin-bottom: 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-glass);
+    background: rgba(91,156,245,0.04);
+    cursor: pointer; transition: var(--transition);
+    font-size: 0.9em; color: var(--text-secondary);
+    font-family: var(--font-ui);
+  }
+  .news-briefing-btn-wrap:hover:not(.news-briefing-disabled) {
+    background: rgba(91,156,245,0.1);
+    border-color: rgba(91,156,245,0.25);
+    color: var(--accent-blue);
+  }
+  .news-briefing-btn-wrap.news-briefing-disabled {
+    opacity: 0.45; cursor: default; color: var(--text-dim);
+  }
+  .news-briefing-btn-icon { font-size: 1.1em; }
+  .news-briefing-btn-label { flex: 1; }
+  .news-briefing-btn-status { font-size: 0.75em; color: var(--text-dim); font-style: italic; }
 
   .job-row {
     display: flex; align-items: center; justify-content: space-between;
@@ -1420,6 +1455,42 @@
   .spot-news-link {
     display: inline-block; margin-top: 8px;
     font-size: 10px; color: var(--accent-blue);
+  }
+
+  /* Spotlight — YouTube Detail */
+  .spot-news-yt-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 600; padding: 5px 12px;
+    background: rgba(224,85,85,0.1); border: 1px solid rgba(224,85,85,0.2);
+    border-radius: var(--radius-sm); color: #f06050;
+    cursor: pointer; font-family: var(--font-ui); transition: var(--transition);
+    text-decoration: none; margin-top: 8px;
+  }
+  .spot-news-yt-btn:hover:not(:disabled) { background: rgba(224,85,85,0.18); border-color: rgba(224,85,85,0.35); }
+  .spot-news-yt-btn:disabled { opacity: 0.4; cursor: not-allowed; color: var(--text-dim); background: rgba(255,255,255,0.02); border-color: var(--border-glass); }
+
+  .spot-news-yt-fallback {
+    font-size: 10px; color: var(--text-dim); font-style: italic;
+    margin-top: 6px; opacity: 0.6;
+  }
+
+  /* Spotlight — Warning Badge */
+  .spot-news-warning-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; margin: 8px 0;
+    border-radius: var(--radius-sm);
+    background: rgba(240,160,32,0.08); color: var(--severity-amber);
+    border-left: 3px solid var(--severity-amber);
+    font-size: 11px; font-weight: 600;
+  }
+
+  /* Spotlight — Briefing Fallback */
+  .spot-news-briefing-path {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-dim); background: rgba(255,255,255,0.03);
+    padding: 6px 10px; border-radius: var(--radius-sm);
+    margin-top: 6px; word-break: break-all; user-select: all;
+    cursor: text; border: 1px solid var(--border-glass);
   }
 
   /* Spotlight — Inbox Detail */
@@ -4490,6 +4561,69 @@
   }
 
   // ── News ──
+  const NEWS_CATEGORY_MAP = {
+    'YouTube':   { icon: '\uD83D\uDCFA', cls: 'news-youtube' },
+    'System':    { icon: '\uD83D\uDFE0', cls: 'news-warning' },
+    'Fazit':     { icon: '\uD83D\uDCA1', cls: 'news-fazit' },
+    'Spotlight': { icon: '\uD83D\uDD0D', cls: 'news-spotlight' },
+    'Briefing':  { icon: '\uD83D\uDCC4', cls: 'news-briefing' },
+  };
+  const NEWS_CATEGORY_DEFAULT = { icon: '\uD83D\uDCF0', cls: 'news-ki' };
+
+  var _hasSystemNews = false;
+  var _briefingStatus = null; // { exists, file_url, path, date }
+
+  async function fetchBriefingLatest() {
+    try {
+      var resp = await fetch(API_BASE + '/api/dashboard/briefing/latest');
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      _briefingStatus = await resp.json();
+      updateBriefingButton();
+    } catch (err) {
+      _briefingStatus = { exists: false, path: null, file_url: null, date: '' };
+      updateBriefingButton();
+    }
+  }
+
+  function updateBriefingButton() {
+    var btnWrap = document.getElementById('newsBriefingBtn');
+    if (!btnWrap) return;
+    var statusEl = btnWrap.querySelector('.news-briefing-btn-status');
+    if (!_briefingStatus || !_briefingStatus.exists) {
+      btnWrap.classList.add('news-briefing-disabled');
+      btnWrap.onclick = function() {
+        showInSpotlight('news', { title: 'Heutiges Briefing', summary: 'Heute noch nicht verf\u00fcgbar. Das Briefing wird von Hermes t\u00e4glich erstellt.', category: 'Briefing', briefingStatus: _briefingStatus });
+      };
+      if (statusEl) statusEl.textContent = 'Heute noch nicht verf\u00fcgbar';
+    } else {
+      btnWrap.classList.remove('news-briefing-disabled');
+      btnWrap.onclick = openBriefing;
+      if (statusEl) statusEl.textContent = '';
+    }
+  }
+
+  function openBriefing() {
+    if (!_briefingStatus || !_briefingStatus.exists || !_briefingStatus.file_url) return;
+    try {
+      var w = window.open(_briefingStatus.file_url, '_blank');
+      if (!w || w.closed || typeof w.closed == 'undefined') {
+        showInSpotlight('news', {
+          title: 'Briefing konnte nicht automatisch ge\u00f6ffnet werden.',
+          summary: _briefingStatus.path || 'Kein Pfad verf\u00fcgbar',
+          category: 'Briefing',
+          briefingPath: _briefingStatus.path,
+        });
+      }
+    } catch (e) {
+      showInSpotlight('news', {
+        title: 'Briefing konnte nicht automatisch ge\u00f6ffnet werden.',
+        summary: _briefingStatus.path || 'Kein Pfad verf\u00fcgbar',
+        category: 'Briefing',
+        briefingPath: _briefingStatus.path,
+      });
+    }
+  }
+
   async function fetchNews() {
     try {
       const resp = await fetch(API_BASE + '/api/dashboard/news');
@@ -4497,6 +4631,18 @@
       const data = await resp.json();
       const container = document.getElementById('newsContainer');
       if (!container) return;
+
+      // Ensure briefing button exists
+      var briefingBtn = document.getElementById('newsBriefingBtn');
+      if (!briefingBtn) {
+        briefingBtn = document.createElement('div');
+        briefingBtn.id = 'newsBriefingBtn';
+        briefingBtn.className = 'news-briefing-btn-wrap';
+        briefingBtn.innerHTML = '<span class="news-briefing-btn-icon">\uD83D\uDCC4</span><span class="news-briefing-btn-label">Heutiges Briefing \u00f6ffnen</span><span class="news-briefing-btn-status"></span>';
+        container.parentNode.insertBefore(briefingBtn, container);
+      }
+      updateBriefingButton();
+
       if (!data.connected) {
         container.innerHTML = '<span class="term-dim">Nicht verbunden</span><br><span style="font-size:0.8em;opacity:0.5;">' + (data.message || 'Backend-Hook fehlt') + '</span>';
         return;
@@ -4506,24 +4652,61 @@
         return;
       }
       container.innerHTML = '';
+
+      // Track System items for attention strip
+      _hasSystemNews = false;
+
       data.news.forEach(function(n) {
+        var cat = n.category || '';
+        var catInfo = NEWS_CATEGORY_MAP[cat] || NEWS_CATEGORY_DEFAULT;
+        var catIcon = catInfo.icon;
+        var catCls = catInfo.cls;
+
+        if (cat === 'System') _hasSystemNews = true;
+
         var item = document.createElement('div');
-        item.className = 'news-item';
+        item.className = 'news-item ' + catCls;
         item.style.cursor = 'pointer';
-        item.innerHTML = '<div class="n-title">' + (n.title || '') + '</div><div class="n-source">' + (n.source || '') + (n.time ? ' \u00b7 ' + n.time : '') + '</div>';
-        item.addEventListener('click', function() { console.log('NEWS CLICK', n.title); showInSpotlight('news', n); });
+
+        var html = '<div class="n-title">' + catIcon + ' ' + esc(n.title || '') + '</div>';
+        html += '<div class="n-source">' + esc(n.source || '');
+        if (n.date) html += ' \u00b7 ' + esc(n.date);
+        if (cat && cat !== 'news') html += ' \u00b7 <span style="color:var(--accent-blue);font-weight:500;">' + esc(cat) + '</span>';
+        html += '</div>';
+        if (n.summary) html += '<div class="n-summary">' + esc(n.summary) + '</div>';
+        if (n.relevance) html += '<div class="n-relevance">Relevanz: ' + esc(String(n.relevance)) + '</div>';
+
+        item.innerHTML = html;
+        item.addEventListener('click', function() { showInSpotlight('news', n); });
         container.appendChild(item);
       });
+
       var more = document.createElement('div');
       more.className = 'news-more';
       more.textContent = 'Mehr News laden \u2192';
       container.appendChild(more);
+
+      // Update attention strip
+      updateAttentionForNews();
     } catch (err) {
       const container = document.getElementById('newsContainer');
       if (container) {
         container.innerHTML = '<span class="term-dim">Nicht verbunden</span><br><span style="font-size:0.8em;opacity:0.5;">Backend nicht erreichbar</span>';
       }
       console.warn('News fetch failed:', err);
+    }
+  }
+
+  function updateAttentionForNews() {
+    var strip = document.getElementById('attentionStrip');
+    if (!strip) return;
+    if (_hasSystemNews) {
+      strip.classList.remove('stable');
+      strip.classList.add('warning');
+      var label = strip.querySelector('.attention-label');
+      var badge = strip.querySelector('.attention-badge');
+      if (label) label.textContent = 'Systemhinweise vorhanden';
+      if (badge) badge.textContent = '\u26A0';
     }
   }
 
@@ -5062,23 +5245,58 @@
     }
     var title = d.title || '';
     var source = d.source || '';
-    var date = d.time || d.date || '';
+    var date = d.date || d.time || '';
     var category = d.category || '';
     var relevance = d.relevance || '';
     var summary = d.summary || d.body || d.content || d.output || 'Keine Zusammenfassung';
-    var link = d.link || d.url || '';
+    var link = d.link || d.url || d.ref || '';
 
-    var html = '<div class="spot-news-title">' + esc(title) + '</div>';
+    // ── Briefing fallback display ──
+    if (d.briefingStatus || d.briefingPath) {
+      var bs = d.briefingStatus || {};
+      var bp = d.briefingPath || (bs.path) || '';
+      var html = '<div class="spot-news-title">\uD83D\uDCC4 ' + esc(title) + '</div>';
+      html += '<div class="spot-news-summary">' + esc(summary) + '</div>';
+      if (bp) {
+        html += '<div class="spot-news-briefing-path">' + esc(bp) + '</div>';
+      }
+      return html;
+    }
+
+    // ── Category icon for header ──
+    var catInfo = NEWS_CATEGORY_MAP[category] || NEWS_CATEGORY_DEFAULT;
+    var catIcon = catInfo.icon;
+
+    var html = '<div class="spot-news-title">' + catIcon + ' ' + esc(title) + '</div>';
     html += '<div class="spot-news-meta">';
     if (source) html += '<span>' + esc(source) + '</span>';
     if (date) html += '<span>' + esc(date) + '</span>';
-    if (category) html += '<span>' + esc(category) + '</span>';
-    if (relevance) html += '<span style="color:var(--accent-blue);">' + esc(relevance) + '</span>';
+    if (category && category !== 'news') html += '<span>' + esc(category) + '</span>';
+    if (relevance) html += '<span style="color:var(--accent-blue);">Relevanz: ' + esc(String(relevance)) + '</span>';
     html += '</div>';
+
+    // ── System/Warning badge ──
+    if (category === 'System') {
+      html += '<div class="spot-news-warning-bar">\u26A0\uFE0F Systemhinweis</div>';
+    }
+
     html += '<div class="spot-news-summary">' + esc(summary) + '</div>';
-    if (link) {
+
+    // ── YouTube: button logic ──
+    if (category === 'YouTube') {
+      if (link) {
+        html += '<button class="spot-news-yt-btn" onclick="window.open(\'' + esc(link).replace(/'/g, "\\'") + '\',\'_blank\')">\uD83D\uDD17 Auf YouTube \u00f6ffnen</button>';
+      } else {
+        html += '<button class="spot-news-yt-btn" disabled>\uD83D\uDD17 YouTube-Link noch nicht verf\u00fcgbar</button>';
+        html += '<div class="spot-news-yt-fallback">Der Link wird in einer sp\u00e4teren Datenpipeline-Erweiterung erg\u00e4nzt.</div>';
+      }
+    }
+
+    // ── Generic link for non-YouTube ──
+    if (link && category !== 'YouTube') {
       html += '<a class="spot-news-link" href="' + esc(link) + '" target="_blank" rel="noopener">Link \u2197</a>';
     }
+
     return html;
   }
 
@@ -5312,6 +5530,9 @@
 
     fetchNews();
     setInterval(fetchNews, 120000);
+
+    fetchBriefingLatest();
+    setInterval(fetchBriefingLatest, 120000);
 
     fetchAgents();
     setInterval(fetchAgents, 120000);
