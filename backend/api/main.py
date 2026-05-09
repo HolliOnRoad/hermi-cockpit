@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
 import datetime
+import io
 import json
 import os
 import subprocess
@@ -19,6 +20,8 @@ import time
 import urllib.request
 import urllib.error
 import uuid
+from PIL import Image
+from PIL.ExifTags import TAGS as EXIF_TAGS
 
 from services.hermes_log_stream import get_log_stream
 from services.hermes_api_bridge import run_query as hermes_run_query
@@ -1904,8 +1907,14 @@ VISION_PROMPTS = {
 }
 
 
+VISION_MAX_LONG_EDGE = 2048
+VISION_JPEG_QUALITY = 85
+
+
 @app.post("/api/vision/analyze")
 async def vision_analyze(file: UploadFile = File(...), mode: Optional[str] = Form(None)):
+    t_start = time.time()
+
     if not file.content_type:
         raise HTTPException(400, "Kein Content-Type angegeben")
     if file.content_type not in ALLOWED_IMAGE_TYPES:
@@ -1918,20 +1927,73 @@ async def vision_analyze(file: UploadFile = File(...), mode: Optional[str] = For
     selected_mode = mode if mode in VISION_PROMPTS else VISION_DEFAULT_MODE
     prompt = VISION_PROMPTS[selected_mode]
 
-    VISION_TMP_DIR.mkdir(parents=True, exist_ok=True)
-    safe_name = file.filename or "upload"
-    safe_name = "".join(c for c in safe_name if c.isalnum() or c in "._-")
-    tmp_path = VISION_TMP_DIR / f"{int(time.time())}_{safe_name}"
+    # ── Image Preprocessing ──
+    original_size = len(body)
+    original_dims = None
+    preprocessed_size = original_size
+    preprocessed_dims = None
+    process_body = body
+    process_format = file.content_type.split("/")[-1] if file.content_type else "png"
 
     try:
-        tmp_path.write_bytes(body)
-    except OSError as e:
-        raise HTTPException(500, f"Konnte temporäre Datei nicht schreiben: {e}")
+        img = Image.open(io.BytesIO(body))
+        original_dims = img.size
 
-    try:
-        img_b64 = base64.b64encode(body).decode()
+        # Auto-rotate EXIF orientation
+        try:
+            exif = img._getexif()
+            if exif:
+                orientation = None
+                for tag, value in exif.items():
+                    name = EXIF_TAGS.get(tag, tag)
+                    if name == "Orientation":
+                        orientation = value
+                        break
+                if orientation == 3:
+                    img = img.rotate(180, expand=True)
+                elif orientation == 6:
+                    img = img.rotate(270, expand=True)
+                elif orientation == 8:
+                    img = img.rotate(90, expand=True)
+        except Exception:
+            pass  # EXIF can fail on some formats; ignore
+
+        # Resize if long edge > max
+        w, h = img.size
+        long_edge = max(w, h)
+        if long_edge > VISION_MAX_LONG_EDGE:
+            ratio = VISION_MAX_LONG_EDGE / long_edge
+            new_w, new_h = int(w * ratio), int(h * ratio)
+            img = img.resize((new_w, new_h), Image.LANCZOS)
+            preprocessed_dims = (new_w, new_h)
+
+        # Encode to analysis format
+        buf = io.BytesIO()
+        save_fmt = "JPEG" if process_format.lower() in ("jpg", "jpeg") else process_format.upper()
+        if save_fmt == "PNG":
+            img.save(buf, format="PNG")
+        else:
+            img = img.convert("RGB")  # JPEG needs RGB
+            img.save(buf, format="JPEG", quality=VISION_JPEG_QUALITY)
+        process_body = buf.getvalue()
+        preprocessed_size = len(process_body)
     except Exception as e:
-        tmp_path.unlink(missing_ok=True)
+        print(f"[vision] WARN: Preprocessing fehlgeschlagen — Original wird verwendet: {e}", flush=True)
+        process_body = body
+        preprocessed_size = original_size
+
+    # ── Diagnostic Logging ──
+    print(
+        f"[vision] file={file.filename} mode={selected_mode} model={VISION_MODEL} "
+        f"orig_size={original_size} orig_dims={original_dims} "
+        f"prep_size={preprocessed_size} prep_dims={preprocessed_dims or original_dims}",
+        flush=True,
+    )
+
+    # ── Base64 encode processed image ──
+    try:
+        img_b64 = base64.b64encode(process_body).decode()
+    except Exception as e:
         raise HTTPException(500, f"Base64-Kodierung fehlgeschlagen: {e}")
 
     payload = json.dumps({
@@ -1942,22 +2004,37 @@ async def vision_analyze(file: UploadFile = File(...), mode: Optional[str] = For
         "options": {"num_predict": 4096}
     }).encode()
 
+    # ── Ollama Request ──
+    VISION_TMP_DIR.mkdir(parents=True, exist_ok=True)
+
     try:
         req = urllib.request.Request(OLLAMA_API, data=payload, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=120) as resp:
             ollama = json.loads(resp.read())
     except urllib.error.URLError as e:
-        tmp_path.unlink(missing_ok=True)
-        raise HTTPException(503, f"Lokale Bildanalyse nicht erreichbar. Prüfe Ollama/{VISION_MODEL}. ({e})")
+        elapsed = round(time.time() - t_start, 1)
+        reason = str(e.reason) if hasattr(e, "reason") else str(e)
+        print(f"[vision] ERROR 503 file={file.filename} mode={selected_mode} elapsed={elapsed}s reason={reason}", flush=True)
+        raise HTTPException(
+            503,
+            f"Lokale Bildanalyse fehlgeschlagen: Ollama/{VISION_MODEL} konnte das Bild nicht verarbeiten. "
+            f"Mögliche Ursache: Bildgröße, Timeout oder Modellfehler. "
+            f"Bitte kleineres Bild oder Ausschnitt testen. ({e})"
+        )
     except Exception as e:
-        tmp_path.unlink(missing_ok=True)
-        raise HTTPException(500, f"Fehler bei Ollama-Anfrage: {e}")
+        elapsed = round(time.time() - t_start, 1)
+        print(f"[vision] ERROR 500 file={file.filename} mode={selected_mode} elapsed={elapsed}s error={e}", flush=True)
+        raise HTTPException(
+            500,
+            f"Lokale Bildanalyse fehlgeschlagen: unerwarteter Fehler bei Ollama/{VISION_MODEL}. ({e})"
+        )
 
-    tmp_path.unlink(missing_ok=True)
-
+    elapsed = round(time.time() - t_start, 1)
     response_text = ollama.get("response", "")
     if not response_text:
         response_text = "(keine Antwort vom Modell)"
+
+    print(f"[vision] OK file={file.filename} mode={selected_mode} elapsed={elapsed}s response_len={len(response_text)}", flush=True)
 
     mode_labels = {
         "auto": "Auto / Allgemein scharf",
@@ -1980,7 +2057,7 @@ async def vision_analyze(file: UploadFile = File(...), mode: Optional[str] = For
         "mode_label": mode_label,
         "filename": file.filename,
         "type": file.content_type,
-        "size_bytes": len(body),
+        "size_bytes": original_size,
         "response": response_text,
         "note": (
             "Lokale Bildanalyse. Für Layout/Kontrast/visuelles Urteil (Klasse 3) "
