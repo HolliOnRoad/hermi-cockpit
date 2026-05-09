@@ -1444,6 +1444,38 @@
   .spot-inbox-btn.active { background: rgba(91,156,245,0.1); border-color: rgba(91,156,245,0.2); color: var(--accent-blue); }
   .spot-inbox-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+  /* Spotlight — Review Entry */
+  .spot-review-meta {
+    display: flex; flex-wrap: wrap; gap: 4px 18px;
+    margin: 8px 0 14px; font-size: 11px;
+  }
+  .srm-item {
+    display: flex; gap: 5px; align-items: baseline;
+  }
+  .srm-label { color: var(--text-dim); }
+  .srm-value { color: var(--text-secondary); font-weight: 500; }
+
+  .review-status-open { color: var(--accent-orange); }
+  .review-status-accepted { color: var(--success); }
+  .review-status-discarded { color: var(--danger); }
+  .review-status-snoozed { color: var(--accent-yellow); }
+
+  .spot-review-text {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    font-size: 13px; line-height: 1.65;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    max-height: 420px; overflow-y: auto;
+    margin-bottom: 10px;
+  }
+
+  .spot-review-actions {
+    display: flex; gap: 8px;
+  }
+
   /* Spotlight — Task Detail */
   .spot-task-header {
     margin-bottom: 8px;
@@ -3256,6 +3288,11 @@
           showInSpotlight('inbox', e);
         });
         item.querySelector('.inbox-content').style.cursor = 'pointer';
+      } else {
+        item.querySelector('.inbox-content').addEventListener('click', function() {
+          showInSpotlight('review', e);
+        });
+        item.querySelector('.inbox-content').style.cursor = 'pointer';
       }
 
       var buttons = item.querySelectorAll('.inbox-btn');
@@ -4907,6 +4944,10 @@
         html = _renderInboxSpotlight(data);
         if (breadcrumb) breadcrumb.textContent = 'Inbox';
         break;
+      case 'review':
+        html = _renderReviewSpotlight(data);
+        if (breadcrumb) breadcrumb.textContent = 'Review: ' + (data.title || '');
+        break;
       case 'task':
         html = _renderTaskSpotlight(data);
         if (breadcrumb) breadcrumb.textContent = 'Task: ' + (data.title || '');
@@ -5062,6 +5103,87 @@
     html += '</div>';
 
     return html;
+  }
+
+  function _renderReviewSpotlight(d) {
+    if (!d || !d.title) {
+      return '<div class="arp-idle">Keine Review-Daten verf\u00fcgbar</div>';
+    }
+
+    var title = d.title || '';
+    var source = d.source || '';
+    var sourceType = d.source_type || '';
+    var time = d.created_at || d.time || '';
+    if (time && !d.time) {
+      var dt = new Date(time);
+      if (!isNaN(dt.getTime())) time = _formatTimestamp(time);
+    }
+    var status = d.status || 'open';
+    var text = d.text || '(kein Text)';
+    var tags = d.tags || [];
+    var entryId = d._reviewId || d.id || '';
+
+    var statusLabel = { open: 'Offen', accepted: 'Behalten', discarded: 'Verworfen', snoozed: 'Sp\u00e4ter' }[status] || status;
+
+    var html = '';
+
+    html += '<div class="spot-section-title">Review: ' + esc(title) + '</div>';
+
+    html += '<div class="spot-review-meta">';
+    html += '<span class="srm-item"><span class="srm-label">Quelle</span><span class="srm-value">' + esc(source || '–') + '</span></span>';
+    if (sourceType) html += '<span class="srm-item"><span class="srm-label">Typ</span><span class="srm-value">' + esc(sourceType) + '</span></span>';
+    html += '<span class="srm-item"><span class="srm-label">Status</span><span class="srm-value review-status-' + status + '">' + esc(statusLabel) + '</span></span>';
+    if (time) html += '<span class="srm-item"><span class="srm-label">Zeit</span><span class="srm-value">' + esc(time) + '</span></span>';
+    if (tags.length) html += '<span class="srm-item"><span class="srm-label">Tags</span><span class="srm-value">' + esc(tags.join(', ')) + '</span></span>';
+    html += '</div>';
+
+    html += '<div class="spot-review-text">' + esc(text) + '</div>';
+
+    html += '<div class="spot-review-actions">';
+    html += '<button class="vr-btn vr-btn-copy" onclick="spotReviewCopy(\'' + esc(entryId) + '\')">Kopieren</button>';
+    html += '</div>';
+
+    return html;
+  }
+
+  function spotReviewCopy(id) {
+    var item = document.querySelector('.inbox-item[data-inbox-id="' + id + '"][data-entry-type="review"]');
+    var text = '';
+    if (item) {
+      var excerpt = item.querySelector('.inbox-excerpt');
+      if (excerpt) text = excerpt.textContent;
+    }
+    var fallback = document.querySelector('.spot-review-text');
+    if (!text && fallback) text = fallback.textContent;
+
+    var copyFn = function(t) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(t);
+      }
+      return new Promise(function(resolve, reject) {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select();
+          document.execCommand('copy') ? resolve() : reject(new Error('execCommand'));
+          document.body.removeChild(ta);
+        } catch (ex) { reject(ex); }
+      });
+    };
+
+    copyFn(text).then(function() {
+      var btns = document.querySelectorAll('.spot-review-actions .vr-btn-copy');
+      btns.forEach(function(b) { b.textContent = 'Kopiert'; b.classList.add('copied'); });
+      setTimeout(function() {
+        btns.forEach(function(b) { b.textContent = 'Kopieren'; b.classList.remove('copied'); });
+      }, 1800);
+    }).catch(function() {
+      var btns = document.querySelectorAll('.spot-review-actions .vr-btn-copy');
+      btns.forEach(function(b) { b.textContent = 'Fehler'; });
+      setTimeout(function() {
+        btns.forEach(function(b) { b.textContent = 'Kopieren'; });
+      }, 1800);
+    });
   }
 
   function spotInboxUpdate(id, title, newState) {
