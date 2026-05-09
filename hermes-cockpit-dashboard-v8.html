@@ -3072,6 +3072,17 @@
     if (idx < 0 || idx >= history.length) return;
     var e = history[idx];
     var btn = document.getElementById('vrReviewBtn');
+
+    // Dedupe: prevent submitting the same analysis twice
+    var dedupeKey = 'vision_analysis::' + (e.filename || '') + '::' + (e.response || '').substring(0, 200);
+    if (window._reviewSubmittedKeys[dedupeKey]) {
+      if (btn) { btn.textContent = 'Bereits gespeichert'; btn.disabled = true; btn.classList.add('copied'); }
+      setTimeout(function() {
+        if (btn) { btn.textContent = 'Zur Abarbeitung'; btn.classList.remove('copied'); btn.disabled = false; }
+      }, 2000);
+      return;
+    }
+
     if (btn) { btn.disabled = true; btn.textContent = 'Speichere...'; }
 
     fetch(API_BASE + '/api/review-inbox/add', {
@@ -3087,6 +3098,7 @@
     }).then(function(r) { return r.json(); })
       .then(function(res) {
         if (res.ok) {
+          window._reviewSubmittedKeys[dedupeKey] = true;
           if (btn) { btn.textContent = 'Gespeichert'; btn.classList.add('copied'); }
           setTimeout(function() {
             if (btn) { btn.textContent = 'Zur Abarbeitung'; btn.classList.remove('copied'); btn.disabled = false; }
@@ -3136,6 +3148,9 @@
 
   // ── Undo-Stack (Session-only, max 5) ──
   window._reviewUndoStack = [];
+
+  // ── Dedupe-Set (Session-only, visionToReview guard) ──
+  window._reviewSubmittedKeys = {};
 
   function getInboxState() {
     try { return JSON.parse(localStorage.getItem(INBOX_STORAGE_KEY) || '{}'); }
