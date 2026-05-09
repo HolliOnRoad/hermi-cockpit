@@ -1794,6 +1794,17 @@
     font-style: italic;
   }
 
+  .vr-audit {
+    margin-top: 2px; padding-top: 4px;
+    border-top: 1px solid var(--border-glass);
+    justify-content: flex-start;
+  }
+
+  .vr-audit-text {
+    font-size: 9px; color: var(--text-dim); opacity: 0.5;
+    font-family: var(--font-mono);
+  }
+
   .vr-response {
     background: rgba(255,255,255,0.02);
     border: 1px solid var(--border-glass);
@@ -2900,7 +2911,15 @@
           response: data.response || '(keine Antwort)',
           timestamp: new Date().toISOString(),
           thumbnailUrl: thumbUrl,
-          note: data.note || null
+          note: data.note || null,
+          privacy: data.privacy || 'local_only',
+          provider: data.provider || 'ollama',
+          endpoint: data.endpoint || '127.0.0.1:11434',
+          externalNetwork: data.external_network !== undefined ? data.external_network : false,
+          originalSize: data.original_size || null,
+          originalDims: data.original_dimensions || null,
+          processedDims: data.processed_dimensions || null,
+          processedSize: data.processed_size || null
         };
 
         window._visionAnalysisHistory.push(entry);
@@ -2926,7 +2945,15 @@
           timestamp: new Date().toISOString(),
           thumbnailUrl: null,
           note: null,
-          error: true
+          error: true,
+          privacy: 'local_only',
+          provider: 'ollama',
+          endpoint: '127.0.0.1:11434',
+          externalNetwork: false,
+          originalSize: null,
+          originalDims: null,
+          processedDims: null,
+          processedSize: null
         };
         try { entry.thumbnailUrl = URL.createObjectURL(file); } catch (_) {}
 
@@ -3005,6 +3032,12 @@
     html += '<div class="vr-meta-row"><span class="vr-meta-label">Gr&#246;&#223;e</span><span class="vr-meta-value">' + _formatFileSize(e.sizeBytes || 0) + '</span></div>';
     html += '<div class="vr-meta-row"><span class="vr-meta-label">Modell</span><span class="vr-meta-value">' + esc(e.model || '?') + '</span></div>';
     html += '<div class="vr-meta-row"><span class="vr-timestamp">Analysiert am ' + _formatTimestamp(e.timestamp) + '</span></div>';
+    html += '<div class="vr-meta-row vr-audit"><span class="vr-audit-text">Audit: ' +
+      esc(e.privacy || 'local_only') + ' · ' +
+      esc(e.provider || 'ollama') + ' · ' +
+      esc(e.endpoint || '127.0.0.1:11434') + ' · ' +
+      'external_network=' + (e.externalNetwork !== undefined ? e.externalNetwork : false) +
+    '</span></div>';
     html += '</div>';
     html += '</div>';
 

@@ -2064,6 +2064,15 @@ async def vision_analyze(file: UploadFile = File(...), mode: Optional[str] = For
             "kann dieser lokale Modus keine verlässliche Beurteilung liefern — "
             "dafür ist eine Weitergabe an Kai/Christian nötig (anonymisiert, nur nach Freigabe)."
         ),
+        # Audit metadata — local_only / no cloud fallback
+        "privacy": "local_only",
+        "provider": "ollama",
+        "endpoint": "127.0.0.1:11434",
+        "external_network": False,
+        "original_size": original_size,
+        "original_dimensions": list(original_dims) if original_dims else None,
+        "processed_dimensions": list(preprocessed_dims) if preprocessed_dims else None,
+        "processed_size": preprocessed_size,
     }
     return JSONResponse(result)
 
