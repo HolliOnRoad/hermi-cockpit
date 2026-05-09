@@ -1719,6 +1719,32 @@
     cursor: not-allowed;
   }
 
+  .vision-card-mode {
+    margin-bottom: 12px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+
+  .vision-card-mode .vm-label {
+    color: var(--text-dim); opacity: 0.6; font-size: 10px;
+  }
+
+  .vm-select {
+    width: 100%;
+    padding: 6px 10px;
+    border-radius: 7px;
+    font-size: 11px; font-family: var(--font-ui);
+    background: var(--bg-glass); color: var(--text-primary);
+    border: 1px solid var(--border-glass);
+    cursor: pointer; outline: none;
+    transition: all 0.15s;
+  }
+
+  .vm-select:hover { border-color: rgba(255,255,255,0.18); }
+  .vm-select:focus { border-color: var(--accent-orange); box-shadow: 0 0 0 1px rgba(240,160,80,0.15); }
+
   /* ===== Vision Result UX v1 ===== */
   .vr-section { margin-bottom: 14px; }
 
@@ -2696,6 +2722,7 @@
 
   var VISION_ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'];
   window._pendingVisionFile = null;
+  window._pendingVisionMode = 'auto';
 
   // ===== Vision Analysis History (Phase 1: session-only) =====
   if (!window._visionAnalysisHistory) window._visionAnalysisHistory = [];
@@ -2796,12 +2823,25 @@
         '<span><span class="vm-label">Typ</span><span class="vm-value">' + esc(file._normalizedType || file.type || 'unknown') + '</span></span>' +
         '<span><span class="vm-label">Gr&ouml;sse</span><span class="vm-value">' + fmtSize(file.size) + '</span></span>' +
       '</div>' +
+      '<div class="vision-card-mode">' +
+        '<span class="vm-label">Modus</span>' +
+        '<select class="vm-select" onchange="window._pendingVisionMode=this.value">' +
+          '<option value="auto" selected>Auto / Allgemein scharf</option>' +
+          '<option value="article">Artikel / Text</option>' +
+          '<option value="ui">UI-Test / Cockpit</option>' +
+          '<option value="document">Dokument / OCR</option>' +
+          '<option value="photo">Foto / Objekte</option>' +
+          '<option value="nature">Natur / Tier / Pflanze</option>' +
+          '<option value="error">Fehler / Code / Terminal</option>' +
+        '</select>' +
+      '</div>' +
       '<div class="vision-card-actions">' +
         '<button class="vc-analyze" onclick="console.info(\'[Vision] button clicked via onclick\');window.submitVisionAnalyze()">Lokal analysieren</button>' +
         '<button onclick="dismissVisionCard()">Verwerfen</button>' +
       '</div>';
     document.body.appendChild(card);
     window._pendingVisionFile = file;
+    window._pendingVisionMode = 'auto';
     console.info('[Vision] pending file stored:', file.name, file._normalizedType, file.size);
   }
 
@@ -2828,8 +2868,11 @@
     var btn = document.querySelector('.vc-analyze');
     if (btn) { btn.disabled = true; btn.textContent = 'Analysiere...'; }
 
+    var selectedMode = window._pendingVisionMode || 'auto';
+
     var form = new FormData();
     form.append('file', file, file.name);
+    form.append('mode', selectedMode);
 
     var apiBase = typeof API_BASE !== 'undefined' ? API_BASE : 'http://127.0.0.1:8000';
 
@@ -2852,6 +2895,8 @@
           mimeType: file._normalizedType || file.type || 'unknown',
           sizeBytes: file.size,
           model: data.model || '?',
+          mode: data.mode || selectedMode,
+          modeLabel: data.mode_label || selectedMode,
           response: data.response || '(keine Antwort)',
           timestamp: new Date().toISOString(),
           thumbnailUrl: thumbUrl,
@@ -2875,6 +2920,8 @@
           mimeType: file._normalizedType || file.type || 'unknown',
           sizeBytes: file.size,
           model: '?',
+          mode: selectedMode,
+          modeLabel: selectedMode,
           response: 'Fehler: ' + (err.message || 'Unbekannter Fehler'),
           timestamp: new Date().toISOString(),
           thumbnailUrl: null,
@@ -2952,6 +2999,7 @@
     }
 
     html += '<div class="vr-meta">';
+    html += '<div class="vr-meta-row"><span class="vr-meta-label">Modus</span><span class="vr-meta-value" style="color:var(--accent-orange);font-weight:600">' + esc(e.modeLabel || e.mode || '?') + '</span></div>';
     html += '<div class="vr-meta-row"><span class="vr-meta-label">Datei</span><span class="vr-meta-value">' + esc(e.filename || '?') + '</span></div>';
     html += '<div class="vr-meta-row"><span class="vr-meta-label">Typ</span><span class="vr-meta-value">' + esc(e.mimeType || '?') + '</span></div>';
     html += '<div class="vr-meta-row"><span class="vr-meta-label">Gr&#246;&#223;e</span><span class="vr-meta-value">' + _formatFileSize(e.sizeBytes || 0) + '</span></div>';

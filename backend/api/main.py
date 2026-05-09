@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime as dt, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -1784,16 +1784,83 @@ MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
 VISION_TMP_DIR = Path("/tmp/hermes-vision")
 OLLAMA_API = "http://127.0.0.1:11434/api/generate"
 VISION_MODEL = "qwen2.5vl:7b"
+VISION_DEFAULT_MODE = "auto"
 
-VISION_PROMPT = (
-    "Beschreibe dieses Bild detailliert auf Deutsch. "
-    "Was ist zu sehen? Welche Elemente, Farben, Texte, Personen, Objekte erkennst du? "
-    "Gib eine strukturierte Beschreibung."
-)
+VISION_PROMPTS = {
+    "auto": (
+        "Analysiere dieses Bild auf Deutsch.\n\n"
+        "1. Bildtyp: Schätze vorsichtig ein, um was für ein Bild es sich handelt (Screenshot, Foto, Dokument, UI, Code, Natur etc.). "
+        "Beginne mit 'Bildtyp laut Analyse: vermutlich …'.\n"
+        "2. Sicher sichtbare Fakten: Nenne nur das, was eindeutig erkennbar ist.\n"
+        "3. Falls Texte sichtbar sind: Gib sie bereichsgenau wieder. Markiere nicht lesbare Stellen mit '[…]'.\n"
+        "4. Unsicherheiten: Benenne explizit, was du nicht sicher erkennen kannst.\n"
+        "5. Erfinde nichts.\n"
+        "6. Kurze Zusammenfassung am Ende."
+    ),
+    "article": (
+        "Analysiere diesen Artikel-/Text-Screenshot auf Deutsch.\n\n"
+        "1. Sichtbarer Titel / Überschrift.\n"
+        "2. Sichtbare Quelle / App / Plattform, falls erkennbar.\n"
+        "3. Kernaussagen: Gib die wichtigsten sichtbaren Aussagen strukturiert wieder.\n"
+        "4. Sichtbare Zitate: Wiedergabe mit Anführungszeichen.\n"
+        "5. Sichtbare Buttons / Links / UI-Elemente.\n"
+        "6. Nicht lesbare Stellen mit '[…]' markieren.\n"
+        "7. Kurze Zusammenfassung."
+    ),
+    "ui": (
+        "Analysiere diesen UI-/Cockpit-Screenshot auf Deutsch.\n\n"
+        "1. Sichtbare Bereiche / Panels / Widgets benennen.\n"
+        "2. Einträge / Daten / Werte, die sichtbar sind.\n"
+        "3. Buttons und deren Beschriftung.\n"
+        "4. Status-Anzeigen / Badges / Indikatoren.\n"
+        "5. Falls Review-Inbox o.ä.: zwischen Review und Legacy unterscheiden, falls erkennbar.\n"
+        "6. Inkonsistenzen / Auffälligkeiten: z.B. leere Bereiche, abgeschnittener Text, seltsame Werte.\n"
+        "7. Nicht lesbare Stellen mit '[…]' markieren.\n"
+        "8. Schlussfolgerung: Was fällt auf? Was sollte geprüft werden?"
+    ),
+    "document": (
+        "Analysiere dieses Dokument auf Deutsch. Fokussiere auf Texterkennung (OCR-ähnlich).\n\n"
+        "1. Sichtbaren Text möglichst genau und vollständig wiedergeben.\n"
+        "2. Überschriften / Abschnitte / Hierarchie erhalten.\n"
+        "3. Tabellen strukturiert darstellen, falls vorhanden.\n"
+        "4. Unlesbare / unscharfe Bereiche mit '[…]' markieren.\n"
+        "5. Struktur des Dokuments beschreiben (z.B. Brief, Formular, Rechnung, Vertrag)."
+    ),
+    "photo": (
+        "Beschreibe dieses Foto auf Deutsch.\n\n"
+        "1. Szene: Was ist zu sehen? (Innen/Außen, Tageszeit, Umgebung).\n"
+        "2. Objekte: Alle erkennbaren Gegenstände benennen.\n"
+        "3. Räumliche Anordnung: Was steht wo? Vordergrund/Hintergrund.\n"
+        "4. Sichtbare Handlungen / Aktivitäten, falls erkennbar.\n"
+        "5. Falls Menschen sichtbar: Nur situativ beschreiben (z.B. 'Person im Vordergrund, sitzend'). "
+        "Keine Identifikation realer Personen. Keine sensiblen Eigenschaften ableiten.\n"
+        "6. Unsicherheiten explizit benennen.\n"
+        "7. Qualität: Schärfe, Belichtung, Farben."
+    ),
+    "nature": (
+        "Analysiere dieses Naturbild auf Deutsch.\n\n"
+        "1. Sichtbare Merkmale beschreiben (Blätter, Rinde, Blüten, Form, Fell, Gestalt, Farbe, Größenverhältnisse).\n"
+        "2. Falls Tier: Körperbau, Fell/Federn, auffällige Merkmale, Verhalten/Haltung.\n"
+        "3. Falls Pflanze: Blattform, Blüten, Wuchsform, Rinde.\n"
+        "4. Mögliche Einordnung nur sehr vorsichtig ('könnte … sein', 'erinnert an …').\n"
+        "5. Unsicherheiten ausdrücklich nennen.\n"
+        "6. Keine definitive Artbestimmung ohne ausreichende Merkmale."
+    ),
+    "error": (
+        "Analysiere diesen Fehler-/Code-/Terminal-Screenshot auf Deutsch.\n\n"
+        "1. Sichtbare Fehlermeldung vollständig wiedergeben.\n"
+        "2. Sichtbarer Code / Terminal-Text / Stacktrace.\n"
+        "3. Dateiname / Zeilennummer, falls sichtbar.\n"
+        "4. Sichtbare CLI-Befehle oder Programmnamen.\n"
+        "5. Mögliche Ursache des Fehlers einschätzen.\n"
+        "6. Nächster Diagnoseschritt vorschlagen.\n"
+        "7. Nicht lesbare Stellen mit '[…]' markieren."
+    ),
+}
 
 
 @app.post("/api/vision/analyze")
-async def vision_analyze(file: UploadFile = File(...)):
+async def vision_analyze(file: UploadFile = File(...), mode: Optional[str] = Form(None)):
     if not file.content_type:
         raise HTTPException(400, "Kein Content-Type angegeben")
     if file.content_type not in ALLOWED_IMAGE_TYPES:
@@ -1802,6 +1869,9 @@ async def vision_analyze(file: UploadFile = File(...)):
     body = await file.read()
     if len(body) > MAX_IMAGE_BYTES:
         raise HTTPException(400, f"Datei zu groß ({len(body)} Bytes). Maximum: {MAX_IMAGE_BYTES // 1024 // 1024} MB")
+
+    selected_mode = mode if mode in VISION_PROMPTS else VISION_DEFAULT_MODE
+    prompt = VISION_PROMPTS[selected_mode]
 
     VISION_TMP_DIR.mkdir(parents=True, exist_ok=True)
     safe_name = file.filename or "upload"
@@ -1821,7 +1891,7 @@ async def vision_analyze(file: UploadFile = File(...)):
 
     payload = json.dumps({
         "model": VISION_MODEL,
-        "prompt": VISION_PROMPT,
+        "prompt": prompt,
         "images": [img_b64],
         "stream": False,
         "options": {"num_predict": 4096}
@@ -1844,9 +1914,25 @@ async def vision_analyze(file: UploadFile = File(...)):
     if not response_text:
         response_text = "(keine Antwort vom Modell)"
 
+    mode_labels = {
+        "auto": "Auto / Allgemein scharf",
+        "article": "Artikel / Text",
+        "ui": "UI-Test / Cockpit",
+        "document": "Dokument / OCR",
+        "photo": "Foto / Objekte",
+        "nature": "Natur / Tier / Pflanze",
+        "error": "Fehler / Code / Terminal",
+    }
+    mode_label = mode_labels.get(selected_mode, selected_mode)
+    mode_header = "Analysemodus: Manuell — " + mode_label if selected_mode != "auto" else "Analysemodus: Auto / Allgemein scharf"
+
+    response_text = mode_header + "\n" + response_text
+
     result = {
         "status": "ok",
         "model": VISION_MODEL,
+        "mode": selected_mode,
+        "mode_label": mode_label,
         "filename": file.filename,
         "type": file.content_type,
         "size_bytes": len(body),
