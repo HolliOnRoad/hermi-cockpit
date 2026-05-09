@@ -2589,7 +2589,7 @@
     showInSpotlight('action', { status: 'busy', action: actionId, output: 'Wird ausgeführt…', items: [] });
 
     // Alle Actions nutzen individuelle /api/actions/* Endpunkte
-    const namedActions = ['ollama', 'cronjobs', 'skills', 'memory', 'update', 'quick', 'fullcheck', 'spotlight', 'christian', 'inbox'];
+    const namedActions = ['ollama', 'cronjobs', 'skills', 'memory', 'update', 'quick', 'fullcheck', 'spotlight', 'christian'];
     const apiUrl = namedActions.includes(actionId)
       ? API_BASE + '/api/actions/' + actionId
       : ACTION_API;
@@ -3223,8 +3223,6 @@
   }
 
   // ========== v8.1: INBOX ==========
-  const INBOX_STORAGE_KEY = 'hermes-inbox';
-  const INBOX_API = 'http://127.0.0.1:8000/api/dashboard/inbox';
   const REVIEW_INBOX_API = '/api/review-inbox';
 
   // ── Undo-Stack (Session-only, max 5) ──
@@ -3233,31 +3231,16 @@
   // ── Dedupe-Set (Session-only, visionToReview guard) ──
   window._reviewSubmittedKeys = {};
 
-  function getInboxState() {
-    try { return JSON.parse(localStorage.getItem(INBOX_STORAGE_KEY) || '{}'); }
-    catch { return {}; }
-  }
-
-  function saveInboxState(state) {
-    localStorage.setItem(INBOX_STORAGE_KEY, JSON.stringify(state));
-  }
-
   async function fetchInbox() {
     const container = document.getElementById('inboxContainer');
-    const state = getInboxState();
 
     const updateBadge = (entries) => {
       const badge = document.getElementById('sidebarInboxBadge');
       if (!badge) return;
       var newCount = 0;
       entries.forEach(function(e) {
-        if (e._type === 'review') {
-          var st = e.status || 'open';
-          if (st === 'open') newCount++;
-        } else {
-          var id = e.id || '';
-          if (!state[id] || state[id] === 'new') newCount++;
-        }
+        var st = e.status || 'open';
+        if (st === 'open') newCount++;
       });
       if (newCount > 0) {
         badge.textContent = newCount;
@@ -3267,18 +3250,7 @@
       }
     };
 
-    var inboxEntries = [];
     var reviewEntries = [];
-    var inboxConnected = false;
-
-    try {
-      var resp = await fetch(INBOX_API);
-      if (resp.ok) {
-        var data = await resp.json();
-        inboxConnected = data.connected === true;
-        inboxEntries = (data.entries || data.inbox || []).map(function(e) { e._type = 'inbox'; return e; });
-      }
-    } catch (_) {}
 
     try {
       var reviewResp = await fetch(API_BASE + REVIEW_INBOX_API);
@@ -3297,141 +3269,81 @@
 
     if (!container) return;
 
-    if (!inboxConnected && inboxEntries.length === 0 && reviewEntries.length === 0) {
-      container.innerHTML = '<div class="inbox-empty">Nicht verbunden<br><span style="font-size:0.8em;">Backend nicht erreichbar</span></div>';
-      return;
-    }
-
-    var allEntries = reviewEntries.concat(inboxEntries);
-    updateBadge(allEntries);
-
-    if (allEntries.length === 0) {
+    if (reviewEntries.length === 0) {
       container.innerHTML = '<div class="inbox-empty">Inbox ist leer</div>';
       return;
     }
-    renderInboxEntries(container, allEntries, state);
+
+    updateBadge(reviewEntries);
+    renderInboxEntries(container, reviewEntries);
   }
 
-  function renderInboxEntries(container, entries, state) {
+  function renderInboxEntries(container, entries) {
     container.innerHTML = '';
-    var isReview = false;
-    entries.forEach(function(e, i) {
-      if (e._type === 'review' && !isReview) {
-        isReview = true;
-        var sep = document.createElement('div');
-        sep.style.cssText = 'margin:12px 0 6px;font-size:10px;color:var(--accent-orange);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(240,160,80,0.15);padding-bottom:4px';
-        sep.textContent = 'Zur Abarbeitung' + (window._reviewUndoStack.length > 0 ? ' · Rückgängig möglich' : '');
-        container.appendChild(sep);
-      }
 
-      var isReviewEntry = e._type === 'review';
-      var id = isReviewEntry ? (e._reviewId || e.id) : (e.id || 'entry_' + i);
+    var sep = document.createElement('div');
+    sep.style.cssText = 'margin:12px 0 6px;font-size:10px;color:var(--accent-orange);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(240,160,80,0.15);padding-bottom:4px';
+    sep.textContent = 'Zur Abarbeitung' + (window._reviewUndoStack.length > 0 ? ' · Rückgängig möglich' : '');
+    container.appendChild(sep);
+
+    entries.forEach(function(e, i) {
+      var id = e._reviewId || e.id || 'entry_' + i;
       var entryStatus = e.status || 'open';
-      var lineIndex = e.line_index;
 
       var dotClass;
-      if (isReviewEntry) {
-        dotClass = entryStatus === 'open' ? 'new' : entryStatus === 'accepted' ? 'done' : entryStatus === 'discarded' ? 'done' : 'later';
-      } else {
-        var entryState = e.status || state[id] || 'new';
-        dotClass = entryState === 'new' ? 'new' : entryState === 'seen' ? 'seen' : entryState === 'later' ? 'later' : 'done';
-      }
+      dotClass = entryStatus === 'open' ? 'new' : entryStatus === 'accepted' ? 'done' : entryStatus === 'discarded' ? 'done' : 'later';
 
       var title = e.title || e.subject || 'Eintrag ' + (i + 1);
       var source = e.source || e.from || '';
       var time = e.time || e.date || e.created_at || '';
-      if (!time && isReviewEntry && e.created_at) {
+      if (!time && e.created_at) {
         var d = new Date(e.created_at);
         if (!isNaN(d.getTime())) time = _formatTimestamp(e.created_at);
       }
 
       var item = document.createElement('div');
-      item.className = 'inbox-item' + (isReviewEntry ? ' review-item' : '');
+      item.className = 'inbox-item review-item';
       item.dataset.inboxId = id;
       item.dataset.state = entryStatus;
-      item.dataset.entryType = isReviewEntry ? 'review' : 'inbox';
-      if (lineIndex != null) item.dataset.lineIndex = lineIndex;
+      item.dataset.entryType = 'review';
 
-      var actionsHtml = '';
-      if (isReviewEntry) {
-        actionsHtml =
-          '<button class="inbox-btn' + (entryStatus === 'accepted' ? ' active' : '') + ' review-accept">Behalten</button>' +
-          '<button class="inbox-btn' + (entryStatus === 'discarded' ? ' active' : '') + ' review-discard">Verwerfen</button>' +
-          '<button class="inbox-btn' + (entryStatus === 'snoozed' ? ' active' : '') + ' review-snooze">Sp\u00e4ter</button>';
-      } else {
-        var eState = entryStatus || state[id] || 'new';
-        actionsHtml =
-          '<button class="inbox-btn' + (eState === 'seen' ? ' active' : '') + '">gesehen</button>' +
-          '<button class="inbox-btn' + (eState === 'later' ? ' active' : '') + '">sp\u00e4ter</button>' +
-          '<button class="inbox-btn' + (eState === 'done' ? ' active' : '') + '">erledigt</button>';
-      }
+      var actionsHtml =
+        '<button class="inbox-btn' + (entryStatus === 'accepted' ? ' active' : '') + ' review-accept">Behalten</button>' +
+        '<button class="inbox-btn' + (entryStatus === 'discarded' ? ' active' : '') + ' review-discard">Verwerfen</button>' +
+        '<button class="inbox-btn' + (entryStatus === 'snoozed' ? ' active' : '') + ' review-snooze">Sp\u00e4ter</button>';
 
       item.innerHTML = '' +
-        '<div class="inbox-dot ' + dotClass + (isReviewEntry ? ' review-dot' : '') + '"></div>' +
+        '<div class="inbox-dot ' + dotClass + ' review-dot"></div>' +
         '<div class="inbox-content">' +
-          '<div class="inbox-title">' + (isReviewEntry ? '<span class="review-tag">R</span> ' : '') + esc(title) + '</div>' +
+          '<div class="inbox-title"><span class="review-tag">R</span> ' + esc(title) + '</div>' +
           '<div class="inbox-meta">' +
             (source ? '<span>' + esc(source) + '</span>' : '') +
             (time ? '<span>' + esc(time) + '</span>' : '') +
-            (isReviewEntry ? '<span class="review-status-tag">' + entryStatus + '</span>' : '') +
+            '<span class="review-status-tag">' + entryStatus + '</span>' +
           '</div>' +
-          (isReviewEntry && e.text ? '<div class="inbox-excerpt">' + esc(e.text.substring(0, 140)) + (e.text.length > 140 ? '…' : '') + '</div>' : '') +
+          (e.text ? '<div class="inbox-excerpt">' + esc(e.text.substring(0, 140)) + (e.text.length > 140 ? '…' : '') + '</div>' : '') +
         '</div>' +
         '<div class="inbox-actions">' + actionsHtml + '</div>';
 
-      if (!isReviewEntry) {
-        item.querySelector('.inbox-content').addEventListener('click', function() {
-          showInSpotlight('inbox', e);
-        });
-        item.querySelector('.inbox-content').style.cursor = 'pointer';
-      } else {
-        item.querySelector('.inbox-content').addEventListener('click', function() {
-          showInSpotlight('review', e);
-        });
-        item.querySelector('.inbox-content').style.cursor = 'pointer';
-      }
+      item.querySelector('.inbox-content').addEventListener('click', function() {
+        showInSpotlight('review', e);
+      });
+      item.querySelector('.inbox-content').style.cursor = 'pointer';
 
       var buttons = item.querySelectorAll('.inbox-btn');
-      if (!isReviewEntry) {
-        buttons[0].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'seen'); });
-        buttons[1].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'later'); });
-        buttons[2].addEventListener('click', function(ev) { ev.stopPropagation(); updateInboxItem(id, 'done'); });
-      } else {
-        buttons[0].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'accept', e); });
-        buttons[1].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'discard', e); });
-        buttons[2].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'snooze', e); });
-      }
+      buttons[0].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'accept', e); });
+      buttons[1].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'discard', e); });
+      buttons[2].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'snooze', e); });
 
       container.appendChild(item);
     });
 
-    // ── Undo button at bottom of review section ──
-    if (isReview && window._reviewUndoStack.length > 0) {
+    if (window._reviewUndoStack.length > 0) {
       var undoRow = document.createElement('div');
       undoRow.style.cssText = 'text-align:center;margin-top:10px';
       undoRow.innerHTML = '<button class="inbox-btn review-undo-btn" onclick="undoReviewAction()">R\u00fcckg\u00e4ngig (' + window._reviewUndoStack.length + ')</button>';
       container.appendChild(undoRow);
     }
-  }
-
-  function updateInboxItem(id, newState) {
-    var item = document.querySelector('.inbox-item[data-inbox-id="' + id + '"][data-entry-type="inbox"],.inbox-item[data-inbox-id="' + id + '"]:not([data-entry-type="review"])');
-    var titleEl = item ? item.querySelector('.inbox-title') : null;
-    var title = titleEl ? titleEl.textContent.trim() : id;
-    if (!title) return;
-
-    fetch(API_BASE + '/api/actions/inbox', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: newState, title: title })
-    }).then(function(r) { return r.json(); }).then(function(res) {
-      if (res.status === 'ok') {
-        fetchInbox();
-        showInSpotlight('action', res);
-      }
-    }).catch(function(err) {
-      console.warn('Inbox update failed:', err);
-    });
   }
 
   function updateReviewItem(id, action, entryObj) {
@@ -5036,10 +4948,6 @@
         }
         if (breadcrumb) breadcrumb.textContent = 'News';
         break;
-      case 'inbox':
-        html = _renderInboxSpotlight(data);
-        if (breadcrumb) breadcrumb.textContent = 'Inbox';
-        break;
       case 'review':
         html = _renderReviewSpotlight(data);
         if (breadcrumb) breadcrumb.textContent = 'Review: ' + (data.title || '');
@@ -5174,33 +5082,6 @@
     return html;
   }
 
-  // ── Inbox Template ──
-  function _renderInboxSpotlight(d) {
-    if (!d || (!d.title && !d.subject)) {
-      return '<div class="arp-idle">Backend-Daten noch nicht verf\u00fcgbar</div>';
-    }
-    var title = d.title || d.subject || 'Eintrag';
-    var source = d.source || d.from || '';
-    var time = d.time || d.date || '';
-    var state = d.state || d.status || 'new';
-    var lineIndex = d.line_index;
-    var entryId = d.id || '';
-
-    var html = '<div class="spot-inbox-title">' + esc(title) + '</div>';
-    html += '<div class="spot-inbox-meta">';
-    if (source) html += '<span>' + esc(source) + '</span>';
-    if (time) html += '<span>' + esc(time) + '</span>';
-    html += '</div>';
-
-    html += '<div class="spot-inbox-actions">';
-    html += '<button class="spot-inbox-btn' + (state === 'seen' ? ' active' : '') + '" onclick="spotInboxUpdate(\'' + esc(entryId) + '\',\'' + esc(title) + '\',\'seen\')">gesehen</button>';
-    html += '<button class="spot-inbox-btn' + (state === 'later' ? ' active' : '') + '" onclick="spotInboxUpdate(\'' + esc(entryId) + '\',\'' + esc(title) + '\',\'later\')">sp\u00e4ter</button>';
-    html += '<button class="spot-inbox-btn' + (state === 'done' ? ' active' : '') + '" onclick="spotInboxUpdate(\'' + esc(entryId) + '\',\'' + esc(title) + '\',\'done\')">erledigt</button>';
-    html += '</div>';
-
-    return html;
-  }
-
   function _renderReviewSpotlight(d) {
     if (!d || !d.title) {
       return '<div class="arp-idle">Keine Review-Daten verf\u00fcgbar</div>';
@@ -5280,23 +5161,6 @@
         btns.forEach(function(b) { b.textContent = 'Kopieren'; });
       }, 1800);
     });
-  }
-
-  function spotInboxUpdate(id, title, newState) {
-    fetch(API_BASE + '/api/actions/inbox', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: newState, title: title })
-    }).then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.status === 'ok') {
-          fetchInbox();
-          showInSpotlight('action', res);
-        }
-      })
-      .catch(function() {
-        showInSpotlight('action', { action: 'inbox', status: 'error', output: 'Update fehlgeschlagen — Backend nicht erreichbar' });
-      });
   }
 
   // ── Task Template ──

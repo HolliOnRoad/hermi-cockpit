@@ -2,7 +2,7 @@ import asyncio
 import base64
 import sqlite3
 from contextlib import asynccontextmanager
-from datetime import datetime as dt, timezone
+from datetime import datetime as dt, timezone, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form
@@ -2259,4 +2259,158 @@ def review_inbox_debug():
         "file_exists": REVIEW_INBOX_PATH.exists(),
         "file_size": REVIEW_INBOX_PATH.stat().st_size if REVIEW_INBOX_PATH.exists() else 0,
         "entry_count": len(_read_review_inbox()),
+    }
+
+
+# ── Legacy Inbox → Review Inbox Migration ──────────────────────
+
+import hashlib
+
+LEGACY_INBOX_PATH = Path.home() / ".hermes" / "shared" / "inbox.md"
+LEGACY_INBOX_GUARD = Path.home() / ".hermes" / "shared" / ".inbox_legacy_migrated"
+LEGACY_MARKER_MAP = {"[x]": "accepted", "[o]": "discarded", "[>]": "snoozed"}
+
+
+def _hash_entry(marker, title, body):
+    raw = (marker or "") + "::" + (title or "") + "::" + (body or "")
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+
+
+@app.post("/api/inbox/migrate-legacy")
+def inbox_migrate_legacy():
+    if LEGACY_INBOX_GUARD.exists():
+        return {
+            "status": "already_migrated",
+            "guard_file": str(LEGACY_INBOX_GUARD.resolve()),
+            "migrated_at": LEGACY_INBOX_GUARD.read_text().strip(),
+        }
+
+    if not LEGACY_INBOX_PATH.exists():
+        return {"status": "no_legacy_file", "path": str(LEGACY_INBOX_PATH.resolve())}
+
+    raw = LEGACY_INBOX_PATH.read_text(encoding="utf-8")
+    lines = raw.strip().split("\n")
+
+    migrated = []
+    skipped_separator = 0
+    skipped_no_marker = 0
+    skipped_duplicate = 0
+
+    now = dt.now(timezone.utc)
+    snooze_until = (now + timedelta(days=REVIEW_SNOOZE_DAYS)).isoformat()
+    now_iso = now.isoformat()
+
+    existing = _read_review_inbox()
+    existing_hashes = set()
+    for e in existing:
+        eh = _hash_entry(e.get("legacy_marker"), e.get("title"), e.get("text"))
+        existing_hashes.add(eh)
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if not line or line.startswith("#"):
+            i += 1
+            continue
+        if line == "---":
+            i += 1
+            continue
+
+        marker = None
+        status = "open"
+        remaining = line
+        for m, s in LEGACY_MARKER_MAP.items():
+            if line.startswith(m + " "):
+                marker = m
+                status = s
+                remaining = line[len(m) + 1:]
+                break
+
+        if not marker:
+            skipped_no_marker += 1
+            i += 1
+            continue
+
+        remaining = remaining.strip()
+        if not remaining or remaining == "---":
+            skipped_separator += 1
+            i += 1
+            continue
+
+        title = remaining
+        if title.startswith("### "):
+            title = title[4:]
+        body_lines = []
+
+        i += 1
+        while i < len(lines):
+            next_line = lines[i].strip()
+            if not next_line or next_line.startswith("#"):
+                break
+            has_marker = any(next_line.startswith(m + " ") for m in LEGACY_MARKER_MAP)
+            if has_marker:
+                break
+            body_lines.append(next_line)
+            i += 1
+
+        body = "\n".join(body_lines) if body_lines else ""
+
+        entry_hash = _hash_entry(marker, title, body)
+        if entry_hash in existing_hashes:
+            skipped_duplicate += 1
+            continue
+
+        existing_hashes.add(entry_hash)
+
+        entry = {
+            "id": uuid.uuid4().hex[:12],
+            "created_at": now_iso,
+            "updated_at": now_iso,
+            "source": "legacy_inbox_md",
+            "source_type": "legacy_migration",
+            "title": title,
+            "text": body,
+            "status": status,
+            "snooze_until": snooze_until if status == "snoozed" else None,
+            "snooze_count": 1 if status == "snoozed" else 0,
+            "discarded_at": now_iso if status == "discarded" else None,
+            "keep_until": (now + timedelta(days=REVIEW_KEEP_DAYS)).isoformat() if status == "discarded" else None,
+            "tags": ["legacy", "migration"],
+            "privacy": "local_only",
+            "export_allowed": False,
+            "local_only": True,
+            "migrated_at": now_iso,
+            "legacy_marker": marker,
+        }
+        existing.append(entry)
+        migrated.append(entry)
+
+    if migrated:
+        _write_review_inbox(existing)
+
+    timestamp = now.strftime("%Y-%m-%dT%H%M%S")
+    archive_path = LEGACY_INBOX_PATH.with_name(f"inbox.legacy-migrated-{timestamp}.md")
+    LEGACY_INBOX_PATH.rename(archive_path)
+
+    bridge_hint = (
+        "# Hermes Inbox — Bridge\n\n"
+        "Diese Datei dient als Legacy-/Bridge-Kanal für Kai Remote und externe Systeme.\n"
+        "Die operative Inbox ist review_inbox.jsonl.\n"
+        f"Migriert am: {now_iso}\n"
+    )
+    LEGACY_INBOX_PATH.write_text(bridge_hint, encoding="utf-8")
+
+    LEGACY_INBOX_GUARD.parent.mkdir(parents=True, exist_ok=True)
+    LEGACY_INBOX_GUARD.write_text(now_iso, encoding="utf-8")
+
+    return {
+        "status": "ok",
+        "migrated_count": len(migrated),
+        "skipped_separator": skipped_separator,
+        "skipped_no_marker": skipped_no_marker,
+        "skipped_duplicate": skipped_duplicate,
+        "total_review_entries": len(existing),
+        "archive_path": str(archive_path.resolve()),
+        "guard_file": str(LEGACY_INBOX_GUARD.resolve()),
+        "migrated_at": now_iso,
     }
