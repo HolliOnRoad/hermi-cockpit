@@ -1862,32 +1862,61 @@ async def vision_analyze(file: UploadFile = File(...)):
 
 # ── Review Inbox ──────────────────────────────────────────────────
 
+import traceback
+
 REVIEW_INBOX_PATH = Path.home() / ".hermes" / "shared" / "review_inbox.jsonl"
 REVIEW_KEEP_DAYS = 30
 REVIEW_SNOOZE_DAYS = 7
+
+
+def _ensure_review_inbox_dir():
+    """Ensure the review inbox directory exists at startup."""
+    try:
+        REVIEW_INBOX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"[review-inbox] WARN: Kann Verzeichnis nicht anlegen: {REVIEW_INBOX_PATH.parent} — {e}", flush=True)
+
+
+_ensure_review_inbox_dir()
+print(f"[review-inbox] Path: {REVIEW_INBOX_PATH.resolve()}", flush=True)
+print(f"[review-inbox] Home:  {Path.home().resolve()}", flush=True)
+print(f"[review-inbox] Parent exists: {REVIEW_INBOX_PATH.parent.exists()}", flush=True)
+print(f"[review-inbox] File exists: {REVIEW_INBOX_PATH.exists()}", flush=True)
 
 
 def _read_review_inbox() -> list[dict]:
     if not REVIEW_INBOX_PATH.exists():
         return []
     entries = []
-    with open(REVIEW_INBOX_PATH, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entries.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
+    try:
+        with open(REVIEW_INBOX_PATH, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    except OSError as e:
+        print(f"[review-inbox] ERROR reading {REVIEW_INBOX_PATH}: {e}", flush=True)
+        traceback.print_exc()
     return entries
 
 
 def _write_review_inbox(entries: list[dict]):
-    REVIEW_INBOX_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(REVIEW_INBOX_PATH, "w") as f:
-        for entry in entries:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    try:
+        REVIEW_INBOX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"[review-inbox] ERROR creating dir {REVIEW_INBOX_PATH.parent}: {e}", flush=True)
+        raise HTTPException(500, f"Verzeichnis nicht schreibbar: {REVIEW_INBOX_PATH.parent}")
+    try:
+        with open(REVIEW_INBOX_PATH, "w") as f:
+            for entry in entries:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except OSError as e:
+        print(f"[review-inbox] ERROR writing {REVIEW_INBOX_PATH}: {e}", flush=True)
+        raise HTTPException(500, f"Datei nicht schreibbar: {REVIEW_INBOX_PATH}")
 
 
 @app.post("/api/review-inbox/add")
@@ -1926,6 +1955,7 @@ def review_inbox_list(status: Optional[str] = None):
     now = dt.now(timezone.utc)
 
     result = []
+    reopened = False
     for e in entries:
         st = e.get("status", "open")
         snooze_until_str = e.get("snooze_until")
@@ -1936,6 +1966,7 @@ def review_inbox_list(status: Optional[str] = None):
             st = "open"
             e["status"] = "open"
             e["updated_at"] = now.isoformat()
+            reopened = True
 
         if status:
             if st != status:
@@ -1949,7 +1980,7 @@ def review_inbox_list(status: Optional[str] = None):
         result.append(e)
 
     # Save auto-reopens
-    if any(e.get("status") == "open" for e in entries if e.get("status") == "open"):
+    if reopened:
         _write_review_inbox(entries)
 
     result.sort(key=lambda e: e.get("created_at", ""), reverse=True)
@@ -2000,3 +2031,15 @@ def review_inbox_update(body: dict):
 
     _write_review_inbox(entries)
     return {"ok": True, "entry": updated}
+
+
+@app.get("/api/review-inbox/debug")
+def review_inbox_debug():
+    return {
+        "path": str(REVIEW_INBOX_PATH.resolve()),
+        "home": str(Path.home().resolve()),
+        "parent_exists": REVIEW_INBOX_PATH.parent.exists(),
+        "file_exists": REVIEW_INBOX_PATH.exists(),
+        "file_size": REVIEW_INBOX_PATH.stat().st_size if REVIEW_INBOX_PATH.exists() else 0,
+        "entry_count": len(_read_review_inbox()),
+    }
