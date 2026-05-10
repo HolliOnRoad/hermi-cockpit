@@ -1939,6 +1939,31 @@ VISION_MAX_LONG_EDGE = 2048
 VISION_JPEG_QUALITY = 85
 
 
+def _normalize_ocr_text(text: str) -> str:
+    """Korrigiere hartn\u00e4ckige OCR-Label-Fehler: 'lesbische' -> 'lesbare'."""
+    if not text:
+        return text
+    replacements = [
+        ("Sicher lesbische \u00dcberschrift", "Sicher lesbare \u00dcberschrift"),
+        ("sicher lesbische \u00dcberschrift", "Sicher lesbare \u00dcberschrift"),
+        ("sicher lesbische \u00dcberschriften", "Sicher lesbare \u00dcberschriften"),
+        ("Sicher lesbische \u00dcberschriften", "Sicher lesbare \u00dcberschriften"),
+        ("Teilweise lesbische Bereiche", "Teilweise lesbare Bereiche"),
+        ("teilweise lesbische Bereiche", "Teilweise lesbare Bereiche"),
+        ("lesbische \u00dcberschrift", "lesbare \u00dcberschrift"),
+        ("lesbische \u00dcberschriften", "lesbare \u00dcberschriften"),
+        ("lesbische Bereiche", "lesbare Bereiche"),
+        ("Nicht lesbische Stellen", "Nicht lesbare Stellen"),
+        ("nicht lesbische Stellen", "Nicht lesbare Stellen"),
+        ("nicht lesbische Stelle", "Nicht lesbare Stelle"),
+        ("lesbische Stelle", "lesbare Stelle"),
+        ("lesbische Stellen", "lesbare Stellen"),
+    ]
+    for old, new in replacements:
+        text = text.replace(old, new)
+    return text
+
+
 @app.post("/api/vision/analyze")
 async def vision_analyze(file: UploadFile = File(...), mode: Optional[str] = Form(None)):
     t_start = time.time()
@@ -2062,6 +2087,8 @@ async def vision_analyze(file: UploadFile = File(...), mode: Optional[str] = For
     if not response_text:
         response_text = "(keine Antwort vom Modell)"
 
+    response_text = _normalize_ocr_text(response_text)
+
     print(f"[vision] OK file={file.filename} mode={selected_mode} elapsed={elapsed}s response_len={len(response_text)}", flush=True)
 
     mode_labels = {
@@ -2108,10 +2135,43 @@ async def vision_analyze(file: UploadFile = File(...), mode: Optional[str] = For
 # ── Review Inbox ──────────────────────────────────────────────────
 
 import traceback
+import hashlib
 
 REVIEW_INBOX_PATH = Path.home() / ".hermes" / "shared" / "review_inbox.jsonl"
+REVIEW_RESULTS_PATH = Path.home() / ".hermes" / "shared" / "review_results.jsonl"
 REVIEW_KEEP_DAYS = 30
 REVIEW_SNOOZE_DAYS = 7
+REVIEW_TIMEOUT_MINUTES = 5
+
+STATUS_VALID = {"OPEN", "IN_PRUEFUNG", "GEPRUEFT", "SPATER", "VERWORFEN", "ERLEDIGT"}
+STATUS_MAP_OLD_TO_NEW = {
+    "open": "OPEN",
+    "accepted": "GEPRUEFT",
+    "discarded": "VERWORFEN",
+    "snoozed": "SPATER",
+}
+STATUS_LABEL = {
+    "OPEN": "Offen",
+    "IN_PRUEFUNG": "In Pr\u00fcfung",
+    "GEPRUEFT": "Gepr\u00fcft",
+    "SPATER": "Sp\u00e4ter",
+    "VERWORFEN": "Verworfen",
+    "ERLEDIGT": "Erledigt",
+}
+
+
+def _normalize_status(status: str) -> str:
+    """Map legacy statuses to new canonical statuses."""
+    if not status:
+        return "OPEN"
+    return STATUS_MAP_OLD_TO_NEW.get(status, status)
+
+
+def _normalize_entry(e: dict) -> dict:
+    """Normalize an entry's status field for display, without rewriting the file."""
+    st = e.get("status", "")
+    e["status"] = _normalize_status(st)
+    return e
 
 
 def _ensure_review_inbox_dir():
@@ -2167,31 +2227,69 @@ def _write_review_inbox(entries: list[dict]):
 @app.post("/api/review-inbox/add")
 def review_inbox_add(body: dict):
     title = (body.get("title") or "").strip()
-    text = (body.get("text") or "").strip()
-    if not title:
-        return JSONResponse({"ok": False, "error": "title fehlt"}, status_code=422)
+    text = (body.get("text") or body.get("content") or "").strip()
+    text = _normalize_ocr_text(text)
+    title = (body.get("title") or "").strip()
+    if not title and not text:
+        return JSONResponse({"ok": False, "error": "title oder content fehlt"}, status_code=422)
 
     now = dt.now(timezone.utc).isoformat()
+    source_type = body.get("source_type", "")
+    source_snapshot = body.get("source_snapshot")
+    source_id = body.get("source_id", "")
+
+    # Compute content_hash server-side
+    if source_type == "news":
+        snap = source_snapshot or {}
+        hash_input = (
+            (snap.get("title") or title) + "|"
+            + (snap.get("summary") or text) + "|"
+            + (source_id or snap.get("url", ""))
+        )
+    else:
+        hash_input = title + "\n" + text
+    content_hash_val = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()[:24]
+
+    # Dedupe check
+    existing_entries = _read_review_inbox()
+    for ex in existing_entries:
+        if ex.get("content_hash") == content_hash_val:
+            return {
+                "ok": True,
+                "status": "duplicate",
+                "duplicate": True,
+                "id": ex.get("id"),
+                "title": ex.get("title"),
+                "entry": ex,
+            }
+
     entry = {
         "id": uuid.uuid4().hex[:12],
         "created_at": now,
         "updated_at": now,
         "source": body.get("source", "cockpit"),
-        "source_type": body.get("source_type", ""),
+        "source_type": source_type,
         "title": title,
         "text": text,
-        "status": "open",
+        "status": "OPEN",
         "snooze_until": None,
         "snooze_count": 0,
         "discarded_at": None,
         "keep_until": None,
         "tags": body.get("tags", []),
         "privacy": "local_only",
+        "content_hash": content_hash_val,
     }
+
+    if source_id:
+        entry["source_id"] = source_id
+    if source_snapshot:
+        entry["source_snapshot"] = source_snapshot
+
     entries = _read_review_inbox()
     entries.append(entry)
     _write_review_inbox(entries)
-    return {"ok": True, "entry": entry}
+    return {"ok": True, "status": "ok", "duplicate": False, "id": entry["id"], "entry": entry}
 
 
 @app.get("/api/review-inbox")
@@ -2200,32 +2298,51 @@ def review_inbox_list(status: Optional[str] = None):
     now = dt.now(timezone.utc)
 
     result = []
-    reopened = False
+    changed = False
     for e in entries:
-        st = e.get("status", "open")
-        snooze_until_str = e.get("snooze_until")
-        snooze_until = dt.fromisoformat(snooze_until_str) if snooze_until_str else None
+        raw_st = e.get("status", "open")
+        st = _normalize_status(raw_st)
 
         # Auto-reopen expired snoozed entries
-        if st == "snoozed" and snooze_until and snooze_until <= now:
-            st = "open"
-            e["status"] = "open"
-            e["updated_at"] = now.isoformat()
-            reopened = True
+        if st == "SPATER":
+            snooze_until_str = e.get("snooze_until")
+            snooze_until = dt.fromisoformat(snooze_until_str) if snooze_until_str else None
+            if snooze_until and snooze_until <= now:
+                st = "OPEN"
+                e["status"] = "OPEN"
+                e["snooze_until"] = None
+                e["updated_at"] = now.isoformat()
+                changed = True
+
+        # 5-min timeout: reset stuck IN_PRUEFUNG entries
+        if st == "IN_PRUEFUNG":
+            updated_str = e.get("updated_at")
+            if updated_str:
+                try:
+                    updated_at = dt.fromisoformat(updated_str)
+                    if (now - updated_at).total_seconds() > REVIEW_TIMEOUT_MINUTES * 60:
+                        st = "OPEN"
+                        e["status"] = "OPEN"
+                        e["pending_job_id"] = None
+                        e["updated_at"] = now.isoformat()
+                        changed = True
+                except ValueError:
+                    pass
 
         if status:
             if st != status:
                 continue
         else:
-            if st in ("discarded", "accepted"):
+            # Hide VERWORFEN, ERLEDIGT, SPATER by default
+            if st in ("VERWORFEN", "ERLEDIGT"):
                 continue
-            if st == "snoozed":
+            if st == "SPATER":
                 continue
 
+        _normalize_entry(e)
         result.append(e)
 
-    # Save auto-reopens
-    if reopened:
+    if changed:
         _write_review_inbox(entries)
 
     result.sort(key=lambda e: e.get("created_at", ""), reverse=True)
@@ -2238,8 +2355,9 @@ def review_inbox_update(body: dict):
     action = body.get("action") or body.get("status")
     if not entry_id:
         return JSONResponse({"ok": False, "error": "id fehlt"}, status_code=422)
-    if action not in ("accept", "discard", "snooze", "reopen"):
-        return JSONResponse({"ok": False, "error": f"Ungültige Aktion: {action}"}, status_code=422)
+    allowed = ("accept", "discard", "snooze", "reopen", "complete")
+    if action not in allowed:
+        return JSONResponse({"ok": False, "error": f"Ung\u00fcltige Aktion: {action}"}, status_code=422)
 
     entries = _read_review_inbox()
     now = dt.now(timezone.utc).isoformat()
@@ -2248,25 +2366,29 @@ def review_inbox_update(body: dict):
     for e in entries:
         if e.get("id") == entry_id:
             if action == "accept":
-                e["status"] = "accepted"
+                e["status"] = "GEPRUEFT"
                 e["updated_at"] = now
             elif action == "discard":
-                e["status"] = "discarded"
+                e["status"] = "VERWORFEN"
                 e["discarded_at"] = now
-                keep_until = dt.now(timezone.utc) + datetime.timedelta(days=REVIEW_KEEP_DAYS)
+                keep_until = dt.now(timezone.utc) + timedelta(days=REVIEW_KEEP_DAYS)
                 e["keep_until"] = keep_until.isoformat()
                 e["updated_at"] = now
             elif action == "snooze":
-                e["status"] = "snoozed"
+                e["status"] = "SPATER"
                 e["snooze_count"] = e.get("snooze_count", 0) + 1
-                snooze_until = dt.now(timezone.utc) + datetime.timedelta(days=REVIEW_SNOOZE_DAYS)
+                snooze_until = dt.now(timezone.utc) + timedelta(days=REVIEW_SNOOZE_DAYS)
                 e["snooze_until"] = snooze_until.isoformat()
                 e["updated_at"] = now
             elif action == "reopen":
-                e["status"] = "open"
+                e["status"] = "OPEN"
                 e["snooze_until"] = None
                 e["discarded_at"] = None
                 e["keep_until"] = None
+                e["pending_job_id"] = None
+                e["updated_at"] = now
+            elif action == "complete":
+                e["status"] = "ERLEDIGT"
                 e["updated_at"] = now
             updated = e
             break
@@ -2276,6 +2398,92 @@ def review_inbox_update(body: dict):
 
     _write_review_inbox(entries)
     return {"ok": True, "entry": updated}
+
+
+# ── Inbox → Kanban ──────────────────────────────────────────────────
+
+TASKS_PATH = Path.home() / ".hermes" / "tasks.json"
+
+
+def _read_tasks() -> list[dict]:
+    if not TASKS_PATH.exists():
+        return []
+    try:
+        data = json.loads(TASKS_PATH.read_text())
+        return data if isinstance(data, list) else data.get("tasks", [])
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def _write_tasks(tasks: list[dict]):
+    try:
+        TASKS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        TASKS_PATH.write_text(json.dumps(tasks, ensure_ascii=False, indent=2))
+    except OSError as e:
+        print(f"[tasks] ERROR writing {TASKS_PATH}: {e}", flush=True)
+        raise HTTPException(500, f"tasks.json nicht schreibbar: {TASKS_PATH}")
+
+
+@app.post("/api/review-inbox/to-kanban")
+def review_inbox_to_kanban(body: dict):
+    entry_id = body.get("id")
+    if not entry_id:
+        return JSONResponse({"ok": False, "error": "id fehlt"}, status_code=422)
+
+    entries = _read_review_inbox()
+    target = None
+    for e in entries:
+        if e.get("id") == entry_id:
+            target = e
+            break
+
+    if not target:
+        return JSONResponse({"ok": False, "error": "Eintrag nicht gefunden"}, status_code=404)
+
+    st = _normalize_status(target.get("status", ""))
+    if st != "GEPRUEFT":
+        return JSONResponse({"ok": False, "error": "Nur GEPRUEFT-Eintr\u00e4ge k\u00f6nnen ins Kanban"}, status_code=409)
+
+    now = dt.now(timezone.utc).isoformat()
+
+    task_title = target.get("title", "Inbox-Aufgabe")
+    task_body = ""
+    if target.get("summary"):
+        task_body += "**Zusammenfassung:** " + target.get("summary", "") + "\n\n"
+    source = target.get("source", "")
+    source_type = target.get("source_type", "")
+    if source or source_type:
+        task_body += "**Quelle:** " + source + (" / " + source_type if source_type else "") + "\n\n"
+    if target.get("latest_review_id"):
+        task_body += "**Review:** " + target.get("latest_review_id", "") + "\n"
+    task_body += "**Inbox-ID:** " + entry_id + "\n"
+
+    task = {
+        "id": uuid.uuid4().hex[:16],
+        "title": task_title,
+        "body": task_body.strip(),
+        "status": "todo",
+        "priority": "MEDIUM",
+        "created_at": now,
+        "updated_at": now,
+        "source_inbox_id": entry_id,
+        "latest_review_id": target.get("latest_review_id", ""),
+    }
+
+    tasks = _read_tasks()
+    tasks.append(task)
+    _write_tasks(tasks)
+
+    # Update inbox entry
+    for e in entries:
+        if e.get("id") == entry_id:
+            e["status"] = "ERLEDIGT"
+            e["task_id"] = task["id"]
+            e["updated_at"] = now
+            break
+    _write_review_inbox(entries)
+
+    return {"ok": True, "task": task, "entry_id": entry_id}
 
 
 @app.get("/api/review-inbox/debug")
@@ -2290,13 +2498,192 @@ def review_inbox_debug():
     }
 
 
+# ── Review Results ──────────────────────────────────────────────────
+
+def _read_review_results() -> list[dict]:
+    if not REVIEW_RESULTS_PATH.exists():
+        return []
+    results = []
+    try:
+        with open(REVIEW_RESULTS_PATH, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    results.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    except OSError as e:
+        print(f"[review-results] ERROR reading {REVIEW_RESULTS_PATH}: {e}", flush=True)
+    return results
+
+
+def _write_review_results(results: list[dict]):
+    try:
+        REVIEW_RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"[review-results] ERROR creating dir {REVIEW_RESULTS_PATH.parent}: {e}", flush=True)
+        raise HTTPException(500, f"Verzeichnis nicht schreibbar: {REVIEW_RESULTS_PATH.parent}")
+    try:
+        with open(REVIEW_RESULTS_PATH, "w") as f:
+            for entry in results:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except OSError as e:
+        print(f"[review-results] ERROR writing {REVIEW_RESULTS_PATH}: {e}", flush=True)
+        raise HTTPException(500, f"Datei nicht schreibbar: {REVIEW_RESULTS_PATH}")
+
+
+@app.get("/api/review-results/{review_id}")
+def review_result_get(review_id: str):
+    results = _read_review_results()
+    for r in results:
+        if r.get("id") == review_id:
+            return {"ok": True, "result": r}
+    return JSONResponse({"ok": False, "error": "Review-Ergebnis nicht gefunden"}, status_code=404)
+
+
+@app.post("/api/review-inbox/review")
+def review_inbox_review(body: dict):
+    entry_id = body.get("id")
+    if not entry_id:
+        return JSONResponse({"ok": False, "error": "id fehlt"}, status_code=422)
+
+    entries = _read_review_inbox()
+    target = None
+    for e in entries:
+        if e.get("id") == entry_id:
+            target = e
+            break
+
+    if not target:
+        return JSONResponse({"ok": False, "error": "Eintrag nicht gefunden"}, status_code=404)
+
+    st = _normalize_status(target.get("status", ""))
+    if st == "IN_PRUEFUNG":
+        return JSONResponse({"ok": False, "error": "Pr\u00fcfung l\u00e4uft bereits"}, status_code=409)
+
+    now = dt.now(timezone.utc)
+    job_id = uuid.uuid4().hex[:12]
+
+    target["status"] = "IN_PRUEFUNG"
+    target["pending_job_id"] = job_id
+    target["updated_at"] = now.isoformat()
+    _write_review_inbox(entries)
+
+    # ── Work culture context ──
+    requested_by = body.get("requested_by", "Holger")
+    interaction_mode = body.get("interaction_mode", "button_as_instruction")
+    requested_action = body.get("requested_action", "hermes_pruefen")
+    work_culture_context = (
+        "Der Button ersetzt Holgers Tippen, nicht Holgers Absicht. "
+        "Dies ist ein bewusster Pr\u00fcfauftrag von Holger. "
+        "Behandle den Inbox-Eintrag als Rohmaterial, nicht als Wahrheit. "
+        "Wende Datenschutz-, Quellen-, Plausibilit\u00e4ts- und Memory-Regeln an. "
+        "Keine Secrets offenlegen. "
+        "Keine personenbezogenen/kollegenbezogenen Daten aus Screenshots weiterverarbeiten. "
+        "Nicht raten; Unsicherheit klar benennen. "
+        "Recherche vor Behauptung. "
+        "Gib eine deutsche, entscheidungsf\u00e4hige Einordnung. "
+        "Keine Folgeaktion ohne Holgers Freigabe. "
+        "Ton: ruhig, sachlich, Komplize, kein kalter Maschinenreport."
+    )
+
+    # ── Generate review result (local backend review, no real Hermes bridge) ──
+    title = target.get("title", "")
+    text = target.get("text", "")
+    source = target.get("source", "")
+    source_type = target.get("source_type", "")
+    raw_content = title + "\n" + text
+
+    # Basic plausibility checks
+    plausibility = "OK"
+    warnings = []
+    if len(raw_content) < 30:
+        plausibility = "Niedrig"
+        warnings.append("Sehr wenig Rohmaterial f\u00fcr eine belastbare Pr\u00fcfung.")
+    if not text or len(text.strip()) < 10:
+        warnings.append("Kein nennenswerter Textinhalt vorhanden.")
+
+    # Generate a structured Kurzfazit from the content
+    kurzfazit = title
+    if text:
+        preview = text[:200].replace("\n", " ")
+        kurzfazit = title + " \u2014 " + preview + ("\u2026" if len(text) > 200 else "")
+
+    if source_type == "news":
+        kurzfazit = "News: " + kurzfazit
+
+    # Build recommendation
+    if warnings:
+        recommendation = (
+            "Manuelle Sichtung empfohlen \u2014 "
+            + "das Rohmaterial ist knapp und l\u00e4sst keine automatisierte Bewertung zu. "
+            + "Bei Relevanz bitte selbst pr\u00fcfen."
+        )
+    else:
+        recommendation = (
+            "Eintrag kann weiterverarbeitet werden. "
+            "Lokale Pr\u00fcfung ergab keine offensichtlichen Auff\u00e4lligkeiten."
+        )
+
+    # Build verdict with work culture context awareness
+    if source_type == "news":
+        verdict_context = f"News-Eintrag '{title}' aus Quelle {source or 'unbekannt'}"
+    else:
+        verdict_context = f"Eintrag '{title}' ({source or 'unbekannt'}, {source_type or 'unbekannt'})"
+
+    verdict = (
+        f"[Pr\u00fcfauftrag von {requested_by}] {verdict_context}. "
+        + f"Plausibilit\u00e4t: {plausibility}. "
+        + ("Warnhinweise: " + "; ".join(warnings) if warnings else "Keine offensichtlichen Auff\u00e4lligkeiten. ")
+        + f"Modus: {interaction_mode} / {requested_action}."
+    )
+
+    review_result = {
+        "id": uuid.uuid4().hex[:16],
+        "inbox_id": entry_id,
+        "created_at": now.isoformat(),
+        "source": "local_review",
+        "hermes_bridge_used": False,
+        "requested_by": requested_by,
+        "interaction_mode": interaction_mode,
+        "requested_action": requested_action,
+        "work_culture_context": work_culture_context,
+        "kurzfazit": kurzfazit,
+        "plausibility": plausibility,
+        "warnings": warnings,
+        "verdict": verdict,
+        "recommendation": recommendation,
+        "summary": kurzfazit,
+        "reviewer": "backend-local",
+    }
+
+    results = _read_review_results()
+    results.append(review_result)
+    _write_review_results(results)
+
+    # Update inbox entry to GEPRUEFT
+    entries2 = _read_review_inbox()
+    for e in entries2:
+        if e.get("id") == entry_id:
+            e["status"] = "GEPRUEFT"
+            e["pending_job_id"] = None
+            e["latest_review_id"] = review_result["id"]
+            e["summary"] = kurzfazit
+            e["updated_at"] = dt.now(timezone.utc).isoformat()
+            break
+    _write_review_inbox(entries2)
+
+    return {"ok": True, "review": review_result, "entry_id": entry_id}
+
+
 # ── Legacy Inbox → Review Inbox Migration ──────────────────────
 
-import hashlib
 
 LEGACY_INBOX_PATH = Path.home() / ".hermes" / "shared" / "inbox.md"
 LEGACY_INBOX_GUARD = Path.home() / ".hermes" / "shared" / ".inbox_legacy_migrated"
-LEGACY_MARKER_MAP = {"[x]": "accepted", "[o]": "discarded", "[>]": "snoozed"}
+LEGACY_MARKER_MAP = {"[x]": "GEPRUEFT", "[o]": "VERWORFEN", "[>]": "SPATER"}
 
 
 def _hash_entry(marker, title, body):
@@ -2345,7 +2732,7 @@ def inbox_migrate_legacy():
             continue
 
         marker = None
-        status = "open"
+        status = "OPEN"
         remaining = line
         for m, s in LEGACY_MARKER_MAP.items():
             if line.startswith(m + " "):
@@ -2390,6 +2777,9 @@ def inbox_migrate_legacy():
 
         existing_hashes.add(entry_hash)
 
+        raw_content = title + "\n" + body
+        content_hash_val = hashlib.sha256(raw_content.encode("utf-8")).hexdigest()[:24]
+
         entry = {
             "id": uuid.uuid4().hex[:12],
             "created_at": now_iso,
@@ -2399,16 +2789,17 @@ def inbox_migrate_legacy():
             "title": title,
             "text": body,
             "status": status,
-            "snooze_until": snooze_until if status == "snoozed" else None,
-            "snooze_count": 1 if status == "snoozed" else 0,
-            "discarded_at": now_iso if status == "discarded" else None,
-            "keep_until": (now + timedelta(days=REVIEW_KEEP_DAYS)).isoformat() if status == "discarded" else None,
+            "snooze_until": snooze_until if status == "SPATER" else None,
+            "snooze_count": 1 if status == "SPATER" else 0,
+            "discarded_at": now_iso if status == "VERWORFEN" else None,
+            "keep_until": (now + timedelta(days=REVIEW_KEEP_DAYS)).isoformat() if status == "VERWORFEN" else None,
             "tags": ["legacy", "migration"],
             "privacy": "local_only",
             "export_allowed": False,
             "local_only": True,
             "migrated_at": now_iso,
             "legacy_marker": marker,
+            "content_hash": content_hash_val,
         }
         existing.append(entry)
         migrated.append(entry)

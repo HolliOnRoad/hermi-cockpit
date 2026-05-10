@@ -687,6 +687,31 @@
 
   .news-cat-icon { font-size: 0.9em; margin-right: 3px; }
 
+  /* ── News Action Buttons ── */
+  .news-actions {
+    display: flex; gap: 4px; margin-top: 4px;
+  }
+  .news-btn {
+    font-size: 9px; padding: 1px 6px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 3px; color: var(--text-dim);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .news-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: var(--text-primary);
+    border-color: var(--border-glass-hover);
+  }
+  .news-btn-inbox:hover {
+    color: var(--accent-blue);
+    border-color: rgba(91,156,245,0.3);
+  }
+  .news-btn-discard:hover {
+    color: var(--danger);
+    border-color: rgba(224,85,85,0.3);
+  }
+
   /* ── Briefing Button ── */
   .news-briefing-btn-wrap {
     display: flex; align-items: center; gap: 6px;
@@ -830,6 +855,10 @@
     font-size: 9px; font-weight: 700; color: var(--accent-orange);
     background: rgba(240,160,80,0.12); padding: 1px 5px; border-radius: 3px;
     margin-right: 2px; vertical-align: middle;
+  }
+  .review-tag-news {
+    color: var(--accent-blue);
+    background: rgba(91,156,245,0.12);
   }
 
   .review-status-tag {
@@ -1456,6 +1485,7 @@
     display: inline-block; margin-top: 8px;
     font-size: 10px; color: var(--accent-blue);
   }
+  .spot-news-link-wrap { margin: 2px 0 8px; }
 
   /* Spotlight — YouTube Detail */
   .spot-news-yt-btn {
@@ -1530,6 +1560,11 @@
   .review-status-accepted { color: var(--success); }
   .review-status-discarded { color: var(--danger); }
   .review-status-snoozed { color: var(--accent-yellow); }
+  .review-status-geprueft { color: var(--success); }
+  .review-status-in_pruefung { color: var(--accent-blue); }
+  .review-status-verworfen { color: var(--danger); }
+  .review-status-spater { color: var(--accent-yellow); }
+  .review-status-erledigt { color: var(--text-dim); }
 
   .spot-review-text {
     background: rgba(255,255,255,0.02);
@@ -1546,6 +1581,64 @@
   .spot-review-actions {
     display: flex; gap: 8px;
   }
+
+  /* ── HERMES-PRÜFUNG / Spotlight Review Result ── */
+  .spot-hermes-header {
+    font-size: 11px; font-weight: 700; color: var(--accent-blue);
+    text-transform: uppercase; letter-spacing: 1px;
+    border-bottom: 1px solid rgba(91,156,245,0.2);
+    padding-bottom: 6px; margin-bottom: 12px;
+  }
+  .spot-hermes-header.secondary {
+    color: var(--text-dim); border-bottom-color: var(--border-glass);
+    margin-top: 20px;
+  }
+  .spot-hermes-section {
+    margin-bottom: 12px;
+  }
+  .spot-hermes-label {
+    font-size: 10px; font-weight: 600; color: var(--text-dim);
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+  .spot-hermes-text {
+    font-size: 13px; color: var(--text-primary);
+    line-height: 1.6; white-space: pre-wrap;
+    background: rgba(91,156,245,0.04);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+  }
+  .spot-hermes-review-id {
+    font-size: 9px; color: var(--text-dim);
+    margin-top: 4px; margin-bottom: 8px;
+    font-family: var(--font-mono);
+    opacity: 0.5;
+  }
+
+  /* ── Inbox Running Status ── */
+  .inbox-status-running {
+    font-size: 10px; color: var(--accent-blue);
+    font-weight: 500; padding: 3px 8px;
+    white-space: nowrap;
+  }
+
+  /* ── Inbox Summary Excerpt ── */
+  .inbox-summary {
+    font-size: 10px; color: var(--success);
+    line-height: 1.4; margin-top: 3px;
+    opacity: 0.8;
+  }
+
+  /* ── Hermes Review Button ── */
+  .inbox-btn.review-hermes {
+    color: var(--accent-blue) !important;
+    border-color: rgba(91,156,245,0.3) !important;
+  }
+  .inbox-btn.review-hermes:hover {
+    background: rgba(91,156,245,0.12) !important;
+  }
+
+  /* ── Complete Button ── */
+  .inbox-btn.review-complete.active { background: rgba(64,196,99,0.12); border-color: rgba(64,196,99,0.3); color: var(--success); }
 
   /* Spotlight — Task Detail */
   .spot-task-header {
@@ -1649,6 +1742,67 @@
     border-color: rgba(91,156,245,0.35);
   }
   .steu-action-btn.steu-primary .btn-label { font-weight: 700; }
+
+  /* ── Inbox Filter Row ── */
+  .steuerung-filter-row {
+    display: flex; align-items: center; gap: 5px;
+    margin-top: 6px; padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    flex-wrap: wrap;
+  }
+  .steuerung-filter-label {
+    font-size: 9px; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-right: 4px;
+  }
+  .steu-filter-btn {
+    font-size: 9px; padding: 2px 8px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 3px; color: var(--text-dim);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .steu-filter-btn:hover {
+    background: rgba(91,156,245,0.08);
+    border-color: rgba(91,156,245,0.2);
+    color: var(--text-primary);
+  }
+
+  /* ── Spotlight Inbox Filter Table ── */
+  .spot-inbox-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 11px; margin-top: 8px;
+  }
+  .spot-inbox-table th {
+    text-align: left; padding: 6px 8px;
+    font-size: 9px; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border-glass);
+  }
+  .spot-inbox-table td {
+    padding: 6px 8px; color: var(--text-secondary);
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    vertical-align: middle;
+  }
+  .spot-inbox-table tr:hover td {
+    background: rgba(255,255,255,0.02);
+  }
+  .spot-inbox-actions {
+    display: flex; gap: 4px; flex-wrap: wrap;
+  }
+  .spot-inbox-mini-btn {
+    font-size: 9px; padding: 2px 6px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 3px; color: var(--text-dim);
+    cursor: pointer; transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .spot-inbox-mini-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: var(--text-primary);
+    border-color: var(--border-glass-hover);
+  }
 
   /* === WIDGET DETAIL OVERLAY === */
   .widget-overlay-container {
@@ -2130,20 +2284,31 @@
     try {
       const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
       if (!raw || typeof raw !== 'object') return null;
-      const order = Array.isArray(raw.order) && raw.order.length > 0 ? raw.order : DEFAULT_ORDER;
+
       const configs = raw.configs && typeof raw.configs === 'object' ? raw.configs : {};
       const locked = !!raw.locked;
-      return { order: order, configs: configs, locked: locked };
+
+      // Validate and clean order: keep valid normal IDs + valid instance IDs, remove garbage, dedupe identical fullIds
+      const rawOrder = Array.isArray(raw.order) ? raw.order : [];
+      const seen = new Set();
+      const order = [];
+      for (const id of rawOrder) {
+        const ref = parseWidgetRef(id);
+        if (!ref) continue; // invalid ID, skip
+        if (seen.has(ref.fullId)) continue; // deduplicate identical fullIds
+        seen.add(ref.fullId);
+        order.push(ref.fullId);
+      }
+
+      return {
+        order: order.length > 0 ? order : DEFAULT_ORDER,
+        configs: configs,
+        locked: locked
+      };
     } catch (e) {
       return null;
     }
   }
-
-  let appState = loadAppState() || {
-    order: DEFAULT_ORDER,
-    configs: {},
-    locked: false
-  };
 
   const DEFAULT_CONFIGS = {
     inbox:     { w: '560px', h: 'auto', fs: 10 },
@@ -2317,6 +2482,13 @@
     }
   };
 
+  // appState init MUST live after WIDGET_DEFS to avoid TDZ when loadAppState -> parseWidgetRef reads WIDGET_DEFS
+  let appState = loadAppState() || {
+    order: DEFAULT_ORDER,
+    configs: {},
+    locked: false
+  };
+
   // ========== v8.1: STEUERUNG ENGINE ==========
   function buildSteuerung() {
     const steuEl = document.getElementById('steuStatus');
@@ -2342,6 +2514,15 @@
         <span class="action-status"><span class="action-dot idle"></span><span class="action-duration"></span></span>
       </button>
     `).join('');
+    html += '</div>';
+
+    // ── Inbox-Filterleiste ──
+    html += '<div class="steuerung-filter-row">';
+    html += '<span class="steuerung-filter-label">Inbox</span>';
+    html += '<button class="steu-filter-btn" onclick="showInboxFilter(\'OPEN\')">Offen</button>';
+    html += '<button class="steu-filter-btn" onclick="showInboxFilter(\'GEPRUEFT\')">Gepr\u00fcft</button>';
+    html += '<button class="steu-filter-btn" onclick="showInboxFilter(\'SPATER\')">Sp\u00e4ter</button>';
+    html += '<button class="steu-filter-btn" onclick="showInboxFilter(\'ERLEDIGT,VERWORFEN\')">Erledigt &amp; Verworfen</button>';
     html += '</div>';
 
     // Ergebnisanzeige
@@ -3310,8 +3491,8 @@
       if (!badge) return;
       var newCount = 0;
       entries.forEach(function(e) {
-        var st = e.status || 'open';
-        if (st === 'open') newCount++;
+        var st = (e.status || 'OPEN').toUpperCase();
+        if (st === 'OPEN' || st === 'IN_PRUEFUNG') newCount++;
       });
       if (newCount > 0) {
         badge.textContent = newCount;
@@ -3357,12 +3538,34 @@
     sep.textContent = 'Zur Abarbeitung' + (window._reviewUndoStack.length > 0 ? ' · Rückgängig möglich' : '');
     container.appendChild(sep);
 
+    var STATUS_LABEL_MAP = {
+      'OPEN': 'Offen',
+      'IN_PRUEFUNG': 'In Pr\u00fcfung',
+      'GEPRUEFT': 'Gepr\u00fcft',
+      'SPATER': 'Sp\u00e4ter',
+      'VERWORFEN': 'Verworfen',
+      'ERLEDIGT': 'Erledigt',
+      'open': 'Offen',
+      'accepted': 'Behalten',
+      'discarded': 'Verworfen',
+      'snoozed': 'Sp\u00e4ter'
+    };
+
     entries.forEach(function(e, i) {
       var id = e._reviewId || e.id || 'entry_' + i;
-      var entryStatus = e.status || 'open';
+      var entryStatus = (e.status || 'OPEN').toUpperCase();
+      if (entryStatus === 'OPEN' && (e.status || '').toLowerCase() === 'in_pruefung') entryStatus = 'IN_PRUEFUNG';
+      if (entryStatus === 'OPEN' && (e.status || '').toLowerCase() === 'geprueft') entryStatus = 'GEPRUEFT';
+      if (entryStatus === 'OPEN' && (e.status || '').toLowerCase() === 'spater') entryStatus = 'SPATER';
 
       var dotClass;
-      dotClass = entryStatus === 'open' ? 'new' : entryStatus === 'accepted' ? 'done' : entryStatus === 'discarded' ? 'done' : 'later';
+      if (entryStatus === 'OPEN') dotClass = 'new';
+      else if (entryStatus === 'IN_PRUEFUNG') dotClass = 'later';
+      else if (entryStatus === 'GEPRUEFT') dotClass = 'done';
+      else if (entryStatus === 'SPATER') dotClass = 'later';
+      else if (entryStatus === 'VERWORFEN') dotClass = 'done';
+      else if (entryStatus === 'ERLEDIGT') dotClass = 'done';
+      else dotClass = 'new';
 
       var title = e.title || e.subject || 'Eintrag ' + (i + 1);
       var source = e.source || e.from || '';
@@ -3372,27 +3575,55 @@
         if (!isNaN(d.getTime())) time = _formatTimestamp(e.created_at);
       }
 
+      var statusLabel = STATUS_LABEL_MAP[entryStatus] || entryStatus;
+      var summary = e.summary || '';
+
       var item = document.createElement('div');
       item.className = 'inbox-item review-item';
       item.dataset.inboxId = id;
       item.dataset.state = entryStatus;
       item.dataset.entryType = 'review';
 
-      var actionsHtml =
-        '<button class="inbox-btn' + (entryStatus === 'accepted' ? ' active' : '') + ' review-accept">Behalten</button>' +
-        '<button class="inbox-btn' + (entryStatus === 'discarded' ? ' active' : '') + ' review-discard">Verwerfen</button>' +
-        '<button class="inbox-btn' + (entryStatus === 'snoozed' ? ' active' : '') + ' review-snooze">Sp\u00e4ter</button>';
+      var sourceTag = (e.source_type === 'news') ? '<span class="review-tag review-tag-news">N</span>' : '<span class="review-tag">R</span>';
+      var summaryHtml = '';
+
+      var actionsHtml = '';
+      if (entryStatus === 'OPEN') {
+        actionsHtml =
+          '<button class="inbox-btn review-hermes">Hermes pr\u00fcfen</button>' +
+          '<button class="inbox-btn review-snooze">Sp\u00e4ter</button>' +
+          '<button class="inbox-btn review-discard">Verwerfen</button>';
+      } else if (entryStatus === 'IN_PRUEFUNG') {
+        actionsHtml = '<span class="inbox-status-running">Pr\u00fcfung l\u00e4uft \u2026</span>';
+      } else if (entryStatus === 'GEPRUEFT') {
+        actionsHtml =
+          '<button class="inbox-btn review-snooze">Sp\u00e4ter</button>' +
+          '<button class="inbox-btn review-complete">Erledigt</button>' +
+          '<button class="inbox-btn review-kanban">Ins Kanban</button>' +
+          '<button class="inbox-btn review-discard">Verwerfen</button>';
+      } else {
+        actionsHtml =
+          '<button class="inbox-btn review-accept">Behalten</button>' +
+          '<button class="inbox-btn review-discard">Verwerfen</button>' +
+          '<button class="inbox-btn review-snooze">Sp\u00e4ter</button>';
+      }
+
+      var summaryHtml = '';
+      if (summary && entryStatus === 'GEPRUEFT') {
+        summaryHtml = '<div class="inbox-summary">' + esc(summary.substring(0, 120)) + (summary.length > 120 ? '\u2026' : '') + '</div>';
+      }
 
       item.innerHTML = '' +
         '<div class="inbox-dot ' + dotClass + ' review-dot"></div>' +
         '<div class="inbox-content">' +
-          '<div class="inbox-title"><span class="review-tag">R</span> ' + esc(title) + '</div>' +
+          '<div class="inbox-title">' + sourceTag + ' ' + esc(title) + '</div>' +
           '<div class="inbox-meta">' +
             (source ? '<span>' + esc(source) + '</span>' : '') +
             (time ? '<span>' + esc(time) + '</span>' : '') +
-            '<span class="review-status-tag">' + entryStatus + '</span>' +
+            '<span class="review-status-tag review-status-' + entryStatus.toLowerCase() + '">' + statusLabel + '</span>' +
           '</div>' +
-          (e.text ? '<div class="inbox-excerpt">' + esc(e.text.substring(0, 140)) + (e.text.length > 140 ? '…' : '') + '</div>' : '') +
+          (entryStatus !== 'GEPRUEFT' && e.text ? '<div class="inbox-excerpt">' + esc(e.text.substring(0, 140)) + (e.text.length > 140 ? '\u2026' : '') + '</div>' : '') +
+          summaryHtml +
         '</div>' +
         '<div class="inbox-actions">' + actionsHtml + '</div>';
 
@@ -3401,10 +3632,27 @@
       });
       item.querySelector('.inbox-content').style.cursor = 'pointer';
 
-      var buttons = item.querySelectorAll('.inbox-btn');
-      buttons[0].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'accept', e); });
-      buttons[1].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'discard', e); });
-      buttons[2].addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'snooze', e); });
+      var hermesBtn = item.querySelector('.review-hermes');
+      var snoozeBtn = item.querySelector('.review-snooze');
+      var discardBtn = item.querySelector('.review-discard');
+      var completeBtn = item.querySelector('.review-complete');
+      var kanbanBtn = item.querySelector('.review-kanban');
+
+      if (hermesBtn) {
+        hermesBtn.addEventListener('click', function(ev) { ev.stopPropagation(); triggerHermesReview(id, e); });
+      }
+      if (snoozeBtn) {
+        snoozeBtn.addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'snooze', e); });
+      }
+      if (discardBtn) {
+        discardBtn.addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'discard', e); });
+      }
+      if (completeBtn) {
+        completeBtn.addEventListener('click', function(ev) { ev.stopPropagation(); updateReviewItem(id, 'complete', e); });
+      }
+      if (kanbanBtn) {
+        kanbanBtn.addEventListener('click', function(ev) { ev.stopPropagation(); spotKanbanFromInbox(id); });
+      }
 
       container.appendChild(item);
     });
@@ -3417,16 +3665,52 @@
     }
   }
 
+  function triggerHermesReview(id, entryObj) {
+    if (!id) return;
+
+    var item = document.querySelector('[data-inbox-id="' + id + '"]');
+    if (item) {
+      item.dataset.state = 'IN_PRUEFUNG';
+      var actionsEl = item.querySelector('.inbox-actions');
+      if (actionsEl) actionsEl.innerHTML = '<span class="inbox-status-running">Pr\u00fcfung l\u00e4uft \u2026</span>';
+      var tagEl = item.querySelector('.review-status-tag');
+      if (tagEl) {
+        tagEl.textContent = 'In Pr\u00fcfung';
+        tagEl.className = 'review-status-tag review-status-in_pruefung';
+      }
+      var dotEl = item.querySelector('.inbox-dot');
+      if (dotEl) {
+        dotEl.className = 'inbox-dot later review-dot';
+      }
+    }
+
+    fetch(API_BASE + '/api/review-inbox/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.ok) {
+        fetchInbox();
+      } else {
+        alert('Hermes-Pr\u00fcfung fehlgeschlagen: ' + (res.error || 'Unbekannter Fehler'));
+        fetchInbox();
+      }
+    }).catch(function() {
+      alert('Hermes-Pr\u00fcfung fehlgeschlagen: Backend nicht erreichbar');
+      fetchInbox();
+    });
+  }
+
   function updateReviewItem(id, action, entryObj) {
     if (!id) return;
 
-    // Save previous state for undo
     var prev = {
       id: id,
-      status: entryObj.status || 'open',
+      status: entryObj.status || 'OPEN',
       snooze_until: entryObj.snooze_until || null,
       discarded_at: entryObj.discarded_at || null,
-      keep_until: entryObj.keep_until || null
+      keep_until: entryObj.keep_until || null,
+      pending_job_id: entryObj.pending_job_id || null
     };
     window._reviewUndoStack.push(prev);
     while (window._reviewUndoStack.length > 5) {
@@ -3452,10 +3736,12 @@
     if (window._reviewUndoStack.length === 0) return;
     var prev = window._reviewUndoStack.pop();
     var action;
-    if (prev.status === 'open') action = 'reopen';
-    else if (prev.status === 'accepted') action = 'accept';
-    else if (prev.status === 'discarded') action = 'discard';
-    else if (prev.status === 'snoozed') action = 'snooze';
+    if (prev.status === 'OPEN' || prev.status === 'open') action = 'reopen';
+    else if (prev.status === 'GEPRUEFT' || prev.status === 'accepted') action = 'accept';
+    else if (prev.status === 'VERWORFEN' || prev.status === 'discarded') action = 'discard';
+    else if (prev.status === 'SPATER' || prev.status === 'snoozed') action = 'snooze';
+    else if (prev.status === 'ERLEDIGT') action = 'complete';
+    else if (prev.status === 'IN_PRUEFUNG') action = 'reopen';
     else action = 'reopen';
     fetch(API_BASE + '/api/review-inbox/update', {
       method: 'POST',
@@ -3465,6 +3751,151 @@
       if (res.ok) fetchInbox();
     }).catch(function() {
       window._reviewUndoStack.push(prev);
+    });
+  }
+
+  // ========== PAKET 3: Inbox Filter + Kanban + Spotlight History ==========
+
+  // ── Spotlight History Stack (preserves last view on widget switch) ──
+  window._spotlightHistory = [];
+  window._spotlightMaxHistory = 10;
+
+  function pushSpotlightHistory(html) {
+    if (!html) return;
+    window._spotlightHistory.push(html);
+    if (window._spotlightHistory.length > window._spotlightMaxHistory) {
+      window._spotlightHistory.shift();
+    }
+  }
+
+  function popSpotlightHistory() {
+    if (window._spotlightHistory.length === 0) return null;
+    return window._spotlightHistory.pop();
+  }
+
+  // ── Inbox Filter: Fetch filtered entries, show in Spotlight ──
+  async function showInboxFilter(statusFilter) {
+    var content = document.getElementById('spotlightDetailContent');
+    if (content) {
+      pushSpotlightHistory(content.innerHTML);
+    }
+    try {
+      var resp = await fetch(API_BASE + '/api/review-inbox?status=' + encodeURIComponent(statusFilter));
+      var data = await resp.json();
+      if (!data.ok) {
+        showInSpotlight('action', { action: 'inbox-filter', status: 'error', output: 'Backend-Fehler' });
+        return;
+      }
+      renderInboxFilterTable(data.entries || [], statusFilter);
+    } catch (err) {
+      showInSpotlight('action', { action: 'inbox-filter', status: 'error', output: 'Backend nicht erreichbar' });
+    }
+  }
+
+  function renderInboxFilterTable(entries, statusFilter) {
+    var panel = document.getElementById('actionResultPanel');
+    var content = document.getElementById('spotlightDetailContent');
+    var backBtn = document.getElementById('spotlightBackBtn');
+    var breadcrumb = document.getElementById('spotlightBreadcrumb');
+    if (!panel || !content) return;
+
+    panel.classList.remove('hidden');
+    if (backBtn) backBtn.classList.add('visible');
+
+    var statusLabels = {
+      'OPEN': 'Offen', 'IN_PRUEFUNG': 'In Pr\u00fcfung', 'GEPRUEFT': 'Gepr\u00fcft',
+      'SPATER': 'Sp\u00e4ter', 'VERWORFEN': 'Verworfen', 'ERLEDIGT': 'Erledigt'
+    };
+
+    var titleMap = {
+      'OPEN': 'Offene Eintr\u00e4ge', 'GEPRUEFT': 'Gepr\u00fcfte Eintr\u00e4ge',
+      'SPATER': 'Sp\u00e4ter eingeordnet', 'ERLEDIGT,VERWORFEN': 'Erledigt & Verworfen'
+    };
+    var filterTitle = titleMap[statusFilter] || ('Status: ' + statusFilter);
+
+    if (breadcrumb) breadcrumb.textContent = 'Inbox: ' + filterTitle;
+
+    if (entries.length === 0) {
+      content.innerHTML = '<div class="spot-section-title">' + filterTitle + '</div><div class="arp-idle">Keine Eintr\u00e4ge</div>';
+      applySpotFs();
+      return;
+    }
+
+    var html = '<div class="spot-section-title">' + filterTitle + ' (' + entries.length + ')</div>';
+    html += '<table class="spot-inbox-table"><thead><tr>';
+    html += '<th>Zeit</th><th>Titel</th><th>Quelle</th><th>Status</th><th>Kurzfazit</th><th>Aktion</th>';
+    html += '</tr></thead><tbody>';
+
+    entries.forEach(function(e) {
+      var st = (e.status || 'OPEN').toUpperCase();
+      var time = e.created_at || '';
+      if (time) {
+        var d = new Date(time);
+        if (!isNaN(d.getTime())) time = _formatTimestamp(time).substring(0, 16);
+      }
+      var id = e._reviewId || e.id || '';
+      var sType = e.source_type || '';
+      var summary = e.summary || '';
+      var statusLabel = statusLabels[st] || st;
+
+      html += '<tr>';
+      html += '<td style="white-space:nowrap;font-size:10px;">' + esc(time) + '</td>';
+      html += '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">' + esc(e.title || '') + '</td>';
+      html += '<td style="font-size:10px;">' + esc(sType || e.source || '') + '</td>';
+      html += '<td style="font-size:10px;" class="review-status-' + st.toLowerCase() + '">' + esc(statusLabel) + '</td>';
+      html += '<td style="font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;">' + esc(summary.substring(0, 80)) + '</td>';
+      html += '<td><div class="spot-inbox-actions">';
+
+      // Öffnen button for all
+      html += '<button class="spot-inbox-mini-btn" onclick="showInSpotlight(\'review\', ' + JSON.stringify(e).replace(/'/g, "\\'") + ')">\u00d6ffnen</button>';
+
+      // Status-specific actions
+      if (st === 'OPEN') {
+        html += '<button class="spot-inbox-mini-btn" onclick="triggerHermesReview(\'' + esc(id) + '\')">Hermes pr\u00fcfen</button>';
+      }
+      if (st === 'GEPRUEFT') {
+        html += '<button class="spot-inbox-mini-btn" onclick="spotKanbanFromInbox(\'' + esc(id) + '\')">Ins Kanban</button>';
+      }
+      if (st === 'ERLEDIGT' || st === 'VERWORFEN') {
+        html += '<button class="spot-inbox-mini-btn" onclick="spotReopenInbox(\'' + esc(id) + '\')">Wieder \u00f6ffnen</button>';
+      }
+
+      html += '</div></td>';
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    content.innerHTML = html;
+    applySpotFs();
+  }
+
+  function spotKanbanFromInbox(entryId) {
+    var btn = event && event.target;
+    if (btn) { btn.textContent = '...'; btn.disabled = true; }
+    fetch(API_BASE + '/api/review-inbox/to-kanban', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: entryId })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (btn) { btn.textContent = res.ok ? '\u2713 Kanban' : 'Fehler'; btn.disabled = true; }
+      if (res.ok) { fetchTasks(); fetchInbox(); }
+    }).catch(function() {
+      if (btn) { btn.textContent = 'Fehler'; btn.disabled = true; }
+    });
+  }
+
+  function spotReopenInbox(entryId) {
+    var btn = event && event.target;
+    if (btn) { btn.textContent = '...'; btn.disabled = true; }
+    fetch(API_BASE + '/api/review-inbox/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: entryId, action: 'reopen' })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (btn) { btn.textContent = res.ok ? '\u2713 Offen' : 'Fehler'; btn.disabled = true; }
+      if (res.ok) { fetchInbox(); }
+    }).catch(function() {
+      if (btn) { btn.textContent = 'Fehler'; btn.disabled = true; }
     });
   }
 
@@ -3554,6 +3985,34 @@
   function getActiveWidgets() {
     return Array.from(document.querySelectorAll('#dashboard .widget')).map(w => w.dataset.instance || w.dataset.widget);
   }
+
+  // ── Widget ID Parser ──
+  function parseWidgetRef(id) {
+    if (WIDGET_DEFS[id]) return { baseId: id, instanceId: null, fullId: id, isInstance: false };
+    var match = /^(terminal|chat)-(\d+)$/.exec(id);
+    if (match && WIDGET_DEFS[match[1]]) {
+      return { baseId: match[1], instanceId: match[2], fullId: id, isInstance: true };
+    }
+    return null;
+  }
+
+  // ── Reconstruct instance counters from saved order ──
+  function reconstructInstanceCounters(order) {
+    var counters = { terminal: 1, chat: 1 };
+    (order || []).forEach(function(id) {
+      var ref = parseWidgetRef(id);
+      if (ref && ref.isInstance) {
+        var num = parseInt(ref.instanceId, 10);
+        if (num >= counters[ref.baseId]) {
+          counters[ref.baseId] = num + 1;
+        }
+      }
+    });
+    return counters;
+  }
+
+  // ── isInitializing guard ──
+  var isInitializing = false;
 
   function esc(s) { return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -3987,24 +4446,39 @@
 
     if (widgetId === 'terminal') ptyInit(actualId);
 
-    appState.order = getActiveWidgets();
-    saveState();
-    updateSidebar();
-    termLog('Widget ' + def.name + ' hinzugefügt');
+    if (!isInitializing) {
+      appState.order = getActiveWidgets();
+      saveState();
+      updateSidebar();
+      termLog('Widget ' + def.name + ' hinzugefügt');
 
-    // Show size picker briefly for new widgets
-    setTimeout(() => {
-      if (!appState.locked && !widget.classList.contains('widget-locked')) showSizePicker(widget, widgetId);
-    }, 400);
+      // Show size picker briefly for new widgets
+      setTimeout(() => {
+        if (!appState.locked && !widget.classList.contains('widget-locked')) showSizePicker(widget, widgetId);
+      }, 400);
+    }
   }
 
   function removeWidget(event, widgetId) {
     if (appState.locked || isWidgetLocked(widgetId)) return;
     event.stopPropagation();
+
+    // ptyDispose for terminal instances (handles both "terminal" and "terminal-1" etc.)
     if (widgetId === 'terminal' || widgetId.startsWith('terminal-')) ptyDispose(widgetId);
-    const widget = document.querySelector(`#dashboard .widget[data-widget="${widgetId}"]`);
+
+    // Find widget: instance widgets via data-instance, normal widgets via data-widget
+    const ref = parseWidgetRef(widgetId);
+    let widget;
+    if (ref && ref.isInstance) {
+      widget = document.querySelector(`#dashboard .widget[data-instance="${widgetId}"]`);
+    } else {
+      widget = document.querySelector(`#dashboard .widget[data-widget="${widgetId}"]`);
+    }
+
     if (widget) {
-      const name = WIDGET_DEFS[widgetId]?.name || widgetId;
+      var name = (ref && ref.isInstance)
+        ? (WIDGET_DEFS[ref.baseId]?.name || widgetId) + ' (' + ref.instanceId + ')'
+        : (WIDGET_DEFS[widgetId]?.name || widgetId);
       widget.style.transition = 'opacity 0.15s, transform 0.15s';
       widget.style.opacity = '0';
       widget.style.transform = 'scale(0.95)';
@@ -4082,7 +4556,7 @@
   // ========== DRAG & DROP ==========
   let draggedWidgetId = null;
   let draggedFromSidebar = false;
-  let instanceCounters = { terminal: 1, chat: 1 };
+  let instanceCounters = reconstructInstanceCounters(appState.order);
 
   // Instance buttons in sidebar
   document.querySelectorAll('.lib-instance[data-action="add-instance"]').forEach(btn => {
@@ -4573,6 +5047,10 @@
   var _hasSystemNews = false;
   var _briefingStatus = null; // { exists, file_url, path, date }
 
+  // ── News → Inbox tracking (session-only) ──
+  window._newsInInbox = {};   // { newsKey: inboxId }
+  window._newsDiscarded = {}; // { newsKey: true }
+
   async function fetchBriefingLatest() {
     try {
       var resp = await fetch(API_BASE + '/api/dashboard/briefing/latest');
@@ -4624,6 +5102,74 @@
     }
   }
 
+  async function sendNewsToInbox(n, btnEl) {
+    var newsKey = (n.title || '') + '|' + (n.source || '') + '|' + (n.date || '');
+    if (window._newsInInbox[newsKey]) {
+      flashNewsBtn(btnEl, 'Bereits in Inbox', true);
+      return;
+    }
+
+    var payload = {
+      source_type: 'news',
+      source: n.source || '',
+      title: n.title || '',
+      text: n.summary || '',
+      content: n.summary || '',
+      source_snapshot: {
+        title: n.title || '',
+        url: n.link || n.url || '',
+        summary: n.summary || '',
+        source: n.source || '',
+        fetched_at: n.date || '',
+        relevance: n.relevance || ''
+      },
+      tags: ['news', n.category || ''].filter(Boolean)
+    };
+
+    try {
+      var resp = await fetch(API_BASE + '/api/review-inbox/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var data = await resp.json();
+      if (data.ok && data.status === 'duplicate') {
+        window._newsInInbox[newsKey] = data.id;
+        flashNewsBtn(btnEl, 'Bereits in Inbox', true);
+      } else if (data.ok) {
+        window._newsInInbox[newsKey] = data.id;
+        flashNewsBtn(btnEl, '\u2713 In Inbox', false);
+      } else {
+        flashNewsBtn(btnEl, 'Fehler', true);
+      }
+    } catch (err) {
+      flashNewsBtn(btnEl, 'Fehler', true);
+    }
+  }
+
+  function flashNewsBtn(btnEl, text, isWarn) {
+    if (!btnEl) return;
+    btnEl.textContent = text;
+    btnEl.style.color = isWarn ? 'var(--accent-yellow)' : 'var(--success)';
+    btnEl.style.borderColor = isWarn ? 'rgba(224,196,76,0.4)' : 'rgba(64,196,99,0.4)';
+    btnEl.style.pointerEvents = 'none';
+    btnEl.style.opacity = '0.7';
+    setTimeout(function() {
+      btnEl.style.color = '';
+      btnEl.style.borderColor = '';
+      btnEl.style.pointerEvents = '';
+      btnEl.style.opacity = '';
+    }, 3000);
+  }
+
+  function discardNewsItem(n, itemEl) {
+    var newsKey = (n.title || '') + '|' + (n.source || '') + '|' + (n.date || '');
+    window._newsDiscarded[newsKey] = true;
+    if (itemEl) {
+      itemEl.style.opacity = '0.3';
+      itemEl.style.transition = 'opacity 0.3s';
+    }
+  }
   async function fetchNews() {
     try {
       const resp = await fetch(API_BASE + '/api/dashboard/news');
@@ -4664,6 +5210,10 @@
 
         if (cat === 'System') _hasSystemNews = true;
 
+        // Skip discarded news
+        var newsKey = (n.title || '') + '|' + (n.source || '') + '|' + (n.date || '');
+        if (window._newsDiscarded[newsKey]) return;
+
         var item = document.createElement('div');
         item.className = 'news-item ' + catCls;
         item.style.cursor = 'pointer';
@@ -4676,8 +5226,38 @@
         if (n.summary) html += '<div class="n-summary">' + esc(n.summary) + '</div>';
         if (n.relevance) html += '<div class="n-relevance">Relevanz: ' + esc(String(n.relevance)) + '</div>';
 
+        // Button row
+        html += '<div class="news-actions">';
+        html += '<button class="news-btn news-btn-inbox">In Inbox</button>';
+        html += '<button class="news-btn news-btn-discard">Verwerfen</button>';
+        html += '</div>';
+
         item.innerHTML = html;
-        item.addEventListener('click', function() { showInSpotlight('news', n); });
+
+        // Click title area → Spotlight
+        item.querySelector('.n-title').addEventListener('click', function(ev) {
+          ev.stopPropagation();
+          showInSpotlight('news', n);
+        });
+
+        // In Inbox button
+        var inboxBtn = item.querySelector('.news-btn-inbox');
+        if (inboxBtn) {
+          inboxBtn.addEventListener('click', function(ev) {
+            ev.stopPropagation();
+            sendNewsToInbox(n, inboxBtn);
+          });
+        }
+
+        // Verwerfen button
+        var discardBtn = item.querySelector('.news-btn-discard');
+        if (discardBtn) {
+          discardBtn.addEventListener('click', function(ev) {
+            ev.stopPropagation();
+            discardNewsItem(n, item);
+          });
+        }
+
         container.appendChild(item);
       });
 
@@ -4940,6 +5520,8 @@
   function resetAllLayout() {
     if (!confirm('Gesamtes Layout zuruecksetzen? Alle Widgets und Groessen gehen verloren.')) return;
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('widget-locks');
+    localStorage.removeItem('hermes-sidebar-collapsed');
     location.reload();
   }
 
@@ -5069,6 +5651,14 @@
     var content = document.getElementById('spotlightDetailContent');
     var backBtn = document.getElementById('spotlightBackBtn');
     var breadcrumb = document.getElementById('spotlightBreadcrumb');
+
+    var prevHtml = popSpotlightHistory();
+    if (prevHtml && content) {
+      content.innerHTML = prevHtml;
+      applySpotFs();
+      return;
+    }
+
     if (content) { content.innerHTML = defaultSpotlightHTML; applySpotFs(); }
     if (backBtn) backBtn.classList.remove('visible');
     if (breadcrumb) breadcrumb.textContent = '';
@@ -5149,6 +5739,11 @@
       default:
         html = '<div class="arp-idle">Keine Daten verf\u00fcgbar</div>';
         if (breadcrumb) breadcrumb.textContent = '';
+    }
+
+    // Save current spotlight content before overwriting
+    if (content && content.innerHTML && content.innerHTML !== defaultSpotlightHTML) {
+      pushSpotlightHistory(content.innerHTML);
     }
 
     content.innerHTML = html;
@@ -5313,26 +5908,85 @@
       var dt = new Date(time);
       if (!isNaN(dt.getTime())) time = _formatTimestamp(time);
     }
-    var status = d.status || 'open';
+    var rawStatus = d.status || 'OPEN';
+    var status = rawStatus.toUpperCase();
+    if (status === 'OPEN' && rawStatus.toLowerCase() === 'in_pruefung') status = 'IN_PRUEFUNG';
+    if (status === 'OPEN' && rawStatus.toLowerCase() === 'geprueft') status = 'GEPRUEFT';
+    if (status === 'OPEN' && rawStatus.toLowerCase() === 'spater') status = 'SPATER';
     var text = d.text || '(kein Text)';
     var tags = d.tags || [];
     var entryId = d._reviewId || d.id || '';
+    var latestReviewId = d.latest_review_id || '';
+    var summary = d.summary || '';
+    var snap = d.source_snapshot || null;
 
-    var statusLabel = { open: 'Offen', accepted: 'Behalten', discarded: 'Verworfen', snoozed: 'Sp\u00e4ter' }[status] || status;
+    // Use source_snapshot data if available (news entries)
+    var displayTitle = snap ? (snap.title || title) : title;
+    var displaySource = snap ? (snap.source || source) : source;
+    var displayText = snap ? (snap.summary || text || '(kein Text)') : text;
+    var displayUrl = snap ? (snap.url || '') : '';
+    var displayRelevance = snap ? (snap.relevance || '') : '';
+
+    var STATUS_LABEL = {
+      'OPEN': 'Offen',
+      'IN_PRUEFUNG': 'In Pr\u00fcfung',
+      'GEPRUEFT': 'Gepr\u00fcft',
+      'SPATER': 'Sp\u00e4ter',
+      'VERWORFEN': 'Verworfen',
+      'ERLEDIGT': 'Erledigt',
+      'open': 'Offen',
+      'accepted': 'Behalten',
+      'discarded': 'Verworfen',
+      'snoozed': 'Sp\u00e4ter'
+    };
+
+    var statusLabel = STATUS_LABEL[rawStatus] || rawStatus;
+    var isNews = sourceType === 'news';
 
     var html = '';
 
-    html += '<div class="spot-section-title">Review: ' + esc(title) + '</div>';
+    if (status === 'GEPRUEFT' && summary) {
+      // ── HERMES-PRÜFUNG (top) ──
+      html += '<div class="spot-hermes-header">HERMES-PR\u00dcFUNG</div>';
+      if (isNews) html += '<div class="spot-hermes-label">News-Eintrag gepr\u00fcft</div>';
+      html += '<div class="spot-hermes-section">';
+      html += '<div class="spot-hermes-label">Kurzfazit</div>';
+      html += '<div class="spot-hermes-text">' + esc(summary) + '</div>';
+      html += '</div>';
 
-    html += '<div class="spot-review-meta">';
-    html += '<span class="srm-item"><span class="srm-label">Quelle</span><span class="srm-value">' + esc(source || '–') + '</span></span>';
-    if (sourceType) html += '<span class="srm-item"><span class="srm-label">Typ</span><span class="srm-value">' + esc(sourceType) + '</span></span>';
-    html += '<span class="srm-item"><span class="srm-label">Status</span><span class="srm-value review-status-' + status + '">' + esc(statusLabel) + '</span></span>';
-    if (time) html += '<span class="srm-item"><span class="srm-label">Zeit</span><span class="srm-value">' + esc(time) + '</span></span>';
-    if (tags.length) html += '<span class="srm-item"><span class="srm-label">Tags</span><span class="srm-value">' + esc(tags.join(', ')) + '</span></span>';
-    html += '</div>';
+      if (latestReviewId) {
+        html += '<div class="spot-hermes-review-id">Review-ID: ' + esc(latestReviewId) + '</div>';
+      }
 
-    html += '<div class="spot-review-text">' + esc(text) + '</div>';
+      // ── ROHMATERIAL (below) ──
+      html += '<div class="spot-hermes-header secondary">ROHMATERIAL</div>';
+      html += '<div class="spot-section">';
+      html += '<div class="spot-review-meta">';
+      html += '<span class="srm-item"><span class="srm-label">Quelle</span><span class="srm-value">' + esc(displaySource || '\u2013') + '</span></span>';
+      if (sourceType) html += '<span class="srm-item"><span class="srm-label">Typ</span><span class="srm-value">' + esc(sourceType) + '</span></span>';
+      html += '<span class="srm-item"><span class="srm-label">Status</span><span class="srm-value review-status-' + (rawStatus || '').toLowerCase() + '">' + esc(statusLabel) + '</span></span>';
+      if (time) html += '<span class="srm-item"><span class="srm-label">Zeit</span><span class="srm-value">' + esc(time) + '</span></span>';
+      if (displayRelevance) html += '<span class="srm-item"><span class="srm-label">Relevanz</span><span class="srm-value" style="color:var(--accent-blue);">' + esc(String(displayRelevance)) + '</span></span>';
+      if (tags.length) html += '<span class="srm-item"><span class="srm-label">Tags</span><span class="srm-value">' + esc(tags.join(', ')) + '</span></span>';
+      html += '</div>';
+      if (displayUrl) html += '<div class="spot-news-link-wrap"><a class="spot-news-link" href="' + esc(displayUrl) + '" target="_blank" rel="noopener">' + esc(displayUrl) + ' \u2197</a></div>';
+      html += '<div class="spot-review-text">' + esc(displayText) + '</div>';
+      html += '</div>';
+    } else {
+      // ── Default review view (non-GEPRUEFT entries) ──
+      var sectionTitle = isNews ? 'News in Inbox: ' + esc(displayTitle) : 'Review: ' + esc(displayTitle);
+      html += '<div class="spot-section-title">' + sectionTitle + '</div>';
+      html += '<div class="spot-review-meta">';
+      html += '<span class="srm-item"><span class="srm-label">Quelle</span><span class="srm-value">' + esc(displaySource || '\u2013') + '</span></span>';
+      if (sourceType) html += '<span class="srm-item"><span class="srm-label">Typ</span><span class="srm-value">' + esc(sourceType) + '</span></span>';
+      html += '<span class="srm-item"><span class="srm-label">Status</span><span class="srm-value review-status-' + (rawStatus || '').toLowerCase() + '">' + esc(statusLabel) + '</span></span>';
+      if (time) html += '<span class="srm-item"><span class="srm-label">Zeit</span><span class="srm-value">' + esc(time) + '</span></span>';
+      if (displayRelevance) html += '<span class="srm-item"><span class="srm-label">Relevanz</span><span class="srm-value" style="color:var(--accent-blue);">' + esc(String(displayRelevance)) + '</span></span>';
+      if (tags.length) html += '<span class="srm-item"><span class="srm-label">Tags</span><span class="srm-value">' + esc(tags.join(', ')) + '</span></span>';
+      html += '</div>';
+      if (displayUrl) html += '<div class="spot-news-link-wrap"><a class="spot-news-link" href="' + esc(displayUrl) + '" target="_blank" rel="noopener">' + esc(displayUrl) + ' \u2197</a></div>';
+      html += '<div class="spot-review-text">' + esc(displayText) + '</div>';
+    }
 
     html += '<div class="spot-review-actions">';
     html += '<button class="vr-btn vr-btn-copy" onclick="spotReviewCopy(\'' + esc(entryId) + '\')">Kopieren</button>';
@@ -5487,12 +6141,33 @@
 
   // ========== INIT ==========
   function init() {
-    applyLockState();
     applyCollapseState();
 
+    // Start initializing: prevent saveState per widget
+    isInitializing = true;
+
+    // Reconstruct instance counters from saved order
+    instanceCounters = reconstructInstanceCounters(appState.order);
+
+    // Restore widgets from saved order (parsed for instances)
     const order = (appState && Array.isArray(appState.order) && appState.order.length > 0)
       ? appState.order : DEFAULT_ORDER;
-    order.forEach(wid => addWidgetToDashboard(wid));
+    order.forEach(function(wid) {
+      const ref = parseWidgetRef(wid);
+      if (!ref) return;
+      if (ref.isInstance) {
+        addWidgetToDashboard(ref.baseId, -1, parseInt(ref.instanceId, 10));
+      } else {
+        addWidgetToDashboard(ref.baseId);
+      }
+    });
+
+    isInitializing = false;
+
+    // After full restore: sync state, apply lock, update sidebar once
+    appState.order = getActiveWidgets();
+    saveState();
+    applyLockState();
     applyAllWidgetLockStates();
     updateSidebar();
 
