@@ -2551,8 +2551,8 @@ def review_inbox_to_kanban(body: dict, auth: bool = Depends(require_hermes_key))
             [sys.executable, str(sync_script)],
             capture_output=True, timeout=10,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[kanban] Sync-Fehler nach to-kanban (Task bleibt in kanban.db): {e}", file=sys.stderr, flush=True)
 
     # ── Update inbox entry ──
     for e in entries:

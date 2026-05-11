@@ -6101,10 +6101,10 @@
 
     // Task action buttons
     html += '<div class="spot-task-actions">';
-    html += '<button class="spot-task-action-btn" onclick="spotTaskAction(\'' + esc(taskId) + '\',\'reclaim\')">reclaim</button>';
-    html += '<button class="spot-task-action-btn" onclick="spotTaskAction(\'' + esc(taskId) + '\',\'reassign\')">reassign</button>';
-    html += '<button class="spot-task-action-btn" onclick="spotTaskAction(\'' + esc(taskId) + '\',\'unblock\')">unblock</button>';
-    html += '<button class="spot-task-action-btn" onclick="spotTaskAction(\'' + esc(taskId) + '\',\'retry\')">retry</button>';
+    html += '<button class="spot-task-action-btn" disabled title="Noch nicht verf\u00fcgbar">\u00dcbernehmen</button>';
+    html += '<button class="spot-task-action-btn" disabled title="Noch nicht verf\u00fcgbar">Neu zuweisen</button>';
+    html += '<button class="spot-task-action-btn" disabled title="Noch nicht verf\u00fcgbar">Blockade l\u00f6sen</button>';
+    html += '<button class="spot-task-action-btn" disabled title="Noch nicht verf\u00fcgbar">Erneut versuchen</button>';
     html += '</div>';
 
     return html;
