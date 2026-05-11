@@ -29,6 +29,7 @@ from PIL.ExifTags import TAGS as EXIF_TAGS
 from services.hermes_log_stream import get_log_stream
 from services.hermes_api_bridge import run_query as hermes_run_query
 from services.hermes_pty import PtyBridge
+from services.hermes_review import run_review as hermes_run_review
 
 sys.path.insert(0, str(Path.home() / ".hermes" / "hermes-agent"))
 
@@ -2673,75 +2674,57 @@ def review_inbox_review(body: dict, auth: bool = Depends(require_hermes_key)):
         "Ton: ruhig, sachlich, Komplize, kein kalter Maschinenreport."
     )
 
-    # ── Generate review result (local backend review, no real Hermes bridge) ──
+    # ── Generate review result (Ollama LLM oder lokaler Fallback) ──
     title = target.get("title", "")
     text = target.get("text", "")
     source = target.get("source", "")
     source_type = target.get("source_type", "")
-    raw_content = title + "\n" + text
 
-    # Basic plausibility checks
-    plausibility = "OK"
-    warnings = []
-    if len(raw_content) < 30:
-        plausibility = "Niedrig"
-        warnings.append("Sehr wenig Rohmaterial f\u00fcr eine belastbare Pr\u00fcfung.")
-    if not text or len(text.strip()) < 10:
-        warnings.append("Kein nennenswerter Textinhalt vorhanden.")
+    review_data = hermes_run_review(title, text, source, source_type)
 
-    # Generate a structured Kurzfazit from the content
-    kurzfazit = title
-    if text:
-        preview = text[:200].replace("\n", " ")
-        kurzfazit = title + " \u2014 " + preview + ("\u2026" if len(text) > 200 else "")
+    review_engine = review_data.get("_analysis_source", "unknown")
+    llm_review_used = (review_engine == "ollama_local")
+    model = review_data.get("_model", "")
+    elapsed = review_data.get("_elapsed_sec", 0)
+    text_truncated = review_data.get("_text_truncated", False)
 
-    if source_type == "news":
-        kurzfazit = "News: " + kurzfazit
-
-    # Build recommendation
-    if warnings:
-        recommendation = (
-            "Manuelle Sichtung empfohlen \u2014 "
-            + "das Rohmaterial ist knapp und l\u00e4sst keine automatisierte Bewertung zu. "
-            + "Bei Relevanz bitte selbst pr\u00fcfen."
-        )
-    else:
-        recommendation = (
-            "Eintrag kann weiterverarbeitet werden. "
-            "Lokale Pr\u00fcfung ergab keine offensichtlichen Auff\u00e4lligkeiten."
-        )
-
-    # Build verdict with work culture context awareness
-    if source_type == "news":
-        verdict_context = f"News-Eintrag '{title}' aus Quelle {source or 'unbekannt'}"
-    else:
-        verdict_context = f"Eintrag '{title}' ({source or 'unbekannt'}, {source_type or 'unbekannt'})"
-
-    verdict = (
-        f"[Pr\u00fcfauftrag von {requested_by}] {verdict_context}. "
-        + f"Plausibilit\u00e4t: {plausibility}. "
-        + ("Warnhinweise: " + "; ".join(warnings) if warnings else "Keine offensichtlichen Auff\u00e4lligkeiten. ")
-        + f"Modus: {interaction_mode} / {requested_action}."
-    )
+    kurzfazit = review_data.get("kurzfazit", title)
+    relevanz = review_data.get("relevanz", {})
+    plausibilitaet = review_data.get("plausibilitaet", {})
+    empfehlung = review_data.get("empfehlung", {})
+    risiken = review_data.get("risiken", "")
+    naechster_schritt = review_data.get("naechster_schritt", "")
+    parse_warning = review_data.get("_parse_warning", None)
 
     review_result = {
         "id": uuid.uuid4().hex[:16],
         "inbox_id": entry_id,
         "created_at": now.isoformat(),
-        "source": "local_review",
+        "llm_review_used": llm_review_used,
+        "review_engine": review_engine,
         "hermes_bridge_used": False,
+        "model": model,
+        "elapsed_sec": elapsed,
         "requested_by": requested_by,
         "interaction_mode": interaction_mode,
         "requested_action": requested_action,
         "work_culture_context": work_culture_context,
         "kurzfazit": kurzfazit,
-        "plausibility": plausibility,
-        "warnings": warnings,
-        "verdict": verdict,
-        "recommendation": recommendation,
+        "relevanz": relevanz,
+        "plausibilitaet": plausibilitaet,
+        "empfehlung": empfehlung,
+        "risiken": risiken,
+        "naechster_schritt": naechster_schritt,
         "summary": kurzfazit,
-        "reviewer": "backend-local",
+        "reviewer": "ollama" if llm_review_used else "backend-local",
     }
+    if parse_warning:
+        review_result["_parse_warning"] = parse_warning
+    if text_truncated:
+        review_result["_text_truncated"] = True
+        review_result["_text_original_chars"] = review_data.get("_text_original_chars", len(text))
+    review_result.update({k: v for k, v in review_data.items()
+                          if k.startswith("_") and k not in review_result})
 
     results = _read_review_results()
     results.append(review_result)

@@ -1613,6 +1613,25 @@
     font-family: var(--font-mono);
     opacity: 0.5;
   }
+  .spot-hermes-structured {
+    margin-bottom: 16px;
+  }
+  .spot-hermes-field {
+    margin-bottom: 12px;
+  }
+  .spot-hermes-stufe {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 1px 8px; border-radius: 10px;
+    margin-right: 6px; text-transform: uppercase;
+  }
+  .stufe-hoch { background: rgba(244,67,54,0.12); color: #f44336; }
+  .stufe-mittel { background: rgba(255,152,0,0.12); color: #ff9800; }
+  .stufe-niedrig { background: rgba(76,175,80,0.12); color: #4caf50; }
+  .stufe-unklar { background: rgba(158,158,158,0.12); color: #9e9e9e; }
+  .aktion-verwerfen { background: rgba(244,67,54,0.12); color: #f44336; }
+  .aktion-spaeter { background: rgba(255,152,0,0.12); color: #ff9800; }
+  .aktion-kanban { background: rgba(91,156,245,0.12); color: var(--accent-blue); }
+  .aktion-lesen { background: rgba(76,175,80,0.12); color: #4caf50; }
 
   /* ── Inbox Running Status ── */
   .inbox-status-running {
@@ -3710,17 +3729,113 @@
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ id: id })
-    }).then(function(r) { return r.json(); }).then(function(res) {
-      if (res.ok) {
+    }).then(function(r) {
+      return r.json().then(
+        function(data) { return { httpOk: r.ok, status: r.status, data: data }; },
+        function()    { return { httpOk: r.ok, status: r.status, data: null }; }
+      );
+    }).then(function(result) {
+      if (result.httpOk && result.data && result.data.ok) {
         fetchInbox();
-      } else {
-        alert('Hermes-Pr\u00fcfung fehlgeschlagen: ' + (res.error || 'Unbekannter Fehler'));
-        fetchInbox();
+        return;
       }
+      if (result.httpOk && result.data && !result.data.ok) {
+        alert('Hermes-Pr\u00fcfung fehlgeschlagen: ' + (result.data.error || 'Unbekannter Fehler'));
+        fetchInbox();
+        return;
+      }
+      if (!result.httpOk) {
+        if (result.status === 401 || result.status === 403) {
+          localStorage.removeItem('hermes_api_key');
+          alert('API-Key ung\u00fcltig oder abgelaufen. Der gespeicherte Key wurde gel\u00f6scht. Bitte erneut pr\u00fcfen und den aktuellen Key eingeben.');
+          fetchInbox();
+          return;
+        }
+        var httpMsg = 'HTTP ' + result.status;
+        if (result.data) {
+          httpMsg = result.data.detail || result.data.error || result.data.message || httpMsg;
+        }
+        if (httpMsg === 'Unauthorized') {
+          httpMsg = 'Zugriff verweigert \u2014 API-Key pr\u00fcfen';
+        }
+        alert('Hermes-Pr\u00fcfung abgelehnt: ' + httpMsg);
+        fetchInbox();
+        return;
+      }
+      startReviewPolling(id, item);
     }).catch(function() {
-      alert('Hermes-Pr\u00fcfung fehlgeschlagen: Backend nicht erreichbar');
-      fetchInbox();
+      startReviewPolling(id, item);
     });
+  }
+
+  function startReviewPolling(id, item) {
+    var POLL_INTERVAL = 3000;
+    var MAX_POLL_TIME = 90000;
+    var startedAt = Date.now();
+    var stopped = false;
+
+    var actionsEl = item ? item.querySelector('.inbox-actions') : null;
+    if (actionsEl) {
+      actionsEl.innerHTML = '<span class="inbox-status-running">Pr\u00fcfung dauert l\u00e4nger. Ergebnis wird gesucht \u2026</span>';
+    }
+
+    function tick() {
+      if (stopped) return;
+      var elapsed = Date.now() - startedAt;
+
+      if (elapsed >= MAX_POLL_TIME) {
+        stopped = true;
+        if (actionsEl) {
+          actionsEl.innerHTML = '<span class="inbox-status-running" style="color:var(--error);">Pr\u00fcfung nicht abgeschlossen</span>';
+        }
+        alert('Pr\u00fcfung konnte nicht abgeschlossen werden. Bitte sp\u00e4ter erneut versuchen.');
+        fetchInbox();
+        return;
+      }
+
+      fetch(API_BASE + '/api/review-inbox')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (stopped) return;
+          var entries = data.entries || [];
+          var entry = null;
+          for (var i = 0; i < entries.length; i++) {
+            if (entries[i].id === id || entries[i]._reviewId === id) {
+              entry = entries[i];
+              break;
+            }
+          }
+
+          if (!entry) {
+            setTimeout(tick, POLL_INTERVAL);
+            return;
+          }
+
+          var st = (entry.status || '').toUpperCase();
+
+          if (st === 'GEPRUEFT' && entry.latest_review_id) {
+            stopped = true;
+            if (actionsEl) actionsEl.innerHTML = '';
+            fetchInbox();
+            return;
+          }
+
+          if (st === 'IN_PRUEFUNG') {
+            if (actionsEl) {
+              actionsEl.innerHTML = '<span class="inbox-status-running">Pr\u00fcfung l\u00e4uft noch (' + Math.round(elapsed / 1000) + 's) \u2026</span>';
+            }
+            setTimeout(tick, POLL_INTERVAL);
+            return;
+          }
+
+          fetchInbox();
+        })
+        .catch(function() {
+          if (!stopped) setTimeout(tick, POLL_INTERVAL);
+        });
+    }
+
+    setTimeout(tick, POLL_INTERVAL);
   }
 
   function updateReviewItem(id, action, entryObj) {
@@ -5968,6 +6083,7 @@
     var html = '';
 
     if (status === 'GEPRUEFT' && summary) {
+      var structuredElId = 'review-structured-' + entryId.replace(/[^a-zA-Z0-9-]/g, '_');
       // ── HERMES-PRÜFUNG (top) ──
       html += '<div class="spot-hermes-header">HERMES-PR\u00dcFUNG</div>';
       if (isNews) html += '<div class="spot-hermes-label">News-Eintrag gepr\u00fcft</div>';
@@ -5978,6 +6094,15 @@
 
       if (latestReviewId) {
         html += '<div class="spot-hermes-review-id">Review-ID: ' + esc(latestReviewId) + '</div>';
+      }
+
+      // Structured review result placeholder (async loaded)
+      html += '<div id="' + structuredElId + '" class="spot-hermes-structured">';
+      html += '<div class="spot-hermes-text" style="opacity:0.5;">Review-Daten werden geladen \u2026</div>';
+      html += '</div>';
+
+      if (latestReviewId) {
+        deferStructuredReviewFetch(latestReviewId, structuredElId);
       }
 
       // ── ROHMATERIAL (below) ──
@@ -6055,6 +6180,99 @@
         btns.forEach(function(b) { b.textContent = 'Kopieren'; });
       }, 1800);
     });
+  }
+
+  // ── Structured Review Result (async fetch) ──
+  function deferStructuredReviewFetch(reviewId, containerId) {
+    if (!reviewId || !containerId) return;
+    fetch(API_BASE + '/api/review-results/' + encodeURIComponent(reviewId))
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        var el = document.getElementById(containerId);
+        if (!el) return;
+        if (!res.ok || !res.result) {
+          el.innerHTML = '';
+          return;
+        }
+        el.innerHTML = _renderStructuredFields(res.result);
+      })
+      .catch(function() {
+        var el = document.getElementById(containerId);
+        if (el) el.innerHTML = '';
+      });
+  }
+
+  function _renderStructuredFields(r) {
+    var h = '';
+
+    var isLLM = r.llm_review_used || (r.review_engine === 'ollama_local');
+    var isFallback = (r.review_engine === 'local_fallback_no_llm' || r._analysis_source === 'local_fallback_no_llm');
+    var hasParseWarning = !!r._parse_warning;
+    var isTextTruncated = !!r._text_truncated;
+
+    var relevanz = r.relevanz || {};
+    if (relevanz.stufe) {
+      h += '<div class="spot-hermes-field">';
+      h += '<div class="spot-hermes-label">Relevanz</div>';
+      h += '<span class="spot-hermes-stufe stufe-' + esc(relevanz.stufe).toLowerCase() + '">' + esc(relevanz.stufe) + '</span>';
+      if (relevanz.begruendung) h += '<span class="spot-hermes-text" style="display:inline;padding:4px 0;">' + esc(relevanz.begruendung) + '</span>';
+      h += '</div>';
+    }
+
+    var plaus = r.plausibilitaet || {};
+    if (plaus.stufe) {
+      h += '<div class="spot-hermes-field">';
+      h += '<div class="spot-hermes-label">Plausibilit\u00e4t</div>';
+      h += '<span class="spot-hermes-stufe stufe-' + esc(plaus.stufe).toLowerCase() + '">' + esc(plaus.stufe) + '</span>';
+      if (plaus.begruendung) h += '<span class="spot-hermes-text" style="display:inline;padding:4px 0;">' + esc(plaus.begruendung) + '</span>';
+      h += '</div>';
+    }
+
+    var empf = r.empfehlung || {};
+    if (empf.aktion) {
+      h += '<div class="spot-hermes-field">';
+      h += '<div class="spot-hermes-label">Empfehlung</div>';
+      h += '<span class="spot-hermes-stufe aktion-' + esc(empf.aktion).toLowerCase() + '">' + esc(empf.aktion) + '</span>';
+      if (empf.begruendung) h += '<span class="spot-hermes-text" style="display:inline;padding:4px 0;">' + esc(empf.begruendung) + '</span>';
+      h += '</div>';
+    }
+
+    if (r.risiken) {
+      h += '<div class="spot-hermes-field">';
+      h += '<div class="spot-hermes-label">Risiken / Blindspots</div>';
+      h += '<div class="spot-hermes-text">' + esc(r.risiken) + '</div>';
+      h += '</div>';
+    }
+
+    if (r.naechster_schritt) {
+      h += '<div class="spot-hermes-field">';
+      h += '<div class="spot-hermes-label">N\u00e4chster Schritt</div>';
+      h += '<div class="spot-hermes-text">' + esc(r.naechster_schritt) + '</div>';
+      h += '</div>';
+    }
+
+    if (isFallback) {
+      h += '<div class="spot-hermes-field">';
+      h += '<div class="spot-hermes-text" style="opacity:0.75;font-style:italic;font-size:11px;background:rgba(255,152,0,0.06);">';
+      h += '\u2139 Lokale Strukturpr\u00fcfung ohne KI-Analyse — Ollama/Copilot nicht verf\u00fcgbar.';
+      if (r.review_engine) h += '<br>Engine: ' + esc(r.review_engine);
+      h += '</div></div>';
+    } else if (isLLM) {
+      h += '<div class="spot-hermes-field">';
+      h += '<div class="spot-hermes-text" style="opacity:0.6;font-size:10px;background:rgba(91,156,245,0.04);padding:6px 10px;">';
+      h += '\u2139 Inhaltsanalyse via ' + esc(r.model || 'LLM') + ' · ';
+      h += 'basierend ausschlie\u00dflich auf dem vorliegenden Text · ';
+      h += 'keine externe Faktenpr\u00fcfung';
+      if (isTextTruncated) h += ' · Text wurde vor Analyse gek\u00fcrzt';
+      if (hasParseWarning) h += ' · Achtung: LLM-Antwort konnte nicht vollst\u00e4ndig als JSON geparst werden';
+      h += '</div></div>';
+    }
+
+    if (!h) {
+      h = '<div class="spot-hermes-text" style="opacity:0.5;">Keine strukturierten Review-Daten vorhanden — \u00e4lteres Review-Format.</div>';
+    }
+
+    return h;
   }
 
   // ── Task Template ──
