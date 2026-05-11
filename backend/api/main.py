@@ -14,6 +14,7 @@ import datetime
 import io
 import json
 import os
+import re
 import subprocess
 import threading
 import time
@@ -1291,6 +1292,37 @@ def action_ollama():
         _action_lock.release()
 
 
+# ── H5: Cronjob-Whitelist ─────────────────────────────────────────
+
+_CRON_IDS_CACHE = None
+_CRON_IDS_CACHE_TS = 0
+_CRON_IDS_CACHE_TTL = 60
+
+def _get_valid_cron_ids():
+    global _CRON_IDS_CACHE, _CRON_IDS_CACHE_TS
+    now = time.time()
+    if _CRON_IDS_CACHE is not None and (now - _CRON_IDS_CACHE_TS) < _CRON_IDS_CACHE_TTL:
+        return _CRON_IDS_CACHE
+    try:
+        result = subprocess.run(
+            [os.path.expanduser("~/.local/bin/hermes"), "cron", "list"],
+            capture_output=True, text=True, timeout=10,
+        )
+        ids = set()
+        for line in result.stdout.split("\n"):
+            indent = len(line) - len(line.lstrip(" "))
+            stripped = line.strip()
+            if indent == 2 and stripped:
+                raw_id = stripped.split(" ")[0] if " " in stripped else stripped
+                if re.match(r"^[a-f0-9]{12}$", raw_id):
+                    ids.add(raw_id)
+        _CRON_IDS_CACHE = ids
+        _CRON_IDS_CACHE_TS = now
+        return ids
+    except Exception:
+        return None
+
+
 @app.post("/api/actions/cronjobs")
 def action_cronjobs(body: dict = None, auth: bool = Depends(require_hermes_key)):
     busy = _acquire_action_lock("cronjobs")
@@ -1299,6 +1331,16 @@ def action_cronjobs(body: dict = None, auth: bool = Depends(require_hermes_key))
     try:
         start = time.time()
         job_id = (body or {}).get("job_id", "").strip()
+
+        # ── H5: job_id validieren (fail-closed) ──
+        if job_id:
+            if not re.match(r"^[a-f0-9]{12}$", job_id):
+                raise HTTPException(status_code=422, detail=f"Ungültige Cronjob-ID: {job_id}")
+            valid_ids = _get_valid_cron_ids()
+            if valid_ids is None:
+                raise HTTPException(status_code=503, detail="Cronjob-Whitelist nicht verfügbar")
+            if job_id not in valid_ids:
+                raise HTTPException(status_code=422, detail=f"Unbekannte Cronjob-ID: {job_id}")
 
         # ── Einzelnen Job ausführen ──
         if job_id:
