@@ -2549,6 +2549,28 @@
     localStorage.setItem('steuChecks', JSON.stringify(saved));
   }
 
+  // ========== v8.1: AUTH (Security-Minipaket 0.1) ==========
+  const AUTH_KEY_STORAGE = 'hermes_api_key';
+
+  function getHermesApiKey() {
+    let key = localStorage.getItem(AUTH_KEY_STORAGE);
+    if (!key) {
+      key = prompt('API-Key für Hermes Cockpit (einmalig):');
+      if (key && key.trim()) {
+        localStorage.setItem(AUTH_KEY_STORAGE, key.trim());
+        return key.trim();
+      }
+      return null;
+    }
+    return key;
+  }
+
+  function authHeaders() {
+    var key = getHermesApiKey();
+    if (!key) return { 'Content-Type': 'application/json' };
+    return { 'Content-Type': 'application/json', 'X-Hermes-Key': key };
+  }
+
   // ========== v8.1: ACTION BRIDGE ==========
   const ACTION_API = 'http://127.0.0.1:8000/api/action';
   const ACTION_LOG_KEY = 'hermes-action-log';
@@ -2854,7 +2876,7 @@
         ? { method: 'POST', signal: controller.signal }
         : {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders(),
             body: JSON.stringify({ action: actionId, mode: 'full' }),
             signal: controller.signal
           };
@@ -3420,7 +3442,7 @@
 
     fetch(API_BASE + '/api/review-inbox/add', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({
         title: e.filename || 'Bildanalyse',
         text: e.response || '',
@@ -3686,7 +3708,7 @@
 
     fetch(API_BASE + '/api/review-inbox/review', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ id: id })
     }).then(function(r) { return r.json(); }).then(function(res) {
       if (res.ok) {
@@ -3719,7 +3741,7 @@
 
     fetch(API_BASE + '/api/review-inbox/update', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ id: id, action: action })
     }).then(function(r) { return r.json(); }).then(function(res) {
       if (res.ok) {
@@ -3745,7 +3767,7 @@
     else action = 'reopen';
     fetch(API_BASE + '/api/review-inbox/update', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ id: prev.id, action: action })
     }).then(function(r) { return r.json(); }).then(function(res) {
       if (res.ok) fetchInbox();
@@ -3874,7 +3896,7 @@
     if (btn) { btn.textContent = '...'; btn.disabled = true; }
     fetch(API_BASE + '/api/review-inbox/to-kanban', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ id: entryId })
     }).then(function(r) { return r.json(); }).then(function(res) {
       if (btn) { btn.textContent = res.ok ? '\u2713 Kanban' : 'Fehler'; btn.disabled = true; }
@@ -3889,7 +3911,7 @@
     if (btn) { btn.textContent = '...'; btn.disabled = true; }
     fetch(API_BASE + '/api/review-inbox/update', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ id: entryId, action: 'reopen' })
     }).then(function(r) { return r.json(); }).then(function(res) {
       if (btn) { btn.textContent = res.ok ? '\u2713 Offen' : 'Fehler'; btn.disabled = true; }
@@ -5129,7 +5151,7 @@
     try {
       var resp = await fetch(API_BASE + '/api/review-inbox/add', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(payload)
       });
       var data = await resp.json();
@@ -5821,7 +5843,7 @@
     if (!id) return;
     fetch(API_BASE + '/api/actions/cronjobs', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ job_id: id })
     }).then(function(r) { return r.json(); })
       .then(function(res) {
@@ -6092,7 +6114,7 @@
     if (!taskId) return;
     fetch(API_BASE + '/api/actions/task', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ task_id: taskId, action: action })
     }).then(function(r) { return r.json(); })
       .then(function(res) {

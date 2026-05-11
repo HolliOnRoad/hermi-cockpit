@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime as dt, timezone, timedelta
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File, Form, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -20,6 +20,7 @@ import time
 import urllib.request
 import urllib.error
 import uuid
+import secrets
 from PIL import Image
 from PIL.ExifTags import TAGS as EXIF_TAGS
 
@@ -28,6 +29,27 @@ from services.hermes_api_bridge import run_query as hermes_run_query
 from services.hermes_pty import PtyBridge
 
 GATEWAY_STATE_PATH = Path.home() / ".hermes" / "gateway_state.json"
+
+# ── Auth-Dependency (Security-Minipaket 0.1) ──
+def _load_api_server_key():
+    """Liest API_SERVER_KEY aus ~/.hermes/.env (robust gegen fehlende Env)."""
+    env_path = Path.home() / ".hermes" / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            if line.startswith("API_SERVER_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+_API_SERVER_KEY = _load_api_server_key()
+
+def require_hermes_key(request: Request):
+    """Prüft X-Hermes-Key Header. 401 wenn Key fehlt oder falsch."""
+    if not _API_SERVER_KEY:
+        raise HTTPException(status_code=503, detail="Server nicht konfiguriert")
+    client_key = request.headers.get("X-Hermes-Key", "")
+    if not secrets.compare_digest(client_key, _API_SERVER_KEY):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return True
 
 
 @asynccontextmanager
@@ -845,7 +867,7 @@ def inbox():
 
 
 @app.post("/api/inbox/add")
-def inbox_add(body: dict):
+def inbox_add(body: dict, auth: bool = Depends(require_hermes_key)):
     """Neuen Eintrag an inbox.md anhängen."""
     text = (body.get("text") or body.get("title") or "").strip()
     if not text:
@@ -1270,7 +1292,7 @@ def action_ollama():
 
 
 @app.post("/api/actions/cronjobs")
-def action_cronjobs(body: dict = None):
+def action_cronjobs(body: dict = None, auth: bool = Depends(require_hermes_key)):
     busy = _acquire_action_lock("cronjobs")
     if busy:
         return busy
@@ -1392,7 +1414,7 @@ def action_memory():
 
 
 @app.post("/api/actions/update")
-def action_update():
+def action_update(auth: bool = Depends(require_hermes_key)):
     busy = _acquire_action_lock("update")
     if busy:
         return busy
@@ -1537,7 +1559,7 @@ def action_fullcheck():
 
 
 @app.post("/api/actions/inbox")
-def action_inbox(body: dict):
+def action_inbox(body: dict, auth: bool = Depends(require_hermes_key)):
     """Update status of an inbox entry by title match."""
     busy = _acquire_action_lock("inbox")
     if busy:
@@ -2225,7 +2247,7 @@ def _write_review_inbox(entries: list[dict]):
 
 
 @app.post("/api/review-inbox/add")
-def review_inbox_add(body: dict):
+def review_inbox_add(body: dict, auth: bool = Depends(require_hermes_key)):
     title = (body.get("title") or "").strip()
     text = (body.get("text") or body.get("content") or "").strip()
     text = _normalize_ocr_text(text)
@@ -2350,7 +2372,7 @@ def review_inbox_list(status: Optional[str] = None):
 
 
 @app.post("/api/review-inbox/update")
-def review_inbox_update(body: dict):
+def review_inbox_update(body: dict, auth: bool = Depends(require_hermes_key)):
     entry_id = body.get("id")
     action = body.get("action") or body.get("status")
     if not entry_id:
@@ -2425,7 +2447,7 @@ def _write_tasks(tasks: list[dict]):
 
 
 @app.post("/api/review-inbox/to-kanban")
-def review_inbox_to_kanban(body: dict):
+def review_inbox_to_kanban(body: dict, auth: bool = Depends(require_hermes_key)):
     entry_id = body.get("id")
     if not entry_id:
         return JSONResponse({"ok": False, "error": "id fehlt"}, status_code=422)
@@ -2544,7 +2566,7 @@ def review_result_get(review_id: str):
 
 
 @app.post("/api/review-inbox/review")
-def review_inbox_review(body: dict):
+def review_inbox_review(body: dict, auth: bool = Depends(require_hermes_key)):
     entry_id = body.get("id")
     if not entry_id:
         return JSONResponse({"ok": False, "error": "id fehlt"}, status_code=422)
