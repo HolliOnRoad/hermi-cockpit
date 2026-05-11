@@ -22,12 +22,15 @@ import urllib.request
 import urllib.error
 import uuid
 import secrets
+import sys
 from PIL import Image
 from PIL.ExifTags import TAGS as EXIF_TAGS
 
 from services.hermes_log_stream import get_log_stream
 from services.hermes_api_bridge import run_query as hermes_run_query
 from services.hermes_pty import PtyBridge
+
+sys.path.insert(0, str(Path.home() / ".hermes" / "hermes-agent"))
 
 GATEWAY_STATE_PATH = Path.home() / ".hermes" / "gateway_state.json"
 
@@ -2522,32 +2525,49 @@ def review_inbox_to_kanban(body: dict, auth: bool = Depends(require_hermes_key))
         task_body += "**Review:** " + target.get("latest_review_id", "") + "\n"
     task_body += "**Inbox-ID:** " + entry_id + "\n"
 
-    task = {
-        "id": uuid.uuid4().hex[:16],
-        "title": task_title,
-        "body": task_body.strip(),
-        "status": "todo",
-        "priority": "MEDIUM",
-        "created_at": now,
-        "updated_at": now,
-        "source_inbox_id": entry_id,
-        "latest_review_id": target.get("latest_review_id", ""),
-    }
+    # ── In kanban.db schreiben (Source of Truth) ──
+    from hermes_cli.kanban_db import create_task
 
-    tasks = _read_tasks()
-    tasks.append(task)
-    _write_tasks(tasks)
+    kanban_db_path = Path.home() / ".hermes" / "kanban.db"
+    conn = sqlite3.connect(str(kanban_db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        task_id = create_task(
+            conn,
+            title=task_title,
+            body=task_body.strip(),
+            created_by="cockpit",
+            priority=5,
+            workspace_kind="scratch",
+            idempotency_key=f"cockpit-inbox:{entry_id}",
+        )
+    finally:
+        conn.close()
 
-    # Update inbox entry
+    # ── Sofort tasks.json spiegeln f\u00fcr Dashboard-Sichtbarkeit ──
+    try:
+        sync_script = Path.home() / ".hermes" / "scripts" / "kanban_tasks_sync.py"
+        subprocess.run(
+            [sys.executable, str(sync_script)],
+            capture_output=True, timeout=10,
+        )
+    except Exception:
+        pass
+
+    # ── Update inbox entry ──
     for e in entries:
         if e.get("id") == entry_id:
             e["status"] = "ERLEDIGT"
-            e["task_id"] = task["id"]
+            e["task_id"] = task_id
             e["updated_at"] = now
             break
     _write_review_inbox(entries)
 
-    return {"ok": True, "task": task, "entry_id": entry_id}
+    return {
+        "ok": True,
+        "task": {"id": task_id, "title": task_title, "status": "ready", "priority": 5},
+        "entry_id": entry_id,
+    }
 
 
 @app.get("/api/review-inbox/debug")
